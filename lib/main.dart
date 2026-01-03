@@ -379,6 +379,44 @@ class PlanRepository {
   }
 }
 
+class WeightRepository {
+  WeightRepository(this.uid);
+  final String uid;
+
+  CollectionReference<Map<String, dynamic>> get _ref =>
+      FirebaseFirestore.instance.collection('users').doc(uid).collection('weights');
+
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  String _docId(DateTime d) {
+    final y = d.year.toString().padLeft(4, '0');
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '$y-$m-$day';
+  }
+
+  /// 今日の体重を取得（なければnull）
+  Future<double?> loadToday() async {
+    final today = _dateOnly(DateTime.now());
+    final doc = await _ref.doc(_docId(today)).get();
+    final data = doc.data();
+    if (data == null) return null;
+
+    final weight = data['weight'] as num?;
+    return weight?.toDouble();
+  }
+
+  /// 今日の体重を保存（上書き）
+  Future<void> saveToday({required double weight}) async {
+    final today = _dateOnly(DateTime.now());
+    await _ref.doc(_docId(today)).set({
+      'date': Timestamp.fromDate(today),
+      'weight': weight,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+}
+
 /// ----------------------------
 /// Reward (A+B: 褒め進化) + (C: キラッ)
 /// ----------------------------
@@ -607,6 +645,7 @@ class _RootShellState extends State<RootShell> {
 
   HabitRepository get _habitRepo => HabitRepository(_uid!);
   PlanRepository get _planRepo => PlanRepository(_uid!);
+  WeightRepository get _weightRepo => WeightRepository(_uid!);
 
   DateTime _toDateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -718,6 +757,24 @@ class _RootShellState extends State<RootShell> {
         enabled: !_today.doneToday,
         habitOptions: habitOptions,
         last7DaysPlans: _last7DaysPlans,
+        planItems: _planItems,
+        onAddMeal: () async {
+          // PlanScreenに移動（食事追加モード）
+          setState(() => _index = 1);
+        },
+        onAddWorkout: () async {
+          // PlanScreenに移動（運動追加モード）
+          setState(() => _index = 1);
+        },
+        onSavePlan: (items) async {
+          setState(() => _loading = true);
+          try {
+            await _savePlan(items);
+            setState(() => _index = 2);
+          } finally {
+            if (mounted) setState(() => _loading = false);
+          }
+        },
         onSubmit: (habit) async {
           setState(() => _loading = true);
           try {
@@ -736,7 +793,9 @@ class _RootShellState extends State<RootShell> {
         loading: _loading,
         recent: _recent,
       ),
-      const SettingsScreen(),
+      SettingsScreen(
+        weightRepo: _weightRepo,
+      ),
     ];
 
     return Scaffold(
@@ -758,16 +817,16 @@ class _RootShellState extends State<RootShell> {
           NavigationDestination(
             icon: Icon(Icons.edit_outlined),
             selectedIcon: Icon(Icons.edit),
-            label: 'きろく',
+            label: '記録',
           ),
           NavigationDestination(
             icon: Icon(Icons.history),
-            label: 'りれき',
+            label: '履歴',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
             selectedIcon: Icon(Icons.settings),
-            label: 'せってい',
+            label: '設定',
           ),
         ],
       ),
@@ -954,7 +1013,7 @@ class HomeScreen extends StatelessWidget {
                     child: const Padding(
                       padding: EdgeInsets.symmetric(vertical: 14),
                       child:
-                          Text('きろくする', style: TextStyle(fontSize: 16)),
+                          Text('記録する', style: TextStyle(fontSize: 16)),
                     ),
                   ),
                 ),
@@ -1485,12 +1544,20 @@ class RecordScreen extends StatefulWidget {
     required this.enabled,
     required this.habitOptions,
     required this.last7DaysPlans,
+    required this.planItems,
+    required this.onAddMeal,
+    required this.onAddWorkout,
+    required this.onSavePlan,
     required this.onSubmit,
   });
 
   final bool enabled;
   final List<String> habitOptions;
   final Map<DateTime, List<PlanItem>> last7DaysPlans;
+  final List<PlanItem> planItems;
+  final VoidCallback onAddMeal;
+  final VoidCallback onAddWorkout;
+  final Future<void> Function(List<PlanItem>) onSavePlan;
   final Future<void> Function(String habit) onSubmit;
 
   @override
@@ -1529,59 +1596,27 @@ class _RecordScreenState extends State<RecordScreen> {
       dailyKcals.add((date: date, kcal: totalKcal));
     }
 
+    // 今日のデータを集計
+    final today = DateTime(now.year, now.month, now.day);
+    final todayItems = widget.last7DaysPlans[today] ?? [];
+    final mealItems = todayItems.where((item) => item.type == 'meal').toList();
+    final workoutItems = todayItems.where((item) => item.type == 'workout').toList();
+    
+    final mealKcal = mealItems.fold<int>(0, (sum, item) => sum + (item.kcal ?? 0));
+    final workoutKcal = workoutItems.fold<int>(0, (sum, item) => sum + (item.kcal ?? 0));
+    const mealTarget = 2400;
+    const workoutTarget = 400;
+
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         children: [
-          Text(
-            'きろく',
-            style: theme.textTheme.titleLarge
-                ?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'トレーニング以外の「食事・ストレッチ・睡眠」など、\n今日できた「小さな積み重ね」を1つだけ選んで記録しよう。',
-            style: theme.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            value: _selected,
-            items: widget.habitOptions
-                .map((h) => DropdownMenuItem<String>(value: h, child: Text(h)))
-                .toList(),
-            onChanged: widget.enabled
-                ? (v) => setState(() => _selected = v ?? _selected)
-                : null,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: widget.enabled ? () => widget.onSubmit(_selected) : null,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 14),
-                child: Text('保存する', style: TextStyle(fontSize: 16)),
-              ),
-            ),
-          ),
-          if (!widget.enabled) ...[
-            const SizedBox(height: 12),
-            Text('今日はもう記録済みだよ。', style: theme.textTheme.bodyMedium),
-          ],
-          
           // 食事ログ
-          const SizedBox(height: 24),
-          Text(
-            '食事ログ',
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          _buildMealLog(theme),
+          _buildMealSection(theme, mealKcal, mealTarget, mealItems),
+          
+          // 運動ログ
+          const SizedBox(height: 16),
+          _buildWorkoutSection(theme, workoutKcal, workoutTarget, workoutItems),
           
           // 週間ミニグラフ
           const SizedBox(height: 16),
@@ -1591,64 +1626,229 @@ class _RecordScreenState extends State<RecordScreen> {
     );
   }
 
-  Widget _buildMealLog(ThemeData theme) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final todayItems = widget.last7DaysPlans[today] ?? [];
-    final mealItems = todayItems.where((item) => item.type == 'meal').toList();
-
-    if (mealItems.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            '今日の食事記録はありません',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.6),
-            ),
-          ),
-        ),
-      );
-    }
+  Widget _buildMealSection(ThemeData theme, int totalKcal, int targetKcal, List<PlanItem> items) {
+    const mintColorLight = Color(0xFFB2DFDB);
+    final remaining = (targetKcal - totalKcal).clamp(0, targetKcal);
+    final progress = targetKcal > 0 ? (totalKcal / targetKcal).clamp(0.0, 1.0) : 0.0;
 
     return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      color: mintColorLight.withOpacity(0.15),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: mealItems.map((item) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.title,
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                        if (item.kcal != null)
+          children: [
+            // 見出し行
+            InkWell(
+              onTap: widget.onAddMeal,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    MiniDonutChart(
+                      value: totalKcal,
+                      max: targetKcal,
+                      label: 'kcal',
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                '$totalKcal',
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                ' / $targetKcal',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
                           Text(
-                            '${item.kcal} kcal',
-                            style: theme.textTheme.bodySmall?.copyWith(
+                            remaining > 0
+                                ? 'あと${remaining}kcal'
+                                : '目標達成',
+                            style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.onSurface.withOpacity(0.6),
                             ),
                           ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  Text(
-                    item.time,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline, size: 24),
+                      onPressed: widget.onAddMeal,
+                      tooltip: '食事を追加',
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            );
-          }).toList(),
+            ),
+            // 食事リスト
+            if (items.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              ...items.map((item) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.title,
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                            if (item.kcal != null)
+                              Text(
+                                '${item.kcal} kcal',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        item.time,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWorkoutSection(ThemeData theme, int totalKcal, int targetKcal, List<PlanItem> items) {
+    const mintColorLight = Color(0xFFB2DFDB);
+    final remaining = (targetKcal - totalKcal).clamp(0, targetKcal);
+    final progress = targetKcal > 0 ? (totalKcal / targetKcal).clamp(0.0, 1.0) : 0.0;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      color: mintColorLight.withOpacity(0.15),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 見出し行
+            InkWell(
+              onTap: widget.onAddWorkout,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    MiniDonutChart(
+                      value: totalKcal,
+                      max: targetKcal,
+                      label: 'kcal',
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                '$totalKcal',
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                ' / $targetKcal',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            remaining > 0
+                                ? 'あと${remaining}kcal'
+                                : '目標達成',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline, size: 24),
+                      onPressed: widget.onAddWorkout,
+                      tooltip: '運動を追加',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // 運動リスト
+            if (items.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              ...items.map((item) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.title,
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                            if (item.kcal != null)
+                              Text(
+                                '${item.kcal} kcal',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        item.time,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ],
         ),
       ),
     );
@@ -1678,7 +1878,7 @@ class HistoryScreen extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         children: [
           Text(
-            'りれき（7日）',
+            '履歴（7日）',
             style: theme.textTheme.titleLarge
                 ?.copyWith(fontWeight: FontWeight.w700),
           ),
@@ -1715,22 +1915,166 @@ class HistoryScreen extends StatelessWidget {
   }
 }
 
-class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({
+    super.key,
+    required this.weightRepo,
+  });
+
+  final WeightRepository weightRepo;
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  final _weightController = TextEditingController();
+  bool _loading = false;
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTodayWeight();
+  }
+
+  @override
+  void dispose() {
+    _weightController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadTodayWeight() async {
+    try {
+      final weight = await widget.weightRepo.loadToday();
+      if (weight != null && mounted) {
+        _weightController.text = weight.toString();
+      }
+    } catch (e) {
+      // エラーは無視（初期値なしで続行）
+    } finally {
+      if (mounted) {
+        setState(() => _initialized = true);
+      }
+    }
+  }
+
+  Future<void> _saveWeight() async {
+    final weightText = _weightController.text.trim();
+    if (weightText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('体重を入力してください')),
+      );
+      return;
+    }
+
+    final weight = double.tryParse(weightText);
+    if (weight == null || weight <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('有効な体重を入力してください')),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+
+    try {
+      await widget.weightRepo.saveToday(weight: weight);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('保存しました')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存に失敗しました: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    const mintColorLight = Color(0xFFB2DFDB);
 
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         children: [
           Text(
-            'せってい',
+            '設定',
             style: theme.textTheme.titleLarge
                 ?.copyWith(fontWeight: FontWeight.w700),
           ),
+          const SizedBox(height: 24),
+          
+          // 今日の体重を記録
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            color: mintColorLight.withOpacity(0.15),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '今日の体重を記録',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _weightController,
+                    enabled: !_loading,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      labelText: '体重（kg）',
+                      hintText: '例: 72.3',
+                      prefixIcon: const Icon(Icons.monitor_weight_outlined),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.7),
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _saveWeight(),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _loading ? null : _saveWeight,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _loading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('保存する', style: TextStyle(fontSize: 16)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
           const SizedBox(height: 12),
           const ListTile(
             leading: Icon(Icons.info_outline),
@@ -1745,6 +2089,90 @@ class SettingsScreen extends StatelessWidget {
 /// ----------------------------
 /// Widgets
 /// ----------------------------
+
+/// ミニドーナツチャート
+class MiniDonutChart extends StatelessWidget {
+  const MiniDonutChart({
+    super.key,
+    required this.value,
+    required this.max,
+    required this.label,
+  });
+
+  final int value;
+  final int max;
+  final String label; // "kcal" など
+
+  @override
+  Widget build(BuildContext context) {
+    const diameter = 120.0;
+    const strokeWidth = 14.0;
+    const mintColor = Color(0xFF80CBC4);
+    const mintColorLight = Color(0xFFB2DFDB);
+
+    final progress = max > 0 ? (value / max).clamp(0.0, 1.0) : 0.0;
+    final remaining = 1.0 - progress;
+
+    return SizedBox(
+      width: diameter,
+      height: diameter,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // 背景円
+          SizedBox(
+            width: diameter,
+            height: diameter,
+            child: CircularProgressIndicator(
+              value: 1.0,
+              strokeWidth: strokeWidth,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                mintColorLight.withOpacity(0.2),
+              ),
+              backgroundColor: Colors.transparent,
+            ),
+          ),
+          // プログレス円
+          SizedBox(
+            width: diameter,
+            height: diameter,
+            child: CircularProgressIndicator(
+              value: progress,
+              strokeWidth: strokeWidth,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                mintColor.withOpacity(0.6),
+              ),
+              backgroundColor: Colors.transparent,
+              strokeCap: StrokeCap.round,
+            ),
+          ),
+          // 中央テキスト
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$value',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
+              ),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// 週間ミニグラフ（摂取kcal）
 class WeeklyKcalMiniGraph extends StatelessWidget {
