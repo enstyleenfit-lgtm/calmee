@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "71458725198",
+    "project_id": "calmee-8011c",
+    "storage_bucket": "calmee-8011c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:71458725198:android:26fd5a342925ead7a0d21f",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAqTjzpdaJK6HM2O8ZpJ6wFb_wbwW8-ecY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
