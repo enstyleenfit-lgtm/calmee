@@ -758,13 +758,11 @@ class _RootShellState extends State<RootShell> {
         habitOptions: habitOptions,
         last7DaysPlans: _last7DaysPlans,
         planItems: _planItems,
-        onAddMeal: () async {
-          // PlanScreenに移動（食事追加モード）
-          setState(() => _index = 1);
+        onAddMeal: () {
+          // RecordScreen内でダイアログを開くため、ここでは何もしない
         },
-        onAddWorkout: () async {
-          // PlanScreenに移動（運動追加モード）
-          setState(() => _index = 1);
+        onAddWorkout: () {
+          // RecordScreen内でダイアログを開くため、ここでは何もしない
         },
         onSavePlan: (items) async {
           setState(() => _loading = true);
@@ -1641,58 +1639,54 @@ class _RecordScreenState extends State<RecordScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 見出し行
-            InkWell(
-              onTap: widget.onAddMeal,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    MiniDonutChart(
-                      value: totalKcal,
-                      max: targetKcal,
-                      label: 'kcal',
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                '$totalKcal',
-                                style: theme.textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  MiniDonutChart(
+                    value: totalKcal,
+                    max: targetKcal,
+                    label: 'kcal',
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              '$totalKcal',
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
                               ),
-                              Text(
-                                ' / $targetKcal',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            remaining > 0
-                                ? 'あと${remaining}kcal'
-                                : '目標達成',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(0.6),
                             ),
+                            Text(
+                              ' / $targetKcal',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          remaining > 0
+                              ? 'あと${remaining}kcal'
+                              : '目標達成',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline, size: 24),
-                      onPressed: widget.onAddMeal,
-                      tooltip: '食事を追加',
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline, size: 24),
+                    onPressed: () => _showAddMealDialog(),
+                    tooltip: '食事を追加',
+                  ),
+                ],
               ),
             ),
             // 食事リスト
@@ -1755,58 +1749,54 @@ class _RecordScreenState extends State<RecordScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 見出し行
-            InkWell(
-              onTap: widget.onAddWorkout,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    MiniDonutChart(
-                      value: totalKcal,
-                      max: targetKcal,
-                      label: 'kcal',
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                '$totalKcal',
-                                style: theme.textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  MiniDonutChart(
+                    value: totalKcal,
+                    max: targetKcal,
+                    label: 'kcal',
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              '$totalKcal',
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
                               ),
-                              Text(
-                                ' / $targetKcal',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            remaining > 0
-                                ? 'あと${remaining}kcal'
-                                : '目標達成',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(0.6),
                             ),
+                            Text(
+                              ' / $targetKcal',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          remaining > 0
+                              ? 'あと${remaining}kcal'
+                              : '目標達成',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline, size: 24),
-                      onPressed: widget.onAddWorkout,
-                      tooltip: '運動を追加',
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline, size: 24),
+                    onPressed: () => _showAddWorkoutDialog(),
+                    tooltip: '運動を追加',
+                  ),
+                ],
               ),
             ),
             // 運動リスト
@@ -1848,6 +1838,139 @@ class _RecordScreenState extends State<RecordScreen> {
                 );
               }),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showAddMealDialog() async {
+    await _showAddItemDialog(type: 'meal', defaultTitle: '食事', defaultKcal: 500);
+  }
+
+  Future<void> _showAddWorkoutDialog() async {
+    await _showAddItemDialog(type: 'workout', defaultTitle: '運動', defaultKcal: 200);
+  }
+
+  Future<void> _showAddItemDialog({
+    required String type,
+    required String defaultTitle,
+    required int defaultKcal,
+  }) async {
+    String time = '08:00';
+    String title = '';
+    int? kcal;
+    final titleController = TextEditingController();
+    final kcalController = TextEditingController();
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(type == 'meal' ? '食事追加' : '運動追加'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // テンプレボタン
+                OutlinedButton.icon(
+                  onPressed: () {
+                    setDialogState(() {
+                      title = defaultTitle;
+                      kcal = defaultKcal;
+                      titleController.text = title;
+                      kcalController.text = kcal.toString();
+                    });
+                  },
+                  icon: Icon(type == 'meal' ? Icons.restaurant_outlined : Icons.fitness_center_outlined),
+                  label: Text(defaultTitle),
+                ),
+                const SizedBox(height: 16),
+                // タイトル入力
+                TextFormField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    labelText: 'タイトル',
+                  ),
+                  onChanged: (value) => title = value,
+                ),
+                const SizedBox(height: 12),
+                // カロリー入力
+                TextFormField(
+                  controller: kcalController,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    labelText: 'カロリー（kcal）',
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (value) {
+                    kcal = int.tryParse(value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                // 時間選択
+                Row(
+                  children: [
+                    const Text('時間: '),
+                    OutlinedButton(
+                      onPressed: () async {
+                        final parts = time.split(':');
+                        final init = TimeOfDay(
+                          hour: int.tryParse(parts[0]) ?? 8,
+                          minute: int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
+                        );
+                        final t = await showTimePicker(
+                          context: context,
+                          initialTime: init,
+                        );
+                        if (t != null) {
+                          setDialogState(() {
+                            final hh = t.hour.toString().padLeft(2, '0');
+                            final mm = t.minute.toString().padLeft(2, '0');
+                            time = '$hh:$mm';
+                          });
+                        }
+                      },
+                      child: Text(time),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final finalTitle = titleController.text.trim();
+                if (finalTitle.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('タイトルを入力してください')),
+                  );
+                  return;
+                }
+                final finalKcal = int.tryParse(kcalController.text);
+
+                // 今日のplanItemsを更新
+                final currentItems = List<PlanItem>.from(widget.planItems);
+                currentItems.add(PlanItem(
+                  type: type,
+                  time: time,
+                  title: finalTitle,
+                  enabled: true,
+                  kcal: finalKcal,
+                ));
+
+                Navigator.pop(context);
+                widget.onSavePlan(currentItems);
+              },
+              child: const Text('追加'),
+            ),
           ],
         ),
       ),
