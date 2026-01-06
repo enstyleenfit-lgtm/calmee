@@ -19,7 +19,26 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const CalmeeApp());
+
+  // 匿名ログインしてuidを取得
+  final auth = FirebaseAuth.instance;
+  if (auth.currentUser == null) {
+    await auth.signInAnonymously();
+  }
+  final uid = auth.currentUser!.uid;
+
+  // Repositoryを生成
+  final habitRepo = HabitRepository(uid);
+  final planRepo = PlanRepository(uid);
+  final weightRepo = WeightRepository(uid);
+  final profileRepo = ProfileRepository(uid);
+
+  runApp(CalmeeApp(
+    habitRepo: habitRepo,
+    planRepo: planRepo,
+    weightRepo: weightRepo,
+    profileRepo: profileRepo,
+  ));
 }
 
 /// ----------------------------
@@ -417,6 +436,42 @@ class WeightRepository {
   }
 }
 
+class ProfileRepository {
+  ProfileRepository(this.uid);
+  final String uid;
+
+  DocumentReference<Map<String, dynamic>> get _ref =>
+      FirebaseFirestore.instance.collection('users').doc(uid).collection('profile').doc('main');
+
+  Future<Map<String, dynamic>?> load() async {
+    final snap = await _ref.get();
+    return snap.data();
+  }
+
+  Future<void> save({
+    double? heightCm,
+    double? weightKg,
+    double? bodyFatPct,
+    double? targetWeightKg,
+    int? targetDays,
+    String? policyText,
+    String? fitType,
+    String? fitAxis,
+  }) async {
+    await _ref.set({
+      if (heightCm != null) 'heightCm': heightCm,
+      if (weightKg != null) 'weightKg': weightKg,
+      if (bodyFatPct != null) 'bodyFatPct': bodyFatPct,
+      if (targetWeightKg != null) 'targetWeightKg': targetWeightKg,
+      if (targetDays != null) 'targetDays': targetDays,
+      if (policyText != null) 'policyText': policyText,
+      if (fitType != null) 'fitType': fitType,
+      if (fitAxis != null) 'fitAxis': fitAxis,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+}
+
 /// ----------------------------
 /// Reward (A+B: 褒め進化) + (C: キラッ)
 /// ----------------------------
@@ -574,7 +629,18 @@ class _RewardSparkleLayerState extends State<_RewardSparkleLayer>
 /// ----------------------------
 
 class CalmeeApp extends StatelessWidget {
-  const CalmeeApp({super.key});
+  const CalmeeApp({
+    super.key,
+    required this.habitRepo,
+    required this.planRepo,
+    required this.weightRepo,
+    required this.profileRepo,
+  });
+
+  final HabitRepository habitRepo;
+  final PlanRepository planRepo;
+  final WeightRepository weightRepo;
+  final ProfileRepository profileRepo;
 
   @override
   Widget build(BuildContext context) {
@@ -584,14 +650,30 @@ class CalmeeApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4A90E2)),
         useMaterial3: true,
       ),
-      home: const RootShell(),
+      home: RootShell(
+        habitRepo: habitRepo,
+        planRepo: planRepo,
+        weightRepo: weightRepo,
+        profileRepo: profileRepo,
+      ),
     );
   }
 }
 
 /// ポケスリっぽい「下部タブのシェル」
 class RootShell extends StatefulWidget {
-  const RootShell({super.key});
+  const RootShell({
+    super.key,
+    required this.habitRepo,
+    required this.planRepo,
+    required this.weightRepo,
+    required this.profileRepo,
+  });
+
+  final HabitRepository habitRepo;
+  final PlanRepository planRepo;
+  final WeightRepository weightRepo;
+  final ProfileRepository profileRepo;
 
   @override
   State<RootShell> createState() => _RootShellState();
@@ -599,7 +681,6 @@ class RootShell extends StatefulWidget {
 
 class _RootShellState extends State<RootShell> {
   bool _loading = true;
-  String? _uid;
 
   int _index = 0;
 
@@ -627,25 +708,12 @@ class _RootShellState extends State<RootShell> {
   Future<void> _init() async {
     setState(() => _loading = true);
     try {
-      await _ensureSignedIn();
       await NotiTtsService.instance.init();
       await _reloadAll();
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
-
-  Future<void> _ensureSignedIn() async {
-    final auth = FirebaseAuth.instance;
-    if (auth.currentUser == null) {
-      await auth.signInAnonymously();
-    }
-    _uid = auth.currentUser!.uid;
-  }
-
-  HabitRepository get _habitRepo => HabitRepository(_uid!);
-  PlanRepository get _planRepo => PlanRepository(_uid!);
-  WeightRepository get _weightRepo => WeightRepository(_uid!);
 
   DateTime _toDateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -667,9 +735,7 @@ class _RootShellState extends State<RootShell> {
   }
 
   Future<void> _reloadAll() async {
-    if (_uid == null) return;
-
-    final recent = await _habitRepo.loadRecent(limit: 7);
+    final recent = await widget.habitRepo.loadRecent(limit: 7);
     final today = _toDateOnly(DateTime.now());
 
     final todayEntry = recent.firstWhere(
@@ -682,8 +748,8 @@ class _RootShellState extends State<RootShell> {
 
     final doneToday = todayEntry.date.millisecondsSinceEpoch != 0;
     final streak = _calcStreakFromRecent(recent);
-    final plan = await _planRepo.loadToday();
-    final last7Days = await _planRepo.loadLast7Days();
+    final plan = await widget.planRepo.loadToday();
+    final last7Days = await widget.planRepo.loadLast7Days();
 
     setState(() {
       _recent = recent;
@@ -699,18 +765,14 @@ class _RootShellState extends State<RootShell> {
 
   /// 今日記録 → Firestoreで正確streak更新 → reload → newStreak返す
   Future<int> _recordToday(String habit) async {
-    if (_uid == null) return 0;
-
-    await _habitRepo.saveToday(habit: habit);
-    final newStreak = await _habitRepo.updateStreakOnCompleteToday();
+    await widget.habitRepo.saveToday(habit: habit);
+    final newStreak = await widget.habitRepo.updateStreakOnCompleteToday();
     await _reloadAll();
     return newStreak;
   }
 
   Future<void> _savePlan(List<PlanItem> items) async {
-    if (_uid == null) return;
-
-    await _planRepo.saveToday(items);
+    await widget.planRepo.saveToday(items);
     await NotiTtsService.instance.scheduleTodayPlan(items);
     await _reloadAll();
   }
@@ -727,6 +789,8 @@ class _RootShellState extends State<RootShell> {
         loading: _loading,
         today: _today,
         planItems: _planItems,
+        last7DaysPlans: _last7DaysPlans,
+        profileRepo: widget.profileRepo,
         lastNotiPayload: NotiTtsService.instance.lastPayload,
         onClearNoti: _clearNotiPayload,
         onRefresh: () async {
@@ -787,12 +851,11 @@ class _RootShellState extends State<RootShell> {
           }
         },
       ),
-      HistoryScreen(
-        loading: _loading,
-        recent: _recent,
+      ProfileScreen(
+        profileRepo: widget.profileRepo,
       ),
       SettingsScreen(
-        weightRepo: _weightRepo,
+        weightRepo: widget.weightRepo,
       ),
     ];
 
@@ -818,8 +881,9 @@ class _RootShellState extends State<RootShell> {
             label: '記録',
           ),
           NavigationDestination(
-            icon: Icon(Icons.history),
-            label: '履歴',
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'My Page',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
@@ -835,12 +899,14 @@ class _RootShellState extends State<RootShell> {
 /// ----------------------------
 /// Screens
 /// ----------------------------
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
     required this.loading,
     required this.today,
     required this.planItems,
+    required this.last7DaysPlans,
+    required this.profileRepo,
     required this.lastNotiPayload,
     required this.onClearNoti,
     required this.onRefresh,
@@ -851,6 +917,8 @@ class HomeScreen extends StatelessWidget {
   final bool loading;
   final TodayStatus today;
   final List<PlanItem> planItems;
+  final Map<DateTime, List<PlanItem>> last7DaysPlans;
+  final ProfileRepository profileRepo;
 
   final String? lastNotiPayload;
   final VoidCallback onClearNoti;
@@ -859,7 +927,67 @@ class HomeScreen extends StatelessWidget {
   final VoidCallback onGoPlan;
   final VoidCallback onGoRecord;
 
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  String? _fitType;
+  bool _fitTypeLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFitType();
+  }
+
+  Future<void> _loadFitType() async {
+    try {
+      final data = await widget.profileRepo.load();
+      if (mounted) {
+        setState(() {
+          _fitType = data?['fitType'] as String?;
+          _fitTypeLoaded = true;
+        });
+      }
+    } catch (e) {
+      // エラーは無視（デフォルト値で続行）
+      if (mounted) {
+        setState(() => _fitTypeLoaded = true);
+      }
+    }
+  }
+
+  static const Map<String, String> fitTypeGuide = {
+    'ENFP': '今日も多様な運動を楽しんで。柔軟に進めよう。',
+    'ENFJ': '他者と協力しながら目標に向かって。',
+    'ENTP': '新しい運動方法に挑戦してみて。',
+    'ENTJ': '効率的な計画で目標達成を目指そう。',
+    'ESFP': 'グループで運動を楽しもう。',
+    'ESFJ': '他者と一緒に運動する時間を大切に。',
+    'ESTP': '実践的な運動で行動力を高めよう。',
+    'ESTJ': 'ルーティンを守って継続しよう。',
+    'INFP': '自分なりの運動スタイルを大切に。',
+    'INFJ': '長期的な視点で運動に取り組もう。',
+    'INTP': '運動のメカニズムを理解しながら進めよう。',
+    'INTJ': '自分で計画を立てて実行しよう。',
+    'ISFP': '自然な流れで運動を楽しもう。',
+    'ISFJ': '継続的な努力を大切にしよう。',
+    'ISTP': '自分で試行錯誤しながら進めよう。',
+    'ISTJ': '計画的に運動を継続しよう。',
+  };
+
+  String get _guideText {
+    if (!_fitTypeLoaded) return '今日も整えていこう。';
+    if (_fitType == null || _fitType!.isEmpty || _fitType == '未診断') {
+      return '今日も整えていこう。';
+    }
+    return fitTypeGuide[_fitType!] ?? '今日も整えていこう。';
+  }
+
   PlanItem? _nextPlan(List<PlanItem> items) {
+    if (items.isEmpty) return null;
+    
     final now = DateTime.now();
     DateTime? bestAt;
     PlanItem? best;
@@ -878,159 +1006,306 @@ class HomeScreen extends StatelessWidget {
     return best;
   }
 
+  int _countRemainingPlans(List<PlanItem> items) {
+    if (items.isEmpty) return 0;
+    
+    final now = DateTime.now();
+    int count = 0;
+
+    for (final it in items.where((e) => e.enabled)) {
+      final parts = it.time.split(':');
+      final hh = int.tryParse(parts[0]) ?? 0;
+      final mm = int.tryParse(parts[1]) ?? 0;
+      final t = DateTime(now.year, now.month, now.day, hh, mm);
+
+      if (t.isAfter(now)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  String _buildSummaryText(int mealKcal, int mealTarget, int workoutKcal, int workoutTarget, int proteinCurrent, int proteinTarget, int remainingCount) {
+    final mealProgress = mealKcal >= mealTarget ? '目標達成' : 'あと${mealTarget - mealKcal}kcal';
+    final workoutProgress = workoutKcal >= workoutTarget ? '目標達成' : 'あと${workoutTarget - workoutKcal}kcal';
+    final proteinProgress = proteinCurrent >= proteinTarget ? '目標達成' : 'あと${proteinTarget - proteinCurrent}g';
+    
+    return '摂取カロリーは$mealProgress。消費カロリーは$workoutProgress。たんぱく質は$proteinProgress。残り予定は${remainingCount}件です。';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    const mintColorLight = Color(0xFFB2DFDB);
 
-    final title = today.doneToday ? '今日の一歩（完了）' : '今日の一歩';
-    final desc = today.doneToday
-        ? '今日も積み重ね、おつかれさま。'
-        : '今日はまだ記録がないよ。小さな一歩からはじめよう。';
+    // 今日のデータを集計
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final todayItems = widget.last7DaysPlans.containsKey(today)
+        ? (widget.last7DaysPlans[today] ?? <PlanItem>[])
+        : <PlanItem>[];
+    final mealItems = todayItems.where((item) => item.type == 'meal').toList();
+    final workoutItems = todayItems.where((item) => item.type == 'workout').toList();
+    
+    final mealKcal = mealItems.fold<int>(0, (sum, item) => sum + (item.kcal ?? 0));
+    final workoutKcal = workoutItems.fold<int>(0, (sum, item) => sum + (item.kcal ?? 0));
+    const mealTarget = 2400;
+    const workoutTarget = 400;
+    const proteinTarget = 100; // 仮の値
+    const proteinCurrent = 0; // 仮の値（PlanItemにproteinフィールドがないため）
+    
+    // 残りたんぱく質（マイナス表示しない）
+    final proteinRemaining = (proteinTarget - proteinCurrent).clamp(0, proteinTarget);
 
-    final habitText =
-        today.doneToday ? '今日の一歩：${today.todayEntry!.habit}' : 'まだ未記録';
-
-    final next = _nextPlan(planItems);
+    final next = _nextPlan(widget.planItems);
+    final remainingCount = _countRemainingPlans(widget.planItems);
 
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: onRefresh,
+        onRefresh: widget.onRefresh,
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Calmee',
-                  style: theme.textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                IconButton(
-                  tooltip: '再読み込み',
-                  onPressed: loading ? null : onRefresh,
-                  icon: const Icon(Icons.refresh),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-
+            // 今日の予定（チェック式）
             Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              color: mintColorLight.withOpacity(0.15),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '今日の予定',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.arrow_forward_ios, size: 20),
+                          onPressed: widget.onGoPlan,
+                          tooltip: '予定画面へ',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (widget.planItems.isEmpty)
+                      Text(
+                        '予定を追加しましょう',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      )
+                    else
+                      ...widget.planItems.take(5).map((item) {
+                        final now = DateTime.now();
+                        final parts = item.time.split(':');
+                        final hh = int.tryParse(parts[0]) ?? 0;
+                        final mm = int.tryParse(parts[1]) ?? 0;
+                        final itemTime = DateTime(now.year, now.month, now.day, hh, mm);
+                        final isPast = itemTime.isBefore(now);
+                        
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Checkbox(
+                                value: isPast || !item.enabled,
+                                onChanged: null, // 読み取り専用
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${item.time}  ${item.title}',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    decoration: isPast || !item.enabled
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                    color: isPast || !item.enabled
+                                        ? theme.colorScheme.onSurface.withOpacity(0.4)
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // ドーナツ3連（主役）
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              color: mintColorLight.withOpacity(0.15),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [
+                          _ExtraLargeDonutChart(
+                            value: mealKcal,
+                            max: mealTarget,
+                            label: 'kcal',
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '摂取',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$mealKcal',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          _ExtraLargeDonutChart(
+                            value: workoutKcal,
+                            max: workoutTarget,
+                            label: 'kcal',
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '消費',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$workoutKcal',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          _ExtraLargeDonutChart(
+                            value: proteinCurrent,
+                            max: proteinTarget,
+                            label: 'g',
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '残りP',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$proteinRemaining',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // タイプ別 今日のガイド
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              color: mintColorLight.withOpacity(0.15),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.lightbulb_outline,
+                      size: 24,
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _guideText,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // 今日のまとめテキスト
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              color: mintColorLight.withOpacity(0.15),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      '今日のまとめ',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(desc, style: theme.textTheme.bodyMedium),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _Badge(label: '連続', value: '${today.streak}日'),
-                        const SizedBox(width: 8),
-                        _Badge(label: '状態', value: today.doneToday ? 'OK' : '未'),
-                      ],
+                    const SizedBox(height: 10),
+                    Text(
+                      _buildSummaryText(mealKcal, mealTarget, workoutKcal, workoutTarget, proteinCurrent, proteinTarget, remainingCount),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 13,
+                        height: 1.5,
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    Text(habitText, style: theme.textTheme.bodyLarge),
-
-                    if (next != null) ...[
-                      const SizedBox(height: 14),
-                      Text(
-                        '次の予定',
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 6),
-                      Text('${next.time}  ${next.title}',
-                          style: theme.textTheme.bodyLarge),
-                    ],
-
-                    // ★ 通知導線：いまのサポート
-                    if (lastNotiPayload != null &&
-                        lastNotiPayload!.trim().isNotEmpty) ...[
-                      const SizedBox(height: 14),
-                      Text(
-                        'いまのサポート',
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(lastNotiPayload!, style: theme.textTheme.bodyMedium),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: FilledButton.icon(
-                              onPressed: () async {
-                                await RewardSparkle.play(context);
-                                await showDialog<void>(
-                                  context: context,
-                                  builder: (_) => AlertDialog(
-                                    title: const Text('完了'),
-                                    content: const Text('いいね。整った。'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: const Text('OK'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                                onClearNoti();
-                              },
-                              icon: const Icon(Icons.check_circle_outline),
-                              label: const Text('完了'),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          OutlinedButton(
-                            onPressed: onClearNoti,
-                            child: const Text('閉じる'),
-                          ),
-                        ],
-                      ),
-                    ],
                   ],
                 ),
               ),
             ),
 
-            const SizedBox(height: 12),
-
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton(
-                    onPressed: today.doneToday ? null : onGoRecord,
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 14),
-                      child:
-                          Text('記録する', style: TextStyle(fontSize: 16)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: onGoPlan,
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 14),
-                      child: Text('予定を組む', style: TextStyle(fontSize: 16)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-            Text('※ 予定を保存すると当日分の通知がセットされるよ。',
-                style: theme.textTheme.bodySmall),
             const SizedBox(height: 200),
           ],
         ),
@@ -1609,6 +1884,11 @@ class _RecordScreenState extends State<RecordScreen> {
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         children: [
+          // クイック追加エリア
+          _buildQuickAddSection(theme),
+          
+          const SizedBox(height: 16),
+          
           // 食事ログ
           _buildMealSection(theme, mealKcal, mealTarget, mealItems),
           
@@ -1622,6 +1902,114 @@ class _RecordScreenState extends State<RecordScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildQuickAddSection(ThemeData theme) {
+    const mintColorLight = Color(0xFFB2DFDB);
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      color: mintColorLight.withOpacity(0.15),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'クイック追加',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            // 食事テンプレ
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _quickAddMeal(100, 20),
+                    icon: const Icon(Icons.restaurant_outlined, size: 18),
+                    label: const Text('+100kcal / +P20g'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // 運動テンプレ
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _quickAddWorkout('家トレ10分', 50),
+                    icon: const Icon(Icons.fitness_center_outlined, size: 18),
+                    label: const Text('家トレ10分'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _quickAddWorkout('ストレッチ5分', 20),
+                    icon: const Icon(Icons.self_improvement_outlined, size: 18),
+                    label: const Text('ストレッチ5分'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _quickAddMeal(int kcal, int protein) async {
+    final now = DateTime.now();
+    final time = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    
+    final currentItems = List<PlanItem>.from(widget.planItems);
+    currentItems.add(PlanItem(
+      type: 'meal',
+      time: time,
+      title: '食事',
+      enabled: true,
+      kcal: kcal,
+    ));
+
+    await widget.onSavePlan(currentItems);
+  }
+
+  Future<void> _quickAddWorkout(String title, int kcal) async {
+    final now = DateTime.now();
+    final time = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    
+    final currentItems = List<PlanItem>.from(widget.planItems);
+    currentItems.add(PlanItem(
+      type: 'workout',
+      time: time,
+      title: title,
+      enabled: true,
+      kcal: kcal,
+    ));
+
+    await widget.onSavePlan(currentItems);
   }
 
   Widget _buildMealSection(ThemeData theme, int totalKcal, int targetKcal, List<PlanItem> items) {
@@ -1978,62 +2366,660 @@ class _RecordScreenState extends State<RecordScreen> {
   }
 }
 
-class HistoryScreen extends StatelessWidget {
-  const HistoryScreen({super.key, required this.loading, required this.recent});
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({
+    super.key,
+    required this.profileRepo,
+  });
 
-  final bool loading;
-  final List<HabitEntry> recent;
+  final ProfileRepository profileRepo;
 
-  DateTime _toDateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
 
-  String _formatDate(DateTime date) {
-    return '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _fitnessTypeExpanded = false;
+  bool _loading = true;
+
+  // データ
+  double _height = 170.0; // cm
+  double _weight = 65.0; // kg
+  double _bodyFat = 18.5; // %
+  double _targetWeight = 60.0; // kg
+  int _targetPeriod = 90; // 日
+  String _targetPolicy = '健康的に減量';
+  String _fitnessType = '未診断';
+  String _fitnessTypeDescription = '診断を完了すると表示されます。';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final data = await widget.profileRepo.load();
+      if (data != null && mounted) {
+        setState(() {
+          _height = (data['heightCm'] as num?)?.toDouble() ?? 170.0;
+          _weight = (data['weightKg'] as num?)?.toDouble() ?? 65.0;
+          _bodyFat = (data['bodyFatPct'] as num?)?.toDouble() ?? 18.5;
+          _targetWeight = (data['targetWeightKg'] as num?)?.toDouble() ?? 60.0;
+          _targetPeriod = (data['targetDays'] as num?)?.toInt() ?? 90;
+          _targetPolicy = (data['policyText'] as String?) ?? '健康的に減量';
+          _fitnessType = (data['fitType'] as String?) ?? '未診断';
+          if (_fitnessType != '未診断') {
+            _fitnessTypeDescription = _getFitnessTypeDescription(_fitnessType);
+          }
+        });
+      }
+    } catch (e) {
+      // エラーは無視（デフォルト値で続行）
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  String _getFitnessTypeDescription(String type) {
+    final descriptions = {
+      'ENFP': 'エネルギッシュで創造的なタイプ。多様な運動を楽しみ、柔軟にアプローチします。',
+      'ENFJ': 'リーダーシップがあり、他者と協力して目標を達成するタイプ。',
+      'ENTP': '革新的で挑戦的なタイプ。新しい運動方法を試すのが好きです。',
+      'ENTJ': '戦略的で目標達成に集中するタイプ。効率的な運動計画を立てます。',
+      'ESFP': '楽しく社交的なタイプ。グループで運動することを好みます。',
+      'ESFJ': '協調性が高く、他者と一緒に運動することを楽しみます。',
+      'ESTP': '行動力があり、実践的な運動を好みます。',
+      'ESTJ': '組織的で計画的。ルーティンを守って継続します。',
+      'INFP': '内省的で創造的なタイプ。自分なりの運動スタイルを大切にします。',
+      'INFJ': '深く考え、長期的な視点で運動に取り組みます。',
+      'INTP': '分析的で理論的なタイプ。運動のメカニズムを理解したいです。',
+      'INTJ': '戦略的で独立心が強いタイプ。自分で計画を立てて実行します。',
+      'ISFP': '柔軟で感受性が高いタイプ。自然な流れで運動を楽しみます。',
+      'ISFJ': '責任感が強く、継続的な努力を大切にします。',
+      'ISTP': '実践的で独立心が強いタイプ。自分で試行錯誤します。',
+      'ISTJ': '規則正しく、計画的に運動を継続します。',
+    };
+    return descriptions[type] ?? 'あなたのフィットネスタイプです。';
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final sorted = [...recent]..sort((a, b) => b.date.compareTo(a.date));
-    final today = _toDateOnly(DateTime.now());
+    const mintColorLight = Color(0xFFB2DFDB);
 
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         children: [
           Text(
-            '履歴（7日）',
-            style: theme.textTheme.titleLarge
-                ?.copyWith(fontWeight: FontWeight.w700),
+            'My Page',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          const SizedBox(height: 12),
-          if (loading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(),
+          const SizedBox(height: 16),
+
+          // 基本情報カード
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            color: mintColorLight.withOpacity(0.15),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '基本情報',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit, size: 20),
+                        onPressed: () => _showEditBasicInfoSheet(context, theme),
+                        tooltip: '編集',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _InfoRow(
+                    label: '身長',
+                    value: '${_height.toStringAsFixed(1)} cm',
+                    theme: theme,
+                  ),
+                  const SizedBox(height: 12),
+                  _InfoRow(
+                    label: '体重',
+                    value: '${_weight.toStringAsFixed(1)} kg',
+                    theme: theme,
+                  ),
+                  const SizedBox(height: 12),
+                  _InfoRow(
+                    label: '体脂肪率',
+                    value: '${_bodyFat.toStringAsFixed(1)} %',
+                    theme: theme,
+                  ),
+                ],
               ),
-            )
-          else if (sorted.isEmpty)
-            Text('まだ履歴がありません。', style: theme.textTheme.bodyMedium)
-          else
-            ...sorted.map((e) {
-              final isToday = _toDateOnly(e.date) == today;
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  _formatDate(e.date) + (isToday ? '（今日）' : ''),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // 目標情報カード
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            color: mintColorLight.withOpacity(0.15),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '目標情報',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit, size: 20),
+                        onPressed: () => _showEditTargetInfoSheet(context, theme),
+                        tooltip: '編集',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _InfoRow(
+                    label: '目標体重',
+                    value: '${_targetWeight.toStringAsFixed(1)} kg',
+                    theme: theme,
+                  ),
+                  const SizedBox(height: 12),
+                  _InfoRow(
+                    label: '期間',
+                    value: '$_targetPeriod 日',
+                    theme: theme,
+                  ),
+                  const SizedBox(height: 12),
+                  _InfoRow(
+                    label: '方針',
+                    value: _targetPolicy,
+                    theme: theme,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // フィットネスタイプ診断カード（ExpansionTile）
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            color: mintColorLight.withOpacity(0.15),
+            child: ExpansionTile(
+              title: Text(
+                'フィットネスタイプ診断',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              subtitle: Text(
+                _fitnessType,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              trailing: FilledButton.icon(
+                onPressed: () => _showFitnessTypeDiagnosis(context, theme),
+                icon: const Icon(Icons.psychology_outlined, size: 16),
+                label: const Text('診断する'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                subtitle: Text(e.habit, style: theme.textTheme.bodySmall),
-              );
-            }),
-          const SizedBox(height: 8),
-          Text('※ Firestoreに保存されるので、アプリを閉じても履歴は残るよ。',
-              style: theme.textTheme.bodySmall),
+              ),
+              children: [
+                if (_fitnessType != '未診断') ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Text(
+                      _fitnessTypeDescription,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Text(
+                      '診断を完了すると表示されます。',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  Future<void> _showEditBasicInfoSheet(BuildContext context, ThemeData theme) async {
+    final heightController = TextEditingController(text: _height.toStringAsFixed(1));
+    final weightController = TextEditingController(text: _weight.toStringAsFixed(1));
+    final bodyFatController = TextEditingController(text: _bodyFat.toStringAsFixed(1));
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 20,
+          right: 20,
+          top: 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '基本情報を編集',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextFormField(
+              controller: heightController,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: '身長 (cm)',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: weightController,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: '体重 (kg)',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: bodyFatController,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: '体脂肪率 (%)',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: () async {
+                final height = double.tryParse(heightController.text);
+                final weight = double.tryParse(weightController.text);
+                final bodyFat = double.tryParse(bodyFatController.text);
+
+                if (height != null && weight != null && bodyFat != null) {
+                  try {
+                    await widget.profileRepo.save(
+                      heightCm: height,
+                      weightKg: weight,
+                      bodyFatPct: bodyFat,
+                    );
+                    if (mounted) {
+                      setState(() {
+                        _height = height;
+                        _weight = weight;
+                        _bodyFat = bodyFat;
+                      });
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('保存しました')),
+                      );
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('保存に失敗しました: $e')),
+                    );
+                  }
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('有効な数値を入力してください')),
+                  );
+                }
+              },
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('保存'),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showEditTargetInfoSheet(BuildContext context, ThemeData theme) async {
+    final targetWeightController = TextEditingController(text: _targetWeight.toStringAsFixed(1));
+    final targetPeriodController = TextEditingController(text: _targetPeriod.toString());
+    final targetPolicyController = TextEditingController(text: _targetPolicy);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 20,
+          right: 20,
+          top: 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '目標情報を編集',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextFormField(
+              controller: targetWeightController,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: '目標体重 (kg)',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: targetPeriodController,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: '期間 (日)',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: targetPolicyController,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: '方針',
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: () async {
+                final targetWeight = double.tryParse(targetWeightController.text);
+                final targetPeriod = int.tryParse(targetPeriodController.text);
+                final targetPolicy = targetPolicyController.text.trim();
+
+                if (targetWeight != null && targetPeriod != null && targetPolicy.isNotEmpty) {
+                  try {
+                    await widget.profileRepo.save(
+                      targetWeightKg: targetWeight,
+                      targetDays: targetPeriod,
+                      policyText: targetPolicy,
+                    );
+                    if (mounted) {
+                      setState(() {
+                        _targetWeight = targetWeight;
+                        _targetPeriod = targetPeriod;
+                        _targetPolicy = targetPolicy;
+                      });
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('保存しました')),
+                      );
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('保存に失敗しました: $e')),
+                    );
+                  }
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('有効な値を入力してください')),
+                  );
+                }
+              },
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('保存'),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showFitnessTypeDiagnosis(BuildContext context, ThemeData theme) async {
+    int eScore = 0;
+    int sScore = 0;
+    int tScore = 0;
+    int jScore = 0;
+    int questionIndex = 0;
+
+    final questions = [
+      ('運動は一人でする方が好きですか？', 'グループでする方が好きですか？', 'I', 'E'),
+      ('運動の計画は事前に立てますか？', 'その日の気分で決めますか？', 'J', 'P'),
+      ('運動の効果を数値で確認しますか？', '体感で判断しますか？', 'S', 'N'),
+      ('運動中は集中して黙々と取り組みますか？', '楽しみながら会話もしますか？', 'I', 'E'),
+      ('同じ運動を続けるのが好きですか？', '新しい運動に挑戦するのが好きですか？', 'S', 'N'),
+      ('運動の目標は明確に設定しますか？', '大まかな方向性で進めますか？', 'J', 'P'),
+      ('運動の結果を論理的に分析しますか？', '感覚的に理解しますか？', 'T', 'F'),
+      ('運動は計画的に継続しますか？', '気が向いたときにしますか？', 'J', 'P'),
+      ('運動のモチベーションは目標達成ですか？', '運動そのものを楽しみますか？', 'T', 'F'),
+      ('運動の時間は固定しますか？', '柔軟に調整しますか？', 'J', 'P'),
+    ];
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          if (questionIndex >= questions.length) {
+            final type = '${eScore >= 3 ? 'E' : 'I'}${sScore >= 3 ? 'S' : 'N'}${tScore >= 3 ? 'T' : 'F'}${jScore >= 3 ? 'J' : 'P'}';
+            final fitAxis = 'E:$eScore,I:${5-eScore} S:$sScore,N:${5-sScore} T:$tScore,F:${5-tScore} J:$jScore,P:${5-jScore}';
+            final descriptions = {
+              'ENFP': 'エネルギッシュで創造的なタイプ。多様な運動を楽しみ、柔軟にアプローチします。',
+              'ENFJ': 'リーダーシップがあり、他者と協力して目標を達成するタイプ。',
+              'ENTP': '革新的で挑戦的なタイプ。新しい運動方法を試すのが好きです。',
+              'ENTJ': '戦略的で目標達成に集中するタイプ。効率的な運動計画を立てます。',
+              'ESFP': '楽しく社交的なタイプ。グループで運動することを好みます。',
+              'ESFJ': '協調性が高く、他者と一緒に運動することを楽しみます。',
+              'ESTP': '行動力があり、実践的な運動を好みます。',
+              'ESTJ': '組織的で計画的。ルーティンを守って継続します。',
+              'INFP': '内省的で創造的なタイプ。自分なりの運動スタイルを大切にします。',
+              'INFJ': '深く考え、長期的な視点で運動に取り組みます。',
+              'INTP': '分析的で理論的なタイプ。運動のメカニズムを理解したいです。',
+              'INTJ': '戦略的で独立心が強いタイプ。自分で計画を立てて実行します。',
+              'ISFP': '柔軟で感受性が高いタイプ。自然な流れで運動を楽しみます。',
+              'ISFJ': '責任感が強く、継続的な努力を大切にします。',
+              'ISTP': '実践的で独立心が強いタイプ。自分で試行錯誤します。',
+              'ISTJ': '規則正しく、計画的に運動を継続します。',
+            };
+
+            return AlertDialog(
+              title: const Text('診断結果'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    type,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    descriptions[type] ?? 'あなたのフィットネスタイプです。',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () async {
+                    try {
+                      await widget.profileRepo.save(
+                        fitType: type,
+                        fitAxis: fitAxis,
+                      );
+                      if (mounted) {
+                        setState(() {
+                          _fitnessType = type;
+                          _fitnessTypeDescription = descriptions[type] ?? '';
+                        });
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('診断結果を保存しました')),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('保存に失敗しました: $e')),
+                        );
+                      }
+                    }
+                  },
+                  child: const Text('結果を保存'),
+                ),
+              ],
+            );
+          }
+
+          final question = questions[questionIndex];
+          return AlertDialog(
+            title: Text('質問 ${questionIndex + 1}/${questions.length}'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  question.$1,
+                  style: theme.textTheme.bodyLarge,
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () {
+                    // スコアを更新（A選択）
+                    if (question.$3 == 'E') eScore++;
+                    if (question.$3 == 'I') eScore--;
+                    if (question.$3 == 'S') sScore++;
+                    if (question.$3 == 'N') sScore--;
+                    if (question.$3 == 'T') tScore++;
+                    if (question.$3 == 'F') tScore--;
+                    if (question.$3 == 'J') jScore++;
+                    if (question.$3 == 'P') jScore--;
+                    setDialogState(() => questionIndex++);
+                  },
+                  child: Text(question.$1),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () {
+                    // スコアを更新（B選択）
+                    if (question.$4 == 'E') eScore++;
+                    if (question.$4 == 'I') eScore--;
+                    if (question.$4 == 'S') sScore++;
+                    if (question.$4 == 'N') sScore--;
+                    if (question.$4 == 'T') tScore++;
+                    if (question.$4 == 'F') tScore--;
+                    if (question.$4 == 'J') jScore++;
+                    if (question.$4 == 'P') jScore--;
+                    setDialogState(() => questionIndex++);
+                  },
+                  child: Text(question.$2),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.label,
+    required this.value,
+    required this.theme,
+  });
+
+  final String label;
+  final String value;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.6),
+          ),
+        ),
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2212,6 +3198,172 @@ class _SettingsScreenState extends State<SettingsScreen> {
 /// ----------------------------
 /// Widgets
 /// ----------------------------
+
+/// 特大ドーナツチャート（3連用、1.4倍）
+class _ExtraLargeDonutChart extends StatelessWidget {
+  const _ExtraLargeDonutChart({
+    required this.value,
+    required this.max,
+    required this.label,
+  });
+
+  final int value;
+  final int max;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    const diameter = 156.0; // 120.0 * 1.3（横並び3連用）
+    const strokeWidth = 18.2; // 14.0 * 1.3
+    const mintColor = Color(0xFF80CBC4);
+    const mintColorLight = Color(0xFFB2DFDB);
+
+    final progress = max > 0 ? (value / max).clamp(0.0, 1.0) : 0.0;
+
+    return SizedBox(
+      width: diameter,
+      height: diameter,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // 背景円
+          SizedBox(
+            width: diameter,
+            height: diameter,
+            child: CircularProgressIndicator(
+              value: 1.0,
+              strokeWidth: strokeWidth,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                mintColorLight.withOpacity(0.2),
+              ),
+              backgroundColor: Colors.transparent,
+            ),
+          ),
+          // プログレス円
+          SizedBox(
+            width: diameter,
+            height: diameter,
+            child: CircularProgressIndicator(
+              value: progress,
+              strokeWidth: strokeWidth,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                mintColor.withOpacity(0.6),
+              ),
+              backgroundColor: Colors.transparent,
+              strokeCap: StrokeCap.round,
+            ),
+          ),
+          // 中央テキスト
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$value',
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w700,
+                  height: 1.1,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                  height: 1.2,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 大きなドーナツチャート（摂取カロリー用）
+class _LargeDonutChart extends StatelessWidget {
+  const _LargeDonutChart({
+    required this.value,
+    required this.max,
+    required this.label,
+  });
+
+  final int value;
+  final int max;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    const diameter = 168.0; // 120.0 * 1.4
+    const strokeWidth = 20.0; // 14.0 * 1.43
+    const mintColor = Color(0xFF80CBC4);
+    const mintColorLight = Color(0xFFB2DFDB);
+
+    final progress = max > 0 ? (value / max).clamp(0.0, 1.0) : 0.0;
+
+    return SizedBox(
+      width: diameter,
+      height: diameter,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // 背景円
+          SizedBox(
+            width: diameter,
+            height: diameter,
+            child: CircularProgressIndicator(
+              value: 1.0,
+              strokeWidth: strokeWidth,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                mintColorLight.withOpacity(0.2),
+              ),
+              backgroundColor: Colors.transparent,
+            ),
+          ),
+          // プログレス円
+          SizedBox(
+            width: diameter,
+            height: diameter,
+            child: CircularProgressIndicator(
+              value: progress,
+              strokeWidth: strokeWidth,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                mintColor.withOpacity(0.6),
+              ),
+              backgroundColor: Colors.transparent,
+              strokeCap: StrokeCap.round,
+            ),
+          ),
+          // 中央テキスト
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$value',
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
+              ),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// ミニドーナツチャート
 class MiniDonutChart extends StatelessWidget {
