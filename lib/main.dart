@@ -959,30 +959,32 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   static const Map<String, String> fitTypeGuide = {
-    'ENFP': '今日も多様な運動を楽しんで。柔軟に進めよう。',
-    'ENFJ': '他者と協力しながら目標に向かって。',
-    'ENTP': '新しい運動方法に挑戦してみて。',
-    'ENTJ': '効率的な計画で目標達成を目指そう。',
-    'ESFP': 'グループで運動を楽しもう。',
-    'ESFJ': '他者と一緒に運動する時間を大切に。',
-    'ESTP': '実践的な運動で行動力を高めよう。',
-    'ESTJ': 'ルーティンを守って継続しよう。',
-    'INFP': '自分なりの運動スタイルを大切に。',
-    'INFJ': '長期的な視点で運動に取り組もう。',
-    'INTP': '運動のメカニズムを理解しながら進めよう。',
-    'INTJ': '自分で計画を立てて実行しよう。',
-    'ISFP': '自然な流れで運動を楽しもう。',
-    'ISFJ': '継続的な努力を大切にしよう。',
-    'ISTP': '自分で試行錯誤しながら進めよう。',
-    'ISTJ': '計画的に運動を継続しよう。',
+    'ISTJ': '今日やることを1つ決めて、淡々と進めよう。',
+    'ISFJ': '無理しなくていい。できる分だけで十分。',
+    'INFJ': '今日の行動が、少し先の自分を整える。',
+    'INTJ': '最短の一手を選べば、それでいい。',
+    'ISTP': 'まず動いて、あとで整えればいい。',
+    'ISFP': '心地いいペースを大事にしよう。',
+    'INFP': '小さくても、続けた事実は残る。',
+    'INTP': '考えすぎたら、まず1回だけやってみよう。',
+    'ESTP': '今できることを、さっと終わらせよう。',
+    'ESFP': '楽しめる形に変えて続けよう。',
+    'ENFP': '全部やらなくていい。1つで十分。',
+    'ENTP': '今日は試す日。正解はあとでいい。',
+    'ESTJ': '決めたことを1つ、確実に。',
+    'ESFJ': '自分を気にかける時間も大切に。',
+    'ENFJ': '今日の一歩は、ちゃんと意味がある。',
+    'ENTJ': '前に進んでいる。それだけでOK。',
   };
 
+  static const String defaultGuide = '今日できることを、ひとつだけ。';
+
   String get _guideText {
-    if (!_fitTypeLoaded) return '今日も整えていこう。';
+    if (!_fitTypeLoaded) return defaultGuide;
     if (_fitType == null || _fitType!.isEmpty || _fitType == '未診断') {
-      return '今日も整えていこう。';
+      return defaultGuide;
     }
-    return fitTypeGuide[_fitType!] ?? '今日も整えていこう。';
+    return fitTypeGuide[_fitType!] ?? defaultGuide;
   }
 
   PlanItem? _nextPlan(List<PlanItem> items) {
@@ -1246,7 +1248,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 24),
 
-            // タイプ別 今日のガイド
+            // 今日のガイド
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
