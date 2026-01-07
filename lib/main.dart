@@ -79,6 +79,7 @@ class PlanItem {
   final String title;
   final bool enabled;
   final int? kcal; // カロリー（オプショナル）
+  final String? mealState; // 食事の状態（しっかり/ちょうど/軽め）
 
   PlanItem({
     required this.type,
@@ -86,6 +87,7 @@ class PlanItem {
     required this.title,
     required this.enabled,
     this.kcal,
+    this.mealState,
   });
 
   Map<String, dynamic> toMap() => {
@@ -94,6 +96,7 @@ class PlanItem {
         'title': title,
         'enabled': enabled,
         if (kcal != null) 'kcal': kcal,
+        if (mealState != null) 'mealState': mealState,
       };
 
   static PlanItem fromMap(Map<String, dynamic> m) => PlanItem(
@@ -102,6 +105,7 @@ class PlanItem {
         title: (m['title'] as String?) ?? '',
         enabled: (m['enabled'] as bool?) ?? true,
         kcal: (m['kcal'] as num?)?.toInt(),
+        mealState: m['mealState'] as String?,
       );
 
   PlanItem copyWith({
@@ -110,6 +114,7 @@ class PlanItem {
     String? title,
     bool? enabled,
     int? kcal,
+    String? mealState,
   }) {
     return PlanItem(
       type: type ?? this.type,
@@ -117,6 +122,7 @@ class PlanItem {
       title: title ?? this.title,
       enabled: enabled ?? this.enabled,
       kcal: kcal ?? this.kcal,
+      mealState: mealState ?? this.mealState,
     );
   }
 }
@@ -1036,6 +1042,53 @@ class _HomeScreenState extends State<HomeScreen> {
     return count;
   }
 
+  String _buildTodayStateText(List<PlanItem> todayItems) {
+    final mealItems = todayItems.where((item) => item.type == 'meal').toList();
+    
+    if (mealItems.isEmpty) {
+      return 'まだ食事を記録していません。';
+    }
+
+    // 状態別の集計
+    final stateCounts = <String, int>{};
+    for (final item in mealItems) {
+      if (item.mealState != null) {
+        stateCounts[item.mealState!] = (stateCounts[item.mealState!] ?? 0) + 1;
+      }
+    }
+
+    if (stateCounts.isEmpty) {
+      // 状態選択がない場合は、カロリーから判定
+      final totalKcal = mealItems.fold<int>(0, (sum, item) => sum + (item.kcal ?? 0));
+      if (totalKcal >= 2000) {
+        return 'しっかり食べています。';
+      } else if (totalKcal >= 1200) {
+        return 'ちょうどいい感じです。';
+      } else {
+        return '軽めに進めています。';
+      }
+    }
+
+    // 状態選択がある場合
+    final states = stateCounts.keys.toList();
+    if (states.length == 1) {
+      final state = states[0];
+      final count = stateCounts[state]!;
+      if (count == 1) {
+        return '$state食べました。';
+      } else {
+        return '$stateを${count}回食べました。';
+      }
+    } else {
+      // 複数の状態がある場合
+      final stateTexts = states.map((state) {
+        final count = stateCounts[state]!;
+        return count == 1 ? state : '$state${count}回';
+      }).join('、');
+      return '$stateTextsを食べました。';
+    }
+  }
+
   String _buildSummaryText(int mealKcal, int mealTarget, int workoutKcal, int workoutTarget, int proteinCurrent, int proteinTarget, int remainingCount) {
     final mealProgress = mealKcal >= mealTarget ? '目標達成' : 'あと${mealTarget - mealKcal}kcal';
     final workoutProgress = workoutKcal >= workoutTarget ? '目標達成' : 'あと${workoutTarget - workoutKcal}kcal';
@@ -1156,13 +1209,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 24),
 
-            // ドーナツ3連（主役）
+            // 今日の状態
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               color: mintColorLight.withOpacity(0.15),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '今日の状態',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _buildTodayStateText(todayItems),
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        height: 1.6,
+                        color: theme.colorScheme.onSurface.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // ドーナツ3連（補助的）
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              color: mintColorLight.withOpacity(0.1),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -1264,21 +1348,38 @@ class _HomeScreenState extends State<HomeScreen> {
               color: mintColorLight.withOpacity(0.15),
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.lightbulb_outline,
-                      size: 24,
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _guideText,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          height: 1.5,
+                    if (_fitType != null && _fitType!.isNotEmpty && _fitType != '未診断')
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'For $_fitType',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.4),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.lightbulb_outline,
+                          size: 24,
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _guideText,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -2007,6 +2108,33 @@ class _RecordScreenState extends State<RecordScreen> {
     await widget.onSavePlan(currentItems);
   }
 
+  Future<void> _quickAddMealState(String state) async {
+    // 状態別のkcal/Pマッピング
+    final stateMap = {
+      'しっかり': {'kcal': 800, 'protein': 45},
+      'ちょうど': {'kcal': 600, 'protein': 35},
+      '軽め': {'kcal': 400, 'protein': 25},
+    };
+
+    final values = stateMap[state];
+    if (values == null) return;
+
+    final now = DateTime.now();
+    final time = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    
+    final currentItems = List<PlanItem>.from(widget.planItems);
+    currentItems.add(PlanItem(
+      type: 'meal',
+      time: time,
+      title: state,
+      enabled: true,
+      kcal: values['kcal'] as int,
+      mealState: state,
+    ));
+
+    await widget.onSavePlan(currentItems);
+  }
+
   Future<void> _quickAddWorkout(String title, int kcal) async {
     final now = DateTime.now();
     final time = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
@@ -2037,6 +2165,59 @@ class _RecordScreenState extends State<RecordScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 今日の食事は？（3択クイック記録）
+            Text(
+              '今日の食事は？',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _quickAddMealState('しっかり'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('しっかり'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _quickAddMealState('ちょうど'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('ちょうど'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _quickAddMealState('軽め'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('軽め'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
             // 見出し行
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -2244,7 +2425,191 @@ class _RecordScreenState extends State<RecordScreen> {
   }
 
   Future<void> _showAddMealDialog() async {
-    await _showAddItemDialog(type: 'meal', defaultTitle: '食事', defaultKcal: 500);
+    String? selectedState;
+    String time = '08:00';
+    String title = '';
+    int? kcal;
+    final titleController = TextEditingController();
+    final kcalController = TextEditingController();
+
+    // 状態選択のマッピング
+    final stateMap = {
+      'しっかり': {'kcal': 800, 'protein': 30},
+      'ちょうど': {'kcal': 500, 'protein': 20},
+      '軽め': {'kcal': 300, 'protein': 10},
+    };
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('食事追加'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 状態選択（3択）
+                const Text(
+                  '状態を選択',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setDialogState(() {
+                            selectedState = 'しっかり';
+                            kcal = stateMap[selectedState]!['kcal'] as int;
+                            kcalController.text = kcal.toString();
+                            title = selectedState!;
+                            titleController.text = title;
+                          });
+                        },
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: selectedState == 'しっかり'
+                              ? const Color(0xFFB2DFDB).withOpacity(0.2)
+                              : null,
+                        ),
+                        child: const Text('しっかり'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setDialogState(() {
+                            selectedState = 'ちょうど';
+                            kcal = stateMap[selectedState]!['kcal'] as int;
+                            kcalController.text = kcal.toString();
+                            title = selectedState!;
+                            titleController.text = title;
+                          });
+                        },
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: selectedState == 'ちょうど'
+                              ? const Color(0xFFB2DFDB).withOpacity(0.2)
+                              : null,
+                        ),
+                        child: const Text('ちょうど'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setDialogState(() {
+                            selectedState = '軽め';
+                            kcal = stateMap[selectedState]!['kcal'] as int;
+                            kcalController.text = kcal.toString();
+                            title = selectedState!;
+                            titleController.text = title;
+                          });
+                        },
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: selectedState == '軽め'
+                              ? const Color(0xFFB2DFDB).withOpacity(0.2)
+                              : null,
+                        ),
+                        child: const Text('軽め'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 16),
+                // タイトル入力
+                TextFormField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    labelText: 'タイトル',
+                  ),
+                  onChanged: (value) => title = value,
+                ),
+                const SizedBox(height: 12),
+                // カロリー入力
+                TextFormField(
+                  controller: kcalController,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    labelText: 'カロリー（kcal）',
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (value) {
+                    kcal = int.tryParse(value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                // 時間選択
+                Row(
+                  children: [
+                    const Text('時間: '),
+                    OutlinedButton(
+                      onPressed: () async {
+                        final parts = time.split(':');
+                        final init = TimeOfDay(
+                          hour: int.tryParse(parts[0]) ?? 8,
+                          minute: int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
+                        );
+                        final t = await showTimePicker(
+                          context: context,
+                          initialTime: init,
+                        );
+                        if (t != null) {
+                          setDialogState(() {
+                            final hh = t.hour.toString().padLeft(2, '0');
+                            final mm = t.minute.toString().padLeft(2, '0');
+                            time = '$hh:$mm';
+                          });
+                        }
+                      },
+                      child: Text(time),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final finalTitle = titleController.text.trim();
+                if (finalTitle.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('タイトルを入力してください')),
+                  );
+                  return;
+                }
+                final finalKcal = int.tryParse(kcalController.text);
+
+                // 今日のplanItemsを更新
+                final currentItems = List<PlanItem>.from(widget.planItems);
+                currentItems.add(PlanItem(
+                  type: 'meal',
+                  time: time,
+                  title: finalTitle,
+                  enabled: true,
+                  kcal: finalKcal,
+                  mealState: selectedState,
+                ));
+
+                Navigator.pop(context);
+                widget.onSavePlan(currentItems);
+              },
+              child: const Text('追加'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _showAddWorkoutDialog() async {
@@ -2594,35 +2959,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              subtitle: Text(
-                _fitnessType,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              trailing: FilledButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => DiagnosisScreen(
-                        profileRepo: widget.profileRepo,
+              subtitle: _fitnessType != '未診断' && _fitnessType.isNotEmpty
+                  ? Text(
+                      _fitnessType,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    )
+                  : null,
+              trailing: _fitnessType != '未診断' && _fitnessType.isNotEmpty
+                  ? FilledButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DiagnosisScreen(
+                              profileRepo: widget.profileRepo,
+                            ),
+                          ),
+                        ).then((_) {
+                          // 診断画面から戻ったら、fitTypeを再読み込み
+                          _loadProfile();
+                        });
+                      },
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('再診断する'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    )
+                  : FilledButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DiagnosisScreen(
+                              profileRepo: widget.profileRepo,
+                            ),
+                          ),
+                        ).then((_) {
+                          // 診断画面から戻ったら、fitTypeを再読み込み
+                          _loadProfile();
+                        });
+                      },
+                      icon: const Icon(Icons.psychology_outlined, size: 16),
+                      label: const Text('診断する'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
-                  ).then((_) {
-                    // 診断画面から戻ったら、fitTypeを再読み込み
-                    _loadProfile();
-                  });
-                },
-                icon: const Icon(Icons.psychology_outlined, size: 16),
-                label: const Text('診断する'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
               children: [
                 if (_fitnessType != '未診断') ...[
                   Padding(
@@ -2865,6 +3256,350 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+}
+
+/// ----------------------------
+/// Diagnosis Screens
+/// ----------------------------
+
+class DiagnosisScreen extends StatefulWidget {
+  const DiagnosisScreen({
+    super.key,
+    required this.profileRepo,
+  });
+
+  final ProfileRepository profileRepo;
+
+  @override
+  State<DiagnosisScreen> createState() => _DiagnosisScreenState();
+}
+
+class _DiagnosisScreenState extends State<DiagnosisScreen> {
+  int _questionIndex = 0;
+  int _eScore = 0;
+  int _sScore = 0;
+  int _tScore = 0;
+  int _jScore = 0;
+
+  static const List<(String, String, String, String)> _questions = [
+    ('運動は一人でする方が好きですか？', 'グループでする方が好きですか？', 'I', 'E'),
+    ('運動の計画は事前に立てますか？', 'その日の気分で決めますか？', 'J', 'P'),
+    ('運動の効果を数値で確認しますか？', '体感で判断しますか？', 'S', 'N'),
+    ('運動中は集中して黙々と取り組みますか？', '楽しみながら会話もしますか？', 'I', 'E'),
+    ('同じ運動を続けるのが好きですか？', '新しい運動に挑戦するのが好きですか？', 'S', 'N'),
+    ('運動の目標は明確に設定しますか？', '大まかな方向性で進めますか？', 'J', 'P'),
+    ('運動の結果を論理的に分析しますか？', '感覚的に理解しますか？', 'T', 'F'),
+    ('運動は計画的に継続しますか？', '気が向いたときにしますか？', 'J', 'P'),
+    ('運動のモチベーションは目標達成ですか？', '運動そのものを楽しみますか？', 'T', 'F'),
+    ('運動の時間は固定しますか？', '柔軟に調整しますか？', 'J', 'P'),
+  ];
+
+  void _answer(String axis) {
+    setState(() {
+      // スコアを更新
+      if (axis == 'E') _eScore++;
+      if (axis == 'I') _eScore--;
+      if (axis == 'S') _sScore++;
+      if (axis == 'N') _sScore--;
+      if (axis == 'T') _tScore++;
+      if (axis == 'F') _tScore--;
+      if (axis == 'J') _jScore++;
+      if (axis == 'P') _jScore--;
+
+      _questionIndex++;
+    });
+
+    // 最後の質問の後、結果画面へ遷移
+    if (_questionIndex >= _questions.length) {
+      final type = '${_eScore >= 3 ? 'E' : 'I'}${_sScore >= 3 ? 'S' : 'N'}${_tScore >= 3 ? 'T' : 'F'}${_jScore >= 3 ? 'J' : 'P'}';
+      final fitAxis = 'E:$_eScore,I:${5-_eScore} S:$_sScore,N:${5-_sScore} T:$_tScore,F:${5-_tScore} J:$_jScore,P:${5-_jScore}';
+      
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DiagnosisResultScreen(
+            profileRepo: widget.profileRepo,
+            fitType: type,
+            fitAxis: fitAxis,
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    const mintColorLight = Color(0xFFB2DFDB);
+
+    if (_questionIndex >= _questions.length) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final question = _questions[_questionIndex];
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('フィットネスタイプ診断'),
+        elevation: 0,
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 進捗表示
+              Text(
+                '質問 ${_questionIndex + 1} / ${_questions.length}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              LinearProgressIndicator(
+                value: (_questionIndex + 1) / _questions.length,
+                backgroundColor: mintColorLight.withOpacity(0.3),
+                valueColor: AlwaysStoppedAnimation<Color>(mintColorLight),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              const SizedBox(height: 32),
+
+              // 質問文
+              Text(
+                'どちらに近いですか？',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+
+              // 選択肢A
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                color: mintColorLight.withOpacity(0.15),
+                child: InkWell(
+                  onTap: () => _answer(question.$3),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: mintColorLight,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'A',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            question.$1,
+                            style: theme.textTheme.bodyLarge,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 選択肢B
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                color: mintColorLight.withOpacity(0.15),
+                child: InkWell(
+                  onTap: () => _answer(question.$4),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: mintColorLight,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'B',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            question.$2,
+                            style: theme.textTheme.bodyLarge,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class DiagnosisResultScreen extends StatelessWidget {
+  const DiagnosisResultScreen({
+    super.key,
+    required this.profileRepo,
+    required this.fitType,
+    required this.fitAxis,
+  });
+
+  final ProfileRepository profileRepo;
+  final String fitType;
+  final String fitAxis;
+
+  static const Map<String, String> _descriptions = {
+    'ENFP': 'エネルギッシュで創造的なタイプ。多様な運動を楽しみ、柔軟にアプローチします。',
+    'ENFJ': 'リーダーシップがあり、他者と協力して目標を達成するタイプ。',
+    'ENTP': '革新的で挑戦的なタイプ。新しい運動方法を試すのが好きです。',
+    'ENTJ': '戦略的で目標達成に集中するタイプ。効率的な運動計画を立てます。',
+    'ESFP': '楽しく社交的なタイプ。グループで運動することを好みます。',
+    'ESFJ': '協調性が高く、他者と一緒に運動することを楽しみます。',
+    'ESTP': '行動力があり、実践的な運動を好みます。',
+    'ESTJ': '組織的で計画的。ルーティンを守って継続します。',
+    'INFP': '内省的で創造的なタイプ。自分なりの運動スタイルを大切にします。',
+    'INFJ': '深く考え、長期的な視点で運動に取り組みます。',
+    'INTP': '分析的で理論的なタイプ。運動のメカニズムを理解したいです。',
+    'INTJ': '戦略的で独立心が強いタイプ。自分で計画を立てて実行します。',
+    'ISFP': '柔軟で感受性が高いタイプ。自然な流れで運動を楽しみます。',
+    'ISFJ': '責任感が強く、継続的な努力を大切にします。',
+    'ISTP': '実践的で独立心が強いタイプ。自分で試行錯誤します。',
+    'ISTJ': '規則正しく、計画的に運動を継続します。',
+  };
+
+  Future<void> _saveAndReturn(BuildContext context) async {
+    try {
+      await profileRepo.save(
+        fitType: fitType,
+        fitAxis: fitAxis,
+      );
+      if (context.mounted) {
+        Navigator.popUntil(context, (route) => route.isFirst);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('診断結果を保存しました')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存に失敗しました: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    const mintColorLight = Color(0xFFB2DFDB);
+    final description = _descriptions[fitType] ?? 'あなたのフィットネスタイプです。';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('診断結果'),
+        elevation: 0,
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // タイプ表示
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                color: mintColorLight.withOpacity(0.15),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      Text(
+                        fitType,
+                        style: theme.textTheme.displayMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        description,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          height: 1.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'このタイプで、しばらく進めてみよう。',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          height: 1.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Spacer(),
+              // 保存して戻るボタン
+              FilledButton(
+                onPressed: () => _saveAndReturn(context),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: const Text('このスタイルで始める'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _InfoRow extends StatelessWidget {
