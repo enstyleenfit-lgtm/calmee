@@ -958,6 +958,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 画面が表示されるたびにfitTypeを再読み込み（診断結果保存後に対応）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadFitType();
+    });
+  }
+
   static const Map<String, String> fitTypeGuide = {
     'ISTJ': '今日やることを1つ決めて、淡々と進めよう。',
     'ISFJ': '無理しなくていい。できる分だけで十分。',
@@ -2592,7 +2601,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               trailing: FilledButton.icon(
-                onPressed: () => _showFitnessTypeDiagnosis(context, theme),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DiagnosisScreen(
+                        profileRepo: widget.profileRepo,
+                      ),
+                    ),
+                  ).then((_) {
+                    // 診断画面から戻ったら、fitTypeを再読み込み
+                    _loadProfile();
+                  });
+                },
                 icon: const Icon(Icons.psychology_outlined, size: 16),
                 label: const Text('診断する'),
                 style: FilledButton.styleFrom(
@@ -2844,153 +2865,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<void> _showFitnessTypeDiagnosis(BuildContext context, ThemeData theme) async {
-    int eScore = 0;
-    int sScore = 0;
-    int tScore = 0;
-    int jScore = 0;
-    int questionIndex = 0;
-
-    final questions = [
-      ('運動は一人でする方が好きですか？', 'グループでする方が好きですか？', 'I', 'E'),
-      ('運動の計画は事前に立てますか？', 'その日の気分で決めますか？', 'J', 'P'),
-      ('運動の効果を数値で確認しますか？', '体感で判断しますか？', 'S', 'N'),
-      ('運動中は集中して黙々と取り組みますか？', '楽しみながら会話もしますか？', 'I', 'E'),
-      ('同じ運動を続けるのが好きですか？', '新しい運動に挑戦するのが好きですか？', 'S', 'N'),
-      ('運動の目標は明確に設定しますか？', '大まかな方向性で進めますか？', 'J', 'P'),
-      ('運動の結果を論理的に分析しますか？', '感覚的に理解しますか？', 'T', 'F'),
-      ('運動は計画的に継続しますか？', '気が向いたときにしますか？', 'J', 'P'),
-      ('運動のモチベーションは目標達成ですか？', '運動そのものを楽しみますか？', 'T', 'F'),
-      ('運動の時間は固定しますか？', '柔軟に調整しますか？', 'J', 'P'),
-    ];
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          if (questionIndex >= questions.length) {
-            final type = '${eScore >= 3 ? 'E' : 'I'}${sScore >= 3 ? 'S' : 'N'}${tScore >= 3 ? 'T' : 'F'}${jScore >= 3 ? 'J' : 'P'}';
-            final fitAxis = 'E:$eScore,I:${5-eScore} S:$sScore,N:${5-sScore} T:$tScore,F:${5-tScore} J:$jScore,P:${5-jScore}';
-            final descriptions = {
-              'ENFP': 'エネルギッシュで創造的なタイプ。多様な運動を楽しみ、柔軟にアプローチします。',
-              'ENFJ': 'リーダーシップがあり、他者と協力して目標を達成するタイプ。',
-              'ENTP': '革新的で挑戦的なタイプ。新しい運動方法を試すのが好きです。',
-              'ENTJ': '戦略的で目標達成に集中するタイプ。効率的な運動計画を立てます。',
-              'ESFP': '楽しく社交的なタイプ。グループで運動することを好みます。',
-              'ESFJ': '協調性が高く、他者と一緒に運動することを楽しみます。',
-              'ESTP': '行動力があり、実践的な運動を好みます。',
-              'ESTJ': '組織的で計画的。ルーティンを守って継続します。',
-              'INFP': '内省的で創造的なタイプ。自分なりの運動スタイルを大切にします。',
-              'INFJ': '深く考え、長期的な視点で運動に取り組みます。',
-              'INTP': '分析的で理論的なタイプ。運動のメカニズムを理解したいです。',
-              'INTJ': '戦略的で独立心が強いタイプ。自分で計画を立てて実行します。',
-              'ISFP': '柔軟で感受性が高いタイプ。自然な流れで運動を楽しみます。',
-              'ISFJ': '責任感が強く、継続的な努力を大切にします。',
-              'ISTP': '実践的で独立心が強いタイプ。自分で試行錯誤します。',
-              'ISTJ': '規則正しく、計画的に運動を継続します。',
-            };
-
-            return AlertDialog(
-              title: const Text('診断結果'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    type,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    descriptions[type] ?? 'あなたのフィットネスタイプです。',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-              actions: [
-                FilledButton(
-                  onPressed: () async {
-                    try {
-                      await widget.profileRepo.save(
-                        fitType: type,
-                        fitAxis: fitAxis,
-                      );
-                      if (mounted) {
-                        setState(() {
-                          _fitnessType = type;
-                          _fitnessTypeDescription = descriptions[type] ?? '';
-                        });
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('診断結果を保存しました')),
-                        );
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('保存に失敗しました: $e')),
-                        );
-                      }
-                    }
-                  },
-                  child: const Text('結果を保存'),
-                ),
-              ],
-            );
-          }
-
-          final question = questions[questionIndex];
-          return AlertDialog(
-            title: Text('質問 ${questionIndex + 1}/${questions.length}'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  question.$1,
-                  style: theme.textTheme.bodyLarge,
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: () {
-                    // スコアを更新（A選択）
-                    if (question.$3 == 'E') eScore++;
-                    if (question.$3 == 'I') eScore--;
-                    if (question.$3 == 'S') sScore++;
-                    if (question.$3 == 'N') sScore--;
-                    if (question.$3 == 'T') tScore++;
-                    if (question.$3 == 'F') tScore--;
-                    if (question.$3 == 'J') jScore++;
-                    if (question.$3 == 'P') jScore--;
-                    setDialogState(() => questionIndex++);
-                  },
-                  child: Text(question.$1),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: () {
-                    // スコアを更新（B選択）
-                    if (question.$4 == 'E') eScore++;
-                    if (question.$4 == 'I') eScore--;
-                    if (question.$4 == 'S') sScore++;
-                    if (question.$4 == 'N') sScore--;
-                    if (question.$4 == 'T') tScore++;
-                    if (question.$4 == 'F') tScore--;
-                    if (question.$4 == 'J') jScore++;
-                    if (question.$4 == 'P') jScore--;
-                    setDialogState(() => questionIndex++);
-                  },
-                  child: Text(question.$2),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
 }
 
 class _InfoRow extends StatelessWidget {
