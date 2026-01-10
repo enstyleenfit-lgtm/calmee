@@ -79,6 +79,7 @@ class PlanItem {
   final String title;
   final bool enabled;
   final int? kcal; // カロリー（オプショナル）
+  final int? protein; // タンパク質（オプショナル）
   final String? mealState; // 食事の状態（しっかり/ちょうど/軽め）
 
   PlanItem({
@@ -87,6 +88,7 @@ class PlanItem {
     required this.title,
     required this.enabled,
     this.kcal,
+    this.protein,
     this.mealState,
   });
 
@@ -96,6 +98,7 @@ class PlanItem {
         'title': title,
         'enabled': enabled,
         if (kcal != null) 'kcal': kcal,
+        if (protein != null) 'protein': protein,
         if (mealState != null) 'mealState': mealState,
       };
 
@@ -105,6 +108,7 @@ class PlanItem {
         title: (m['title'] as String?) ?? '',
         enabled: (m['enabled'] as bool?) ?? true,
         kcal: (m['kcal'] as num?)?.toInt(),
+        protein: (m['protein'] as num?)?.toInt(),
         mealState: m['mealState'] as String?,
       );
 
@@ -114,6 +118,7 @@ class PlanItem {
     String? title,
     bool? enabled,
     int? kcal,
+    int? protein,
     String? mealState,
   }) {
     return PlanItem(
@@ -122,6 +127,7 @@ class PlanItem {
       title: title ?? this.title,
       enabled: enabled ?? this.enabled,
       kcal: kcal ?? this.kcal,
+      protein: protein ?? this.protein,
       mealState: mealState ?? this.mealState,
     );
   }
@@ -2129,6 +2135,7 @@ class _RecordScreenState extends State<RecordScreen> {
       title: state,
       enabled: true,
       kcal: values['kcal'] as int,
+      protein: values['protein'] as int,
       mealState: state,
     ));
 
