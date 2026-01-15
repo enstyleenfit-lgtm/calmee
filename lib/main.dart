@@ -2,9 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 // Web判定
 import 'package:flutter/foundation.dart';
+
+// 画像選択
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 // 通知 + TTS + timezone
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -26,6 +34,16 @@ Future<void> main() async {
     await auth.signInAnonymously();
   }
   final uid = auth.currentUser!.uid;
+
+  // エミュレータを使用する場合（開発環境のみ）
+  if (kDebugMode) {
+    try {
+      FirebaseFunctions.instance.useFunctionsEmulator('localhost', 5001);
+    } catch (e) {
+      // エミュレータが起動していない場合は無視
+      print('Functions emulator not available: $e');
+    }
+  }
 
   // Repositoryを生成
   final habitRepo = HabitRepository(uid);
@@ -236,8 +254,6 @@ class NotiTtsService {
         ),
         payload: payload,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
       );
     }
   }
@@ -812,6 +828,14 @@ class _RootShellState extends State<RootShell> {
         },
         onGoPlan: () => setState(() => _index = 1),
         onGoRecord: () => setState(() => _index = 2),
+        onSavePlan: (items) async {
+          setState(() => _loading = true);
+          try {
+            await _savePlan(items);
+          } finally {
+            if (mounted) setState(() => _loading = false);
+          }
+        },
       ),
       PlanScreen(
         loading: _loading,
@@ -924,6 +948,7 @@ class HomeScreen extends StatefulWidget {
     required this.onRefresh,
     required this.onGoPlan,
     required this.onGoRecord,
+    required this.onSavePlan,
   });
 
   final bool loading;
@@ -938,6 +963,7 @@ class HomeScreen extends StatefulWidget {
   final Future<void> Function() onRefresh;
   final VoidCallback onGoPlan;
   final VoidCallback onGoRecord;
+  final Future<void> Function(List<PlanItem>) onSavePlan;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -1103,6 +1129,199 @@ class _HomeScreenState extends State<HomeScreen> {
     return '摂取カロリーは$mealProgress。消費カロリーは$workoutProgress。たんぱく質は$proteinProgress。残り予定は${remainingCount}件です。';
   }
 
+  /// Firebase Storageへ画像をアップロード
+  Future<String> _uploadImageToStorage(XFile image) async {
+    final auth = FirebaseAuth.instance;
+    final uid = auth.currentUser?.uid ?? 'anonymous';
+    final storage = FirebaseStorage.instance;
+    
+    // ファイル名を生成（タイムスタンプ + ランダム）
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final fileName = 'meal_images/$uid/${timestamp}_${image.name}';
+    
+    // アップロード
+    final ref = storage.ref().child(fileName);
+    
+    if (kIsWeb) {
+      // Webの場合
+      final bytes = await image.readAsBytes();
+      await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+    } else {
+      // モバイルの場合
+      await ref.putFile(File(image.path));
+    }
+    
+    // ダウンロードURLを取得
+    final url = await ref.getDownloadURL();
+    return url;
+  }
+
+  /// Cloud FunctionsでAI解析（エミュレータ対応）
+  Future<String?> _analyzeMealImage(String imageUrl) async {
+    try {
+      // cloud_functionsパッケージを使用（エミュレータ対応）
+      final functions = FirebaseFunctions.instance;
+      final callable = functions.httpsCallable('analyzeMealImage');
+      
+      final result = await callable.call({
+        'imageUrl': imageUrl,
+      });
+      
+      final data = result.data as Map<String, dynamic>?;
+      final level = data?['level'] as String?;
+      
+      // levelを日本語に変換（light/normal/heavy → 軽め/ちょうど/しっかり）
+      if (level == 'light') return '軽め';
+      if (level == 'heavy') return 'しっかり';
+      return 'ちょうど'; // normal または デフォルト
+    } catch (e) {
+      // エラー時はnullを返す（フォールバック用）
+      print('Exception in _analyzeMealImage: $e');
+      return null;
+    }
+  }
+
+  Future<void> _pickImageAndShowEstimate() async {
+    final picker = ImagePicker();
+    XFile? image;
+    
+    try {
+      // Webではカメラが使えない場合があるので、ギャラリーから選択
+      if (kIsWeb) {
+        image = await picker.pickImage(source: ImageSource.gallery);
+      } else {
+        // モバイルではカメラとギャラリーの選択肢を提供
+        final source = await showDialog<ImageSource>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('写真を選択'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.camera_alt),
+                  title: const Text('カメラで撮影'),
+                  onTap: () => Navigator.pop(context, ImageSource.camera),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library),
+                  title: const Text('ギャラリーから選択'),
+                  onTap: () => Navigator.pop(context, ImageSource.gallery),
+                ),
+              ],
+            ),
+          ),
+        );
+        
+        if (source != null) {
+          image = await picker.pickImage(source: source);
+        }
+      }
+      
+      if (image != null && mounted) {
+        // ローディング表示
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: Card(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('AIで解析中...'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+
+        try {
+          // Firebase Storageへアップロード
+          final imageUrl = await _uploadImageToStorage(image);
+          
+          // Cloud FunctionsでAI解析
+          String? aiLevel = await _analyzeMealImage(imageUrl);
+          
+          // ローディングを閉じる
+          if (mounted) Navigator.pop(context);
+          
+          // 推定結果画面へ遷移
+          if (mounted) {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MealEstimateScreen(
+                  imagePath: image?.path ?? '',
+                  initialState: aiLevel ?? 'ちょうど',
+                  onSave: (String state, int kcal, int protein) async {
+                    await _saveMealFromEstimate(state, kcal, protein);
+                  },
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          // ローディングを閉じる
+          if (mounted) Navigator.pop(context);
+          
+          // エラー時はデフォルト（ちょうど）で続行
+          if (mounted) {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MealEstimateScreen(
+                  imagePath: image?.path ?? '',
+                  initialState: 'ちょうど',
+                  onSave: (String state, int kcal, int protein) async {
+                    await _saveMealFromEstimate(state, kcal, protein);
+                  },
+                ),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('写真の選択に失敗しました: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveMealFromEstimate(String state, int kcal, int protein) async {
+    final now = DateTime.now();
+    final time = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    
+    final currentItems = List<PlanItem>.from(widget.planItems);
+    currentItems.add(PlanItem(
+      type: 'meal',
+      time: time,
+      title: '写真で記録',
+      enabled: true,
+      kcal: kcal,
+      protein: protein,
+      mealState: state,
+    ));
+
+    await widget.onSavePlan(currentItems);
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('記録しました')),
+      );
+      // Home画面を更新
+      await widget.onRefresh();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1210,6 +1429,23 @@ class _HomeScreenState extends State<HomeScreen> {
                       }),
                   ],
                 ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // 写真で記録ボタン
+            FilledButton.icon(
+              onPressed: () => _pickImageAndShowEstimate(),
+              icon: const Text('📸', style: TextStyle(fontSize: 18)),
+              label: const Text('写真で記録'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                backgroundColor: mintColorLight.withOpacity(0.3),
+                foregroundColor: theme.colorScheme.onSurface,
               ),
             ),
 
@@ -1964,6 +2200,98 @@ class _RecordScreenState extends State<RecordScreen> {
     _selected = widget.habitOptions.first;
   }
 
+  /// Firebase Storageへ画像をアップロード
+  Future<String> _uploadImageToStorage(XFile image) async {
+    final auth = FirebaseAuth.instance;
+    final uid = auth.currentUser?.uid ?? 'anonymous';
+    final storage = FirebaseStorage.instance;
+    
+    // ファイル名を生成（タイムスタンプ + ランダム）
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final fileName = 'meal_images/$uid/${timestamp}_${image.name}';
+    
+    // アップロード
+    final ref = storage.ref().child(fileName);
+    
+    if (kIsWeb) {
+      // Webの場合
+      final bytes = await image.readAsBytes();
+      await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+    } else {
+      // モバイルの場合
+      await ref.putFile(File(image.path));
+    }
+    
+    // ダウンロードURLを取得
+    final url = await ref.getDownloadURL();
+    return url;
+  }
+
+  /// Cloud FunctionsでAI解析（エミュレータ対応）
+  Future<String?> _analyzeMealImage(String imageUrl) async {
+    try {
+      // エミュレータのCallable Function URL
+      const emulatorUrl = 'http://127.0.0.1:5001/calmee-8011c/us-central1/analyzeMealImage';
+      
+      // 認証トークンを取得
+      final auth = FirebaseAuth.instance;
+      final user = auth.currentUser;
+      String? idToken;
+      if (user != null) {
+        idToken = await user.getIdToken();
+      }
+      
+      // HTTP POSTリクエスト（エミュレータのCallable Function形式）
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+      };
+      if (idToken != null) {
+        headers['Authorization'] = 'Bearer $idToken';
+      }
+      
+      // エミュレータのCallable Functionは data フィールドでラップ
+      final body = jsonEncode({
+        'data': {
+          'imageUrl': imageUrl,
+        },
+      });
+      
+      final response = await http.post(
+        Uri.parse(emulatorUrl),
+        headers: headers,
+        body: body,
+      );
+      
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        // エミュレータのレスポンス形式を確認
+        // 成功時: { "result": { "level": "..." } }
+        // エラー時: { "error": { ... } }
+        if (json.containsKey('error')) {
+          print('Functions error: ${json['error']}');
+          return null;
+        }
+        
+        final result = json['result'] as Map<String, dynamic>?;
+        final level = result?['level'] as String?;
+        
+        // levelを日本語に変換（light/normal/heavy → 軽め/ちょうど/しっかり）
+        if (level == 'light') return '軽め';
+        if (level == 'heavy') return 'しっかり';
+        return 'ちょうど'; // normal または デフォルト
+      } else {
+        // HTTPエラー時はnullを返す（フォールバック用）
+        print('HTTP error: ${response.statusCode} - ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      // エラー時はnullを返す（フォールバック用）
+      print('Exception in _analyzeMealImage: $e');
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -2041,6 +2369,21 @@ class _RecordScreenState extends State<RecordScreen> {
               ),
             ),
             const SizedBox(height: 12),
+            // 写真で記録ボタン
+            FilledButton.icon(
+              onPressed: () => _pickImageAndShowEstimate(),
+              icon: const Text('📸', style: TextStyle(fontSize: 18)),
+              label: const Text('写真で記録'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                backgroundColor: mintColorLight.withOpacity(0.3),
+                foregroundColor: theme.colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
             // 食事テンプレ
             Row(
               children: [
@@ -2096,6 +2439,145 @@ class _RecordScreenState extends State<RecordScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _pickImageAndShowEstimate() async {
+    final picker = ImagePicker();
+    XFile? image;
+    
+    try {
+      // Webではカメラが使えない場合があるので、ギャラリーから選択
+      if (kIsWeb) {
+        image = await picker.pickImage(source: ImageSource.gallery);
+      } else {
+        // モバイルではカメラとギャラリーの選択肢を提供
+        final source = await showDialog<ImageSource>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('写真を選択'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.camera_alt),
+                  title: const Text('カメラで撮影'),
+                  onTap: () => Navigator.pop(context, ImageSource.camera),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library),
+                  title: const Text('ギャラリーから選択'),
+                  onTap: () => Navigator.pop(context, ImageSource.gallery),
+                ),
+              ],
+            ),
+          ),
+        );
+        
+        if (source != null) {
+          image = await picker.pickImage(source: source);
+        }
+      }
+      
+      if (image != null && mounted) {
+        // ローディング表示
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: Card(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('AIで解析中...'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+
+        try {
+          // Firebase Storageへアップロード
+          final imageUrl = await _uploadImageToStorage(image);
+          
+          // Cloud FunctionsでAI解析
+          String? aiLevel = await _analyzeMealImage(imageUrl);
+          
+          // ローディングを閉じる
+          if (mounted) Navigator.pop(context);
+          
+          // 推定結果画面へ遷移
+          if (mounted) {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MealEstimateScreen(
+                  imagePath: image?.path ?? '',
+                  initialState: aiLevel ?? 'ちょうど',
+                  onSave: (String state, int kcal, int protein) async {
+                    await _saveMealFromEstimate(state, kcal, protein);
+                  },
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          // ローディングを閉じる
+          if (mounted) Navigator.pop(context);
+          
+          // エラー時はデフォルト（ちょうど）で続行
+          if (mounted) {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MealEstimateScreen(
+                  imagePath: image?.path ?? '',
+                  initialState: 'ちょうど',
+                  onSave: (String state, int kcal, int protein) async {
+                    await _saveMealFromEstimate(state, kcal, protein);
+                  },
+                ),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('写真の選択に失敗しました: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveMealFromEstimate(String state, int kcal, int protein) async {
+    final now = DateTime.now();
+    final time = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    
+    final currentItems = List<PlanItem>.from(widget.planItems);
+    currentItems.add(PlanItem(
+      type: 'meal',
+      time: time,
+      title: '写真で記録',
+      enabled: true,
+      kcal: kcal,
+      protein: protein,
+      mealState: state,
+    ));
+
+    await widget.onSavePlan(currentItems);
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('記録しました')),
+      );
+    }
   }
 
   Future<void> _quickAddMeal(int kcal, int protein) async {
@@ -2743,6 +3225,254 @@ class _RecordScreenState extends State<RecordScreen> {
               child: const Text('追加'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 食事推定結果画面（AIダミー）
+class MealEstimateScreen extends StatefulWidget {
+  const MealEstimateScreen({
+    super.key,
+    required this.imagePath,
+    this.initialState,
+    required this.onSave,
+  });
+
+  final String imagePath;
+  final String? initialState; // AI解析結果（軽め/ちょうど/しっかり）
+  final void Function(String state, int kcal, int protein) onSave;
+
+  @override
+  State<MealEstimateScreen> createState() => _MealEstimateScreenState();
+}
+
+class _MealEstimateScreenState extends State<MealEstimateScreen> {
+  late String _selectedState; // AI解析結果またはデフォルト
+  
+  // 状態別のkcal/Pマッピング
+  final Map<String, Map<String, int>> _stateMap = {
+    '軽め': {'kcal': 400, 'protein': 25},
+    'ちょうど': {'kcal': 600, 'protein': 35},
+    'しっかり': {'kcal': 800, 'protein': 45},
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    // AI解析結果があればそれを使用、なければデフォルト「ちょうど」
+    _selectedState = widget.initialState ?? 'ちょうど';
+  }
+
+  int get _currentKcal => _stateMap[_selectedState]!['kcal']!;
+  int get _currentProtein => _stateMap[_selectedState]!['protein']!;
+
+  void _handleSave() {
+    widget.onSave(_selectedState, _currentKcal, _currentProtein);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    const mintColorLight = Color(0xFFB2DFDB);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('推定結果'),
+        elevation: 0,
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            // 選択した写真を表示
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: kIsWeb
+                  ? Image.network(
+                      widget.imagePath,
+                      height: 300,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          height: 300,
+                          color: Colors.grey[300],
+                          child: const Center(
+                            child: Icon(Icons.image, size: 64, color: Colors.grey),
+                          ),
+                        );
+                      },
+                    )
+                  : Image.file(
+                      File(widget.imagePath),
+                      height: 300,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          height: 300,
+                          color: Colors.grey[300],
+                          child: const Center(
+                            child: Icon(Icons.image, size: 64, color: Colors.grey),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // 3択UI
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              color: mintColorLight.withOpacity(0.15),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '食事の量を選択',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStateButton('軽め', theme, mintColorLight),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildStateButton('ちょうど', theme, mintColorLight),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildStateButton('しっかり', theme, mintColorLight),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // kcal/P表示
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              color: mintColorLight.withOpacity(0.15),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Column(
+                          children: [
+                            Text(
+                              '$_currentKcal',
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'kcal',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 40),
+                        Column(
+                          children: [
+                            Text(
+                              '$_currentProtein',
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'P',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 32),
+            
+            // OKボタン
+            FilledButton(
+              onPressed: _handleSave,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                backgroundColor: mintColorLight.withOpacity(0.3),
+                foregroundColor: theme.colorScheme.onSurface,
+              ),
+              child: const Text(
+                'OK（記録する）',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStateButton(String state, ThemeData theme, Color mintColorLight) {
+    final isSelected = _selectedState == state;
+    
+    return OutlinedButton(
+      onPressed: () {
+        setState(() {
+          _selectedState = state;
+        });
+      },
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        backgroundColor: isSelected
+            ? mintColorLight.withOpacity(0.3)
+            : null,
+        side: BorderSide(
+          color: isSelected
+              ? mintColorLight
+              : theme.colorScheme.outline.withOpacity(0.3),
+          width: isSelected ? 2 : 1,
+        ),
+      ),
+      child: Text(
+        state,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
         ),
       ),
     );

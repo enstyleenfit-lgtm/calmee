@@ -1,1 +1,40 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"calmee-8011c","appId":"1:71458725198:android:26fd5a342925ead7a0d21f","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"calmee-8011c","configurations":{"android":"1:71458725198:android:26fd5a342925ead7a0d21f","ios":"1:71458725198:ios:9084db04937e7924a0d21f","macos":"1:71458725198:ios:9084db04937e7924a0d21f","web":"1:71458725198:web:5694e31acdf02a8ca0d21f","windows":"1:71458725198:web:294f3ef3e8fd41f5a0d21f"}}}}}}
+{
+  "functions": {
+    "source": "functions"
+  },
+  "emulators": {
+    "functions": {
+      "port": 5001
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "hub": {
+      "port": 4400
+    }
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "calmee-8011c",
+          "appId": "1:71458725198:android:26fd5a342925ead7a0d21f",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "calmee-8011c",
+          "configurations": {
+            "android": "1:71458725198:android:26fd5a342925ead7a0d21f",
+            "ios": "1:71458725198:ios:9084db04937e7924a0d21f",
+            "macos": "1:71458725198:ios:9084db04937e7924a0d21f",
+            "web": "1:71458725198:web:5694e31acdf02a8ca0d21f",
+            "windows": "1:71458725198:web:294f3ef3e8fd41f5a0d21f"
+          }
+        }
+      }
+    }
+  }
+}
