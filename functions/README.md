@@ -40,3 +40,4 @@ firebase deploy --only functions
 - AI解析に失敗した場合は、デフォルトで "normal" を返す
 
 
+

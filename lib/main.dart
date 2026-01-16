@@ -13,6 +13,7 @@ import 'package:flutter/foundation.dart';
 // 画像選択
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:math' as math;
 
 // 通知 + TTS + timezone
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -1219,27 +1220,57 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       
       if (image != null && mounted) {
-        // ローディング表示
+        // 解析中画面を表示（キャンセル可能）
         if (!mounted) return;
-        showDialog(
+        bool cancelled = false;
+        await showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => const Center(
-            child: Card(
-              child: Padding(
-                padding: EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('AIで解析中...'),
-                  ],
+          builder: (context) {
+            const mintColorLight = Color(0xFFB2DFDB);
+            return WillPopScope(
+              onWillPop: () async {
+                cancelled = true;
+                return true;
+              },
+              child: Center(
+                child: Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  color: mintColorLight.withOpacity(0.1),
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 24),
+                        Text(
+                          'AIで解析中...',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        TextButton(
+                          onPressed: () {
+                            cancelled = true;
+                            Navigator.pop(context);
+                          },
+                          child: const Text('キャンセル'),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
+
+        if (cancelled) return;
 
         try {
           // Firebase Storageへアップロード
@@ -1247,6 +1278,7 @@ class _HomeScreenState extends State<HomeScreen> {
           
           // Cloud FunctionsでAI解析
           String? aiLevel = await _analyzeMealImage(imageUrl);
+          bool hasError = aiLevel == null;
           
           // ローディングを閉じる
           if (mounted) Navigator.pop(context);
@@ -1259,6 +1291,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 builder: (context) => MealEstimateScreen(
                   imagePath: image?.path ?? '',
                   initialState: aiLevel ?? 'ちょうど',
+                  hasError: hasError,
                   onSave: (String state, int kcal, int protein) async {
                     await _saveMealFromEstimate(state, kcal, protein);
                   },
@@ -1278,6 +1311,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 builder: (context) => MealEstimateScreen(
                   imagePath: image?.path ?? '',
                   initialState: 'ちょうど',
+                  hasError: true,
                   onSave: (String state, int kcal, int protein) async {
                     await _saveMealFromEstimate(state, kcal, protein);
                   },
@@ -1478,6 +1512,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // 今日の摂取状況
+            _IntakeGaugeCard(
+              intake: mealKcal,
+              target: mealTarget,
             ),
 
             const SizedBox(height: 24),
@@ -2479,27 +2521,57 @@ class _RecordScreenState extends State<RecordScreen> {
       }
       
       if (image != null && mounted) {
-        // ローディング表示
+        // 解析中画面を表示（キャンセル可能）
         if (!mounted) return;
-        showDialog(
+        bool cancelled = false;
+        await showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => const Center(
-            child: Card(
-              child: Padding(
-                padding: EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('AIで解析中...'),
-                  ],
+          builder: (context) {
+            const mintColorLight = Color(0xFFB2DFDB);
+            return WillPopScope(
+              onWillPop: () async {
+                cancelled = true;
+                return true;
+              },
+              child: Center(
+                child: Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  color: mintColorLight.withOpacity(0.1),
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 24),
+                        Text(
+                          'AIで解析中...',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        TextButton(
+                          onPressed: () {
+                            cancelled = true;
+                            Navigator.pop(context);
+                          },
+                          child: const Text('キャンセル'),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
+
+        if (cancelled) return;
 
         try {
           // Firebase Storageへアップロード
@@ -2507,6 +2579,7 @@ class _RecordScreenState extends State<RecordScreen> {
           
           // Cloud FunctionsでAI解析
           String? aiLevel = await _analyzeMealImage(imageUrl);
+          bool hasError = aiLevel == null;
           
           // ローディングを閉じる
           if (mounted) Navigator.pop(context);
@@ -2519,6 +2592,7 @@ class _RecordScreenState extends State<RecordScreen> {
                 builder: (context) => MealEstimateScreen(
                   imagePath: image?.path ?? '',
                   initialState: aiLevel ?? 'ちょうど',
+                  hasError: hasError,
                   onSave: (String state, int kcal, int protein) async {
                     await _saveMealFromEstimate(state, kcal, protein);
                   },
@@ -2538,6 +2612,7 @@ class _RecordScreenState extends State<RecordScreen> {
                 builder: (context) => MealEstimateScreen(
                   imagePath: image?.path ?? '',
                   initialState: 'ちょうど',
+                  hasError: true,
                   onSave: (String state, int kcal, int protein) async {
                     await _saveMealFromEstimate(state, kcal, protein);
                   },
@@ -3237,11 +3312,13 @@ class MealEstimateScreen extends StatefulWidget {
     super.key,
     required this.imagePath,
     this.initialState,
+    this.hasError = false,
     required this.onSave,
   });
 
   final String imagePath;
   final String? initialState; // AI解析結果（軽め/ちょうど/しっかり）
+  final bool hasError; // AI解析が失敗したかどうか
   final void Function(String state, int kcal, int protein) onSave;
 
   @override
@@ -3323,15 +3400,47 @@ class _MealEstimateScreenState extends State<MealEstimateScreen> {
                     ),
             ),
             
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             
-            // 3択UI
+            // 失敗時の説明
+            if (widget.hasError)
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                color: mintColorLight.withOpacity(0.1),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 20,
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'AI解析に失敗したため、デフォルト値で表示しています。',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            
+            if (widget.hasError) const SizedBox(height: 24),
+            
+            // 3択UI（SegmentedButton）
             Card(
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               color: mintColorLight.withOpacity(0.15),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -3341,21 +3450,73 @@ class _MealEstimateScreenState extends State<MealEstimateScreen> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildStateButton('軽め', theme, mintColorLight),
+                    const SizedBox(height: 20),
+                    SegmentedButton<String>(
+                      segments: [
+                        ButtonSegment(
+                          value: '軽め',
+                          label: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('軽め'),
+                              const SizedBox(height: 2),
+                              Text(
+                                '少なめ・間食・軽食',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 10,
+                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildStateButton('ちょうど', theme, mintColorLight),
+                        ButtonSegment(
+                          value: 'ちょうど',
+                          label: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('ちょうど'),
+                              const SizedBox(height: 2),
+                              Text(
+                                '通常の1食',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 10,
+                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildStateButton('しっかり', theme, mintColorLight),
+                        ButtonSegment(
+                          value: 'しっかり',
+                          label: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('しっかり'),
+                              const SizedBox(height: 2),
+                              Text(
+                                '外食・ボリューム多め',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 10,
+                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
+                      selected: {_selectedState},
+                      onSelectionChanged: (Set<String> newSelection) {
+                        setState(() {
+                          _selectedState = newSelection.first;
+                        });
+                      },
+                      style: SegmentedButton.styleFrom(
+                        selectedBackgroundColor: mintColorLight.withOpacity(0.4),
+                        selectedForegroundColor: theme.colorScheme.onSurface,
+                        backgroundColor: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
                     ),
                   ],
                 ),
@@ -3364,52 +3525,50 @@ class _MealEstimateScreenState extends State<MealEstimateScreen> {
             
             const SizedBox(height: 24),
             
-            // kcal/P表示
+            // kcal/P表示（小さめ）
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              color: mintColorLight.withOpacity(0.15),
+              color: mintColorLight.withOpacity(0.1),
               child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Column(
                       children: [
-                        Column(
-                          children: [
-                            Text(
-                              '$_currentKcal',
-                              style: theme.textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'kcal',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(0.6),
-                              ),
-                            ),
-                          ],
+                        Text(
+                          '$_currentKcal',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                        const SizedBox(width: 40),
-                        Column(
-                          children: [
-                            Text(
-                              '$_currentProtein',
-                              style: theme.textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'P',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(0.6),
-                              ),
-                            ),
-                          ],
+                        const SizedBox(height: 4),
+                        Text(
+                          'kcal',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 32),
+                    Column(
+                      children: [
+                        Text(
+                          '$_currentProtein',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'P',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -3424,11 +3583,11 @@ class _MealEstimateScreenState extends State<MealEstimateScreen> {
             FilledButton(
               onPressed: _handleSave,
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 18),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                backgroundColor: mintColorLight.withOpacity(0.3),
+                backgroundColor: mintColorLight.withOpacity(0.4),
                 foregroundColor: theme.colorScheme.onSurface,
               ),
               child: const Text(
@@ -3445,37 +3604,182 @@ class _MealEstimateScreenState extends State<MealEstimateScreen> {
     );
   }
 
-  Widget _buildStateButton(String state, ThemeData theme, Color mintColorLight) {
-    final isSelected = _selectedState == state;
-    
-    return OutlinedButton(
-      onPressed: () {
-        setState(() {
-          _selectedState = state;
-        });
-      },
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        backgroundColor: isSelected
-            ? mintColorLight.withOpacity(0.3)
-            : null,
-        side: BorderSide(
-          color: isSelected
-              ? mintColorLight
-              : theme.colorScheme.outline.withOpacity(0.3),
-          width: isSelected ? 2 : 1,
-        ),
-      ),
-      child: Text(
-        state,
-        style: TextStyle(
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+}
+
+/// 今日の摂取状況用半円メーターカード
+class _IntakeGaugeCard extends StatelessWidget {
+  const _IntakeGaugeCard({
+    required this.intake,
+    required this.target,
+  });
+
+  final int intake;
+  final int target;
+
+  Color _getStatusColor() {
+    final ratio = target > 0 ? (intake / target) : 0.0;
+    if (ratio <= 0.8) {
+      // 順調: 0-80% (基本ミント)
+      return const Color(0xFF80CBC4);
+    } else if (ratio <= 1.0) {
+      // 注意: 80-100% (少し濃いめ)
+      return const Color(0xFF4DB6AC);
+    } else {
+      // オーバー: 100%超 (警告トーン、派手すぎない)
+      return const Color(0xFFE57373);
+    }
+  }
+
+  String _getStatusText() {
+    final ratio = target > 0 ? (intake / target) : 0.0;
+    if (ratio <= 0.8) {
+      return '順調';
+    } else if (ratio <= 1.0) {
+      return '注意';
+    } else {
+      return 'オーバー';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    const mintColorLight = Color(0xFFB2DFDB);
+    final remaining = (target - intake).clamp(0, target);
+    final statusColor = _getStatusColor();
+    final statusText = _getStatusText();
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      color: mintColorLight.withOpacity(0.15),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            // 半円メーター
+            SizedBox(
+              width: 260.0, // 200 * 1.3
+              height: 130.0, // 半円なので高さは半分
+              child: CustomPaint(
+                painter: _SemiCircleGaugePainter(
+                  progress: target > 0 ? (intake / target).clamp(0.0, 1.0) : 0.0,
+                  statusColor: statusColor,
+                  backgroundColor: mintColorLight.withOpacity(0.2),
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 残り kcal（大きめ）
+                      Text(
+                        '残り $remaining',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                          color: statusColor,
+                          height: 1.2,
+                        ),
+                      ),
+                      Text(
+                        'kcal',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: statusColor.withOpacity(0.8),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // 摂取 / 目標（小さめ）
+                      Text(
+                        '$intake / $target',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 12,
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // 状態ラベル（小さく）
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: statusColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
+  }
+}
+
+/// 半円ゲージのCustomPainter
+class _SemiCircleGaugePainter extends CustomPainter {
+  _SemiCircleGaugePainter({
+    required this.progress,
+    required this.statusColor,
+    required this.backgroundColor,
+  });
+
+  final double progress;
+  final Color statusColor;
+  final Color backgroundColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final center = Offset(size.width / 2, size.height);
+    final radius = size.width / 2 - 20; // ストローク幅の余白
+    const strokeWidth = 24.0;
+
+    // 背景アーク（半円）
+    paint
+      ..color = backgroundColor
+      ..strokeWidth = strokeWidth;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      math.pi, // 180度から開始
+      math.pi, // 180度描画（半円）
+      false,
+      paint,
+    );
+
+    // プログレスアーク
+    paint
+      ..color = statusColor.withOpacity(0.8)
+      ..strokeWidth = strokeWidth;
+    final sweepAngle = math.pi * progress.clamp(0.0, 1.0);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      math.pi, // 180度から開始
+      sweepAngle, // 進捗に応じた角度
+      false,
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SemiCircleGaugePainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.statusColor != statusColor ||
+        oldDelegate.backgroundColor != backgroundColor;
   }
 }
 
