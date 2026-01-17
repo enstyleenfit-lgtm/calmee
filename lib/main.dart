@@ -23,6 +23,9 @@ import 'package:timezone/data/latest.dart' as tzdata;
 
 import 'firebase_options.dart';
 
+// 一時確認用：新Home UI
+import 'screens/home_page.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -714,7 +717,6 @@ class _RootShellState extends State<RootShell> {
   int _index = 0;
 
   // 共有データ
-  List<HabitEntry> _recent = [];
   TodayStatus _today =
       TodayStatus(doneToday: false, todayEntry: null, streak: 0);
   List<PlanItem> _planItems = [];
@@ -781,7 +783,6 @@ class _RootShellState extends State<RootShell> {
     final last7Days = await widget.planRepo.loadLast7Days();
 
     setState(() {
-      _recent = recent;
       _today = TodayStatus(
         doneToday: doneToday,
         todayEntry: doneToday ? todayEntry : null,
@@ -1380,7 +1381,6 @@ class _HomeScreenState extends State<HomeScreen> {
     // 残りたんぱく質（マイナス表示しない）
     final proteinRemaining = (proteinTarget - proteinCurrent).clamp(0, proteinTarget);
 
-    final next = _nextPlan(widget.planItems);
     final remainingCount = _countRemainingPlans(widget.planItems);
 
     return SafeArea(
@@ -1389,6 +1389,27 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           children: [
+            // 【一時確認用】新Home UIへの導線ボタン
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: FilledButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const HomePage(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.preview),
+                label: const Text('新Home UIを確認'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: Colors.orange,
+                ),
+              ),
+            ),
+            
             // 今日の予定（チェック式）
             Card(
               elevation: 0,
@@ -2234,12 +2255,9 @@ class RecordScreen extends StatefulWidget {
 }
 
 class _RecordScreenState extends State<RecordScreen> {
-  late String _selected;
-
   @override
   void initState() {
     super.initState();
-    _selected = widget.habitOptions.first;
   }
 
   /// Firebase Storageへ画像をアップロード
@@ -2718,7 +2736,6 @@ class _RecordScreenState extends State<RecordScreen> {
   Widget _buildMealSection(ThemeData theme, int totalKcal, int targetKcal, List<PlanItem> items) {
     const mintColorLight = Color(0xFFB2DFDB);
     final remaining = (targetKcal - totalKcal).clamp(0, targetKcal);
-    final progress = targetKcal > 0 ? (totalKcal / targetKcal).clamp(0.0, 1.0) : 0.0;
 
     return Card(
       elevation: 0,
@@ -2881,7 +2898,6 @@ class _RecordScreenState extends State<RecordScreen> {
   Widget _buildWorkoutSection(ThemeData theme, int totalKcal, int targetKcal, List<PlanItem> items) {
     const mintColorLight = Color(0xFFB2DFDB);
     final remaining = (targetKcal - totalKcal).clamp(0, targetKcal);
-    final progress = targetKcal > 0 ? (totalKcal / targetKcal).clamp(0.0, 1.0) : 0.0;
 
     return Card(
       elevation: 0,
@@ -3796,8 +3812,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _fitnessTypeExpanded = false;
-  bool _loading = true;
 
   // データ
   double _height = 170.0; // cm
@@ -3834,10 +3848,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (e) {
       // エラーは無視（デフォルト値で続行）
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
     }
   }
 
@@ -4691,7 +4701,6 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _weightController = TextEditingController();
   bool _loading = false;
-  bool _initialized = false;
 
   @override
   void initState() {
@@ -4713,10 +4722,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (e) {
       // エラーは無視（初期値なしで続行）
-    } finally {
-      if (mounted) {
-        setState(() => _initialized = true);
-      }
     }
   }
 
@@ -4935,88 +4940,6 @@ class _ExtraLargeDonutChart extends StatelessWidget {
   }
 }
 
-/// 大きなドーナツチャート（摂取カロリー用）
-class _LargeDonutChart extends StatelessWidget {
-  const _LargeDonutChart({
-    required this.value,
-    required this.max,
-    required this.label,
-  });
-
-  final int value;
-  final int max;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    const diameter = 168.0; // 120.0 * 1.4
-    const strokeWidth = 20.0; // 14.0 * 1.43
-    const mintColor = Color(0xFF80CBC4);
-    const mintColorLight = Color(0xFFB2DFDB);
-
-    final progress = max > 0 ? (value / max).clamp(0.0, 1.0) : 0.0;
-
-    return SizedBox(
-      width: diameter,
-      height: diameter,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // 背景円
-          SizedBox(
-            width: diameter,
-            height: diameter,
-            child: CircularProgressIndicator(
-              value: 1.0,
-              strokeWidth: strokeWidth,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                mintColorLight.withOpacity(0.2),
-              ),
-              backgroundColor: Colors.transparent,
-            ),
-          ),
-          // プログレス円
-          SizedBox(
-            width: diameter,
-            height: diameter,
-            child: CircularProgressIndicator(
-              value: progress,
-              strokeWidth: strokeWidth,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                mintColor.withOpacity(0.6),
-              ),
-              backgroundColor: Colors.transparent,
-              strokeCap: StrokeCap.round,
-            ),
-          ),
-          // 中央テキスト
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$value',
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
-                ),
-              ),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                  height: 1.2,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// ミニドーナツチャート
 class MiniDonutChart extends StatelessWidget {
   const MiniDonutChart({
@@ -5038,7 +4961,6 @@ class MiniDonutChart extends StatelessWidget {
     const mintColorLight = Color(0xFFB2DFDB);
 
     final progress = max > 0 ? (value / max).clamp(0.0, 1.0) : 0.0;
-    final remaining = 1.0 - progress;
 
     return SizedBox(
       width: diameter,
@@ -5250,25 +5172,4 @@ class WeeklyKcalMiniGraph extends StatelessWidget {
   }
 }
 
-class _Badge extends StatelessWidget {
-  const _Badge({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Text('$label $value', style: theme.textTheme.labelMedium),
-      ),
-    );
-  }
-}
 
