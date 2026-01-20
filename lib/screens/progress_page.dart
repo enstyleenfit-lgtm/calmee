@@ -21,20 +21,17 @@ class _ProgressPageState extends State<ProgressPage> {
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFFF6F6F8);
-    const cardColor = Colors.white;
-
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: const Color(0xFFF6F6F8), // 【Home準拠】背景色
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // 【Home準拠】左右16px
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // タイトル
               const Text(
-                'Progress',
+                '進捗',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w700,
@@ -42,30 +39,30 @@ class _ProgressPageState extends State<ProgressPage> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 18), // 【Home準拠】セクション上下18px
 
               // 上部カード2枚（Weight / Day Streak）
               Row(
                 children: [
                   Expanded(
-                    child: _buildWeightCard(cardColor),
+                    child: _buildWeightCard(),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 12), // 【Home準拠】カード間12px
                   Expanded(
-                    child: _buildDayStreakCard(cardColor),
+                    child: _buildDayStreakCard(),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 14), // 【Home準拠】カード間14px
 
               // Weight Progressカード
-              _buildWeightProgressCard(cardColor),
+              _buildWeightProgressCard(),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 14), // 【Home準拠】カード間14px
 
               // Daily Average Caloriesカード
-              _buildDailyAverageCaloriesCard(cardColor),
+              _buildDailyAverageCaloriesCard(),
 
               const SizedBox(height: 32),
             ],
@@ -76,28 +73,21 @@ class _ProgressPageState extends State<ProgressPage> {
   }
 
   /// Weightカード
-  Widget _buildWeightCard(Color cardColor) {
+  Widget _buildWeightCard() {
     final progress = (currentWeight / goalWeight).clamp(0.0, 1.0);
 
-    return Container(
+    return _StyledCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: Colors.black.withOpacity(0.08),
-          width: 1,
-        ),
-      ),
+      useSubtleBorder: false, // 【最終調整】主要カードは0.8（標準border）
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Your Weight',
-            style: TextStyle(
+            '現在の体重',
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Colors.black.withOpacity(0.6),
+              color: Color(0xFF9A9AA5), // 【Home準拠】caption色
             ),
           ),
           const SizedBox(height: 12),
@@ -117,7 +107,7 @@ class _ProgressPageState extends State<ProgressPage> {
               Container(
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.1),
+                  color: const Color(0xFFE9E9EF), // 【Home準拠】border色
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -146,11 +136,11 @@ class _ProgressPageState extends State<ProgressPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Goal ${goalWeight.toStringAsFixed(0)} lbs',
-            style: TextStyle(
+            '目標 ${goalWeight.toStringAsFixed(0)} lb',
+            style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: Colors.black.withOpacity(0.5),
+              color: Color(0xFF9A9AA5), // 【Home準拠】caption色
             ),
           ),
           const SizedBox(height: 16),
@@ -164,14 +154,14 @@ class _ProgressPageState extends State<ProgressPage> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
                 ),
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Log Weight',
+                    '体重を記録',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -189,21 +179,14 @@ class _ProgressPageState extends State<ProgressPage> {
   }
 
   /// Day Streakカード
-  Widget _buildDayStreakCard(Color cardColor) {
+  Widget _buildDayStreakCard() {
     // 曜日のチェック状態（ダミー）
-    final weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    final weekDays = ['日', '月', '火', '水', '木', '金', '土'];
     final checkedDays = [0, 1]; // 最初の2日がチェック済み
 
-    return Container(
+    return _StyledCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: Colors.black.withOpacity(0.08),
-          width: 1,
-        ),
-      ),
+      useSubtleBorder: false, // 【最終調整】主要カードは0.8（標準border）
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -212,8 +195,8 @@ class _ProgressPageState extends State<ProgressPage> {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: const Color(0xFFFF9500).withOpacity(0.15),
-              borderRadius: BorderRadius.circular(16),
+              color: const Color(0xFFFF9500).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
             ),
             child: Stack(
               alignment: Alignment.center,
@@ -239,11 +222,11 @@ class _ProgressPageState extends State<ProgressPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Day Streak',
-            style: TextStyle(
+            '連続日数',
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Colors.black.withOpacity(0.6),
+              color: Color(0xFF9A9AA5), // 【Home準拠】caption色
             ),
           ),
           const SizedBox(height: 12),
@@ -261,7 +244,7 @@ class _ProgressPageState extends State<ProgressPage> {
                 decoration: BoxDecoration(
                   color: isChecked
                       ? const Color(0xFF34C759)
-                      : Colors.black.withOpacity(0.05),
+                      : const Color(0xFFF6F6F8), // 【Home準拠】背景色
                   shape: BoxShape.circle,
                 ),
                 child: Center(
@@ -273,10 +256,10 @@ class _ProgressPageState extends State<ProgressPage> {
                         )
                       : Text(
                           day,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Colors.black.withOpacity(0.4),
+                            color: Color(0xFF9A9AA5), // 【Home準拠】caption色
                           ),
                         ),
                 ),
@@ -289,17 +272,9 @@ class _ProgressPageState extends State<ProgressPage> {
   }
 
   /// Weight Progressカード
-  Widget _buildWeightProgressCard(Color cardColor) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: Colors.black.withOpacity(0.08),
-          width: 1,
-        ),
-      ),
+  Widget _buildWeightProgressCard() {
+    return _StyledCard(
+      useSubtleBorder: false, // 【最終調整】主要カードは0.8（標準border）
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -308,7 +283,7 @@ class _ProgressPageState extends State<ProgressPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Weight Progress',
+                '体重の推移',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -324,7 +299,7 @@ class _ProgressPageState extends State<ProgressPage> {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    '${goalProgress.toStringAsFixed(0)}% of goal',
+                    '目標の${goalProgress.toStringAsFixed(0)}%',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -336,7 +311,7 @@ class _ProgressPageState extends State<ProgressPage> {
             ],
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 18), // 【Home準拠】セクション上下18px
 
           // グラフエリア（プレースホルダー）
           _buildGraphPlaceholder(),
@@ -346,40 +321,45 @@ class _ProgressPageState extends State<ProgressPage> {
           // 期間切替ボタン
           Row(
             children: [
-              _buildTimeRangeButton('90D', '90D'),
+              Expanded(child: _buildTimeRangeButton('90日', '90D')),
               const SizedBox(width: 8),
-              _buildTimeRangeButton('6M', '6M'),
+              Expanded(child: _buildTimeRangeButton('6か月', '6M')),
               const SizedBox(width: 8),
-              _buildTimeRangeButton('1Y', '1Y'),
+              Expanded(child: _buildTimeRangeButton('1年', '1Y')),
               const SizedBox(width: 8),
-              _buildTimeRangeButton('ALL', 'ALL'),
+              Expanded(child: _buildTimeRangeButton('全期間', 'ALL')),
             ],
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 18), // 【Home準拠】セクション上下18px
 
           // 成功メッセージ
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF34C759).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
+              // 【最終調整】グリーンを薄く上品に（背景/線/文字が浮かない）
+              color: const Color(0xFF34C759).withValues(alpha: 0.08), // より薄く
+              borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+              border: Border.all(
+                color: const Color(0xFF34C759).withValues(alpha: 0.12), // 【最終調整】より薄く
+                width: 1,
+              ),
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.check_circle,
-                  color: Color(0xFF34C759),
+                  color: const Color(0xFF34C759).withValues(alpha: 0.7), // 【最終調整】薄め
                   size: 24,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Great job! Consistency is key, and you\'re mastering it!',
-                    style: const TextStyle(
+                    'いい調子！このまま続けましょう。',
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF34C759),
+                      color: const Color(0xFF34C759).withValues(alpha: 0.7), // 【最終調整】薄め
                       height: 1.4,
                     ),
                   ),
@@ -397,8 +377,8 @@ class _ProgressPageState extends State<ProgressPage> {
     return Container(
       height: 200,
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.02),
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFFF6F6F8), // 【Home準拠】背景色
+        borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
       ),
       child: Stack(
         children: [
@@ -414,10 +394,10 @@ class _ProgressPageState extends State<ProgressPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
                     label,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: Colors.black.withOpacity(0.4),
+                      color: Color(0xFF9A9AA5), // 【Home準拠】caption色
                     ),
                   ),
                 );
@@ -433,13 +413,13 @@ class _ProgressPageState extends State<ProgressPage> {
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'].map((label) {
+                children: ['6月', '7月', '8月', '9月', '10月', '11月'].map((label) {
                   return Text(
                     label,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: Colors.black.withOpacity(0.4),
+                      color: Color(0xFF9A9AA5), // 【Home準拠】caption色
                     ),
                   );
                 }).toList(),
@@ -464,7 +444,7 @@ class _ProgressPageState extends State<ProgressPage> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.black,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -478,11 +458,11 @@ class _ProgressPageState extends State<ProgressPage> {
                     ),
                   ),
                   Text(
-                    'Sep 9, 2025',
+                    '2025/9/9',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white.withOpacity(0.7),
+                      color: Colors.white.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -497,29 +477,35 @@ class _ProgressPageState extends State<ProgressPage> {
   /// 期間切替ボタン
   Widget _buildTimeRangeButton(String label, String value) {
     final isSelected = selectedTimeRange == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            selectedTimeRange = value;
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedTimeRange = value;
+        });
+      },
+      child: Container(
+        // 【最終調整】余白を+2px（詰まって見えないように）
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        decoration: BoxDecoration(
+          // 【最終調整】選択中：白背景＋線薄め、非選択：透明寄り
+          color: isSelected
+              ? Colors.white
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+          border: Border.all(
             color: isSelected
-                ? Colors.black
-                : Colors.black.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(12),
+                ? const Color(0xFFE9E9EF).withValues(alpha: 0.6) // 【最終調整】選択中は線薄め
+                : const Color(0xFFE9E9EF), // 非選択は標準
+            width: 1,
           ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : Colors.black,
-              ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700, // 【Home準拠】太め
+              color: isSelected ? Colors.black : Colors.black,
             ),
           ),
         ),
@@ -528,29 +514,21 @@ class _ProgressPageState extends State<ProgressPage> {
   }
 
   /// Daily Average Caloriesカード
-  Widget _buildDailyAverageCaloriesCard(Color cardColor) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: Colors.black.withOpacity(0.08),
-          width: 1,
-        ),
-      ),
+  Widget _buildDailyAverageCaloriesCard() {
+    return _StyledCard(
+      useSubtleBorder: false, // 【最終調整】主要カードは0.8（標準border）
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Daily Average Calories',
-            style: TextStyle(
+            '1日の平均カロリー',
+            style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w500,
-              color: Colors.black.withOpacity(0.6),
+              color: Color(0xFF7A7A86), // 【Home準拠】description色
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10), // 【Home準拠】数値周りの呼吸
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -567,21 +545,25 @@ class _ProgressPageState extends State<ProgressPage> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Text(
-                  'cal',
-                  style: TextStyle(
+                  'kcal',
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black.withOpacity(0.6),
+                    color: Color(0xFF7A7A86), // 【Home準拠】description色
                   ),
                 ),
               ),
               const Spacer(),
-              // 上矢印＋パーセンテージ
+              // 上矢印＋パーセンテージ（ピル型）
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF34C759).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  color: const Color(0xFF34C759).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(999), // 【Home準拠】ピル999
+                  border: Border.all(
+                    color: const Color(0xFF34C759).withValues(alpha: 0.25), // 【最終調整】ピル周りは0.6相当に
+                    width: 1,
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -607,6 +589,40 @@ class _ProgressPageState extends State<ProgressPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 共通スタイルカード（Home準拠）
+class _StyledCard extends StatelessWidget {
+  const _StyledCard({
+    required this.child,
+    this.padding,
+    this.useSubtleBorder = false,
+  });
+
+  final Widget child;
+  final EdgeInsets? padding;
+  final bool useSubtleBorder;
+
+  @override
+  Widget build(BuildContext context) {
+    // 【Home準拠】浮き感の最適化：useSubtleBorder=trueの場合はより薄いborder
+    final borderColor = useSubtleBorder
+        ? const Color(0xFFE9E9EF).withValues(alpha: 0.6) // より薄く（60%）
+        : const Color(0xFFE9E9EF).withValues(alpha: 0.8); // 標準（80%）
+    
+    return Container(
+      padding: padding ?? const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22), // 【Home準拠】カード角丸22px
+        border: Border.all(
+          color: borderColor,
+          width: 1,
+        ),
+      ),
+      child: child,
     );
   }
 }
@@ -657,4 +673,3 @@ class _SimpleLineGraphPainter extends CustomPainter {
   @override
   bool shouldRepaint(_SimpleLineGraphPainter oldDelegate) => false;
 }
-

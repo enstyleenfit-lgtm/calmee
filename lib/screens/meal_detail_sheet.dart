@@ -5,8 +5,8 @@ class MealDetailSheet extends StatelessWidget {
   const MealDetailSheet({super.key});
 
   // ダミーデータ
-  static const mealName = 'Caesar Salad with Cherry Tomatoes';
-  static const timestamp = '6:21 PM';
+  static const mealName = 'シーザーサラダ（ミニトマト）';
+  static const timestamp = '18:21';
   static const calories = 330;
   static const protein = 8; // g
   static const carbs = 20; // g
@@ -31,7 +31,7 @@ class MealDetailSheet extends StatelessWidget {
       builder: (context, scrollController) {
         return Container(
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: Color(0xFFF6F6F8), // 【Home準拠】背景色を#F6F6F8に
             borderRadius: BorderRadius.vertical(
               top: Radius.circular(30),
             ),
@@ -45,29 +45,29 @@ class MealDetailSheet extends StatelessWidget {
               Expanded(
                 child: SingleChildScrollView(
                   controller: scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 16), // 【Home準拠】左右16px
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // 上部の料理画像
-                      _buildFoodImage(),
+                      _buildFoodImage(context),
                       
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 18), // 【Home準拠】セクション間18px
                       
                       // 食事名＋数量ステッパー
                       _buildMealHeader(),
                       
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 18), // 【Home準拠】セクション間18px
                       
                       // 大きなCalories表示カード
                       _buildCaloriesCard(),
                       
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 14), // 【Home準拠】カード間14px
                       
                       // Protein / Carbs / Fats の横並び
                       _buildMacroCards(),
                       
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 18), // 【Home準拠】セクション間18px
                       
                       // Ingredientsリスト
                       _buildIngredientsSection(),
@@ -94,23 +94,23 @@ class MealDetailSheet extends StatelessWidget {
       width: 40,
       height: 4,
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
+        color: Colors.black.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(2),
       ),
     );
   }
 
   /// 上部の料理画像
-  Widget _buildFoodImage() {
+  Widget _buildFoodImage(BuildContext context) {
     return Container(
       width: double.infinity,
       height: 280,
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(18), // 【Home準拠】角丸18px
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(18), // 【Home準拠】角丸18px
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -160,7 +160,7 @@ class MealDetailSheet extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black.withOpacity(0.6),
+                      Colors.black.withValues(alpha: 0.6),
                       Colors.transparent,
                     ],
                   ),
@@ -170,10 +170,12 @@ class MealDetailSheet extends StatelessWidget {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
                     ),
                     const Text(
-                      'Nutrition',
+                      '栄養',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,
@@ -217,20 +219,20 @@ class MealDetailSheet extends StatelessWidget {
                   const Icon(
                     Icons.bookmark_border,
                     size: 16,
-                    color: Colors.black54,
+                    color: Color(0xFF9A9AA5), // 【Home準拠】caption色
                   ),
                   const SizedBox(width: 6),
                   Text(
                     timestamp,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Colors.black.withOpacity(0.6),
+                      color: Color(0xFF9A9AA5), // 【Home準拠】caption色
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10), // 【Home準拠】数値周りの呼吸（8px → 10px）
               Text(
                 mealName,
                 style: const TextStyle(
@@ -250,10 +252,10 @@ class MealDetailSheet extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             border: Border.all(
-              color: Colors.black.withOpacity(0.2),
+              color: const Color(0xFFE9E9EF), // 【Home準拠】border色
               width: 1,
             ),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
           ),
           child: Row(
             children: [
@@ -263,7 +265,7 @@ class MealDetailSheet extends StatelessWidget {
                 child: InkWell(
                   onTap: () {},
                   borderRadius: const BorderRadius.horizontal(
-                    left: Radius.circular(12),
+                    left: Radius.circular(18),
                   ),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -298,7 +300,7 @@ class MealDetailSheet extends StatelessWidget {
                 child: InkWell(
                   onTap: () {},
                   borderRadius: const BorderRadius.horizontal(
-                    right: Radius.circular(12),
+                    right: Radius.circular(18),
                   ),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -322,19 +324,8 @@ class MealDetailSheet extends StatelessWidget {
 
   /// 大きなCalories表示カード
   Widget _buildCaloriesCard() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+    return _StyledCard(
+      useSubtleBorder: true, // 【Home準拠】より薄いborder（opacity 0.6）
       child: Row(
         children: [
           // 左：フレームアイコン
@@ -342,8 +333,8 @@ class MealDetailSheet extends StatelessWidget {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: const Color(0xFFFF9500).withOpacity(0.15),
-              borderRadius: BorderRadius.circular(16),
+              color: const Color(0xFFFF9500).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
             ),
             child: const Icon(
               Icons.local_fire_department,
@@ -360,14 +351,14 @@ class MealDetailSheet extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Calories',
-                  style: TextStyle(
+                  'カロリー',
+                  style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
-                    color: Colors.black.withOpacity(0.6),
+                    color: Color(0xFF7A7A86), // 【Home準拠】description色
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 10), // 【Home準拠】数値周りの呼吸（4px → 10px）
                 Text(
                   '$calories',
                   style: const TextStyle(
@@ -391,27 +382,27 @@ class MealDetailSheet extends StatelessWidget {
       children: [
         Expanded(
           child: _buildMacroCard(
-            label: 'Protein',
+            label: 'たんぱく質',
             value: '$protein',
             unit: 'g',
             color: const Color(0xFFE53935),
             icon: Icons.restaurant,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 12), // 【Home準拠】カード間12px
         Expanded(
           child: _buildMacroCard(
-            label: 'Carbs',
+            label: '炭水化物',
             value: '$carbs',
             unit: 'g',
             color: const Color(0xFFFF9500),
             icon: Icons.grain,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 12), // 【Home準拠】カード間12px
         Expanded(
           child: _buildMacroCard(
-            label: 'Fats',
+            label: '脂質',
             value: '$fats',
             unit: 'g',
             color: const Color(0xFF007AFF),
@@ -429,16 +420,9 @@ class MealDetailSheet extends StatelessWidget {
     required Color color,
     required IconData icon,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.black.withOpacity(0.08),
-          width: 1,
-        ),
-      ),
+    return _StyledCard(
+      padding: const EdgeInsets.all(16), // 【Home準拠】マクロカードと同じpadding
+      useSubtleBorder: true, // 【Home準拠】より薄いborder
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -450,13 +434,13 @@ class MealDetailSheet extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Colors.black.withOpacity(0.6),
+              color: Color(0xFF9A9AA5), // 【Home準拠】caption色
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8), // 【Home準拠】数値周りの呼吸（4px → 8px）
           Text(
             '$value$unit',
             style: const TextStyle(
@@ -474,7 +458,7 @@ class MealDetailSheet extends StatelessWidget {
   Widget _buildIngredientsSection() {
     // ダミーIngredientsデータ
     final ingredients = [
-      {'name': 'Lettuce', 'calories': 20, 'amount': '1.5 cups'},
+      {'name': 'レタス', 'calories': 20, 'amount': '1.5カップ'},
     ];
 
     return Column(
@@ -485,9 +469,9 @@ class MealDetailSheet extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
-              'Ingredients',
+              '材料',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 20,
                 fontWeight: FontWeight.w700,
                 color: Colors.black,
               ),
@@ -495,7 +479,7 @@ class MealDetailSheet extends StatelessWidget {
             TextButton(
               onPressed: () {},
               child: const Text(
-                '+ Add more',
+                '+ 追加',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
@@ -506,83 +490,78 @@ class MealDetailSheet extends StatelessWidget {
           ],
         ),
         
-        const SizedBox(height: 12),
+        const SizedBox(height: 10), // 【Home準拠】見出し下10px
         
         // Ingredientsリスト
         ...ingredients.map((ingredient) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.black.withOpacity(0.08),
-                width: 1,
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12), // 【Home準拠】カード間12px
+            child: _StyledCard(
+              padding: const EdgeInsets.all(16),
+              useSubtleBorder: false, // 【Home準拠】標準border（食事カードと同様）
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // 左：名前＋カロリー
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF6F6F8),
+                            borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+                          ),
+                          child: const Icon(
+                            Icons.circle,
+                            size: 24,
+                            color: Color(0xFF9A9AA5), // 【Home準拠】caption色
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                ingredient['name'] as String,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                              '• ${ingredient['calories']} kcal',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF9A9AA5), // 【Home準拠】caption色
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // 右：数量
+                  Text(
+                    ingredient['amount'] as String,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // 左：名前＋カロリー
-                Expanded(
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.circle,
-                          size: 24,
-                          color: Colors.black38,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              ingredient['name'] as String,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '• ${ingredient['calories']} cal',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black.withOpacity(0.5),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                // 右：数量
-                Text(
-                  ingredient['amount'] as String,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black.withOpacity(0.7),
-                  ),
-                ),
-              ],
-            ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -590,12 +569,12 @@ class MealDetailSheet extends StatelessWidget {
   /// 下部の固定ボタン
   Widget _buildActionButtons(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16), // 【Home準拠】左右16px
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
           top: BorderSide(
-            color: Colors.black.withOpacity(0.1),
+            color: const Color(0xFFE9E9EF), // 【Home準拠】border色
             width: 1,
           ),
         ),
@@ -603,13 +582,13 @@ class MealDetailSheet extends StatelessWidget {
       child: SafeArea(
         child: Row(
           children: [
-            // 左：Fix Resultsボタン（白背景）
+            // 左：Fix Resultsボタン（Outlined）
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () {},
                 icon: const Icon(Icons.auto_awesome, size: 20),
                 label: const Text(
-                  'Fix Results',
+                  '結果を修正',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -617,20 +596,20 @@ class MealDetailSheet extends StatelessWidget {
                 ),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: BorderSide(
-                    color: Colors.black.withOpacity(0.2),
+                  side: const BorderSide(
+                    color: Color(0xFFE9E9EF), // 【Home準拠】border色
                     width: 1,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
                   ),
                 ),
               ),
             ),
             
-            const SizedBox(width: 12),
+            const SizedBox(width: 12), // 【Home準拠】カード間12px
             
-            // 右：Doneボタン（黒背景）
+            // 右：Doneボタン（黒Filled）
             Expanded(
               child: FilledButton(
                 onPressed: () {
@@ -641,11 +620,11 @@ class MealDetailSheet extends StatelessWidget {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
                   ),
                 ),
                 child: const Text(
-                  'Done',
+                  '完了',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -660,3 +639,36 @@ class MealDetailSheet extends StatelessWidget {
   }
 }
 
+/// 共通スタイルカード（Home準拠）
+class _StyledCard extends StatelessWidget {
+  const _StyledCard({
+    required this.child,
+    this.padding,
+    this.useSubtleBorder = false, // 【Home準拠】subtle borderオプション
+  });
+
+  final Widget child;
+  final EdgeInsets? padding;
+  final bool useSubtleBorder;
+
+  @override
+  Widget build(BuildContext context) {
+    // 【Home準拠】浮き感の最適化：useSubtleBorder=trueの場合はより薄いborder
+    final borderColor = useSubtleBorder
+        ? const Color(0xFFE9E9EF).withValues(alpha: 0.6) // より薄く（60%）
+        : const Color(0xFFE9E9EF).withValues(alpha: 0.8); // 標準（80%）
+    
+    return Container(
+      padding: padding ?? const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22), // 【Home準拠】カード角丸22px
+        border: Border.all(
+          color: borderColor,
+          width: 1,
+        ),
+      ),
+      child: child,
+    );
+  }
+}

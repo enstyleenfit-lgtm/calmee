@@ -22,9 +22,19 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tzdata;
 
 import 'firebase_options.dart';
-
-// 一時確認用：新Home UI
 import 'screens/home_page.dart';
+import 'screens/camera_page.dart';
+import 'screens/progress_page.dart';
+import 'screens/groups_page.dart';
+import 'screens/compare_page.dart';
+import 'screens/meal_detail_sheet.dart';
+
+// 【デバッグ】UI切り分け用フラグ
+// debugGallery=true のとき：UIギャラリー画面を表示（全画面へ遷移可能）
+// debugUseNewHome=true のとき：起動直後に新Home UI（`HomePage`）を直接表示
+// 両方false のとき：今まで通り `RootShell` から始まる挙動
+const bool debugGallery = true; // ギャラリー画面で全UI確認用
+const bool debugUseNewHome = false; // 個別確認用（debugGallery優先）
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -660,6 +670,355 @@ class _RewardSparkleLayerState extends State<_RewardSparkleLayer>
 /// App
 /// ----------------------------
 
+/// 【デバッグ】UIギャラリー画面（プレビューモード対応）
+class _DebugGalleryPage extends StatefulWidget {
+  const _DebugGalleryPage();
+
+  @override
+  State<_DebugGalleryPage> createState() => _DebugGalleryPageState();
+}
+
+class _DebugGalleryPageState extends State<_DebugGalleryPage> {
+  // モード切替：false=一覧モード（リスト遷移）、true=プレビューモード（同一画面表示）
+  bool _isPreviewMode = true;
+  
+  // 選択中のページ（プレビューモード用）
+  _GalleryPageType _selectedPage = _GalleryPageType.home;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F6F8),
+      appBar: AppBar(
+        title: const Text('UIギャラリー（デバッグ）'),
+        backgroundColor: Colors.white,
+        actions: [
+          // モード切替トグル
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment<bool>(
+                  value: false,
+                  label: Text('一覧'),
+                  icon: Icon(Icons.list, size: 18),
+                ),
+                ButtonSegment<bool>(
+                  value: true,
+                  label: Text('プレビュー'),
+                  icon: Icon(Icons.preview, size: 18),
+                ),
+              ],
+              selected: {_isPreviewMode},
+              onSelectionChanged: (Set<bool> selected) {
+                setState(() {
+                  _isPreviewMode = selected.first;
+                });
+              },
+            ),
+          ),
+        ],
+      ),
+      body: _isPreviewMode ? _buildPreviewMode() : _buildListMode(),
+    );
+  }
+
+  /// プレビューモード（同一画面に表示）
+  Widget _buildPreviewMode() {
+    return Column(
+      children: [
+        // 上部：ページ選択セグメント
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: Colors.white,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<_GalleryPageType>(
+              segments: [
+                const ButtonSegment<_GalleryPageType>(
+                  value: _GalleryPageType.home,
+                  label: Text('ホーム'),
+                  icon: Icon(Icons.home, size: 18),
+                ),
+                const ButtonSegment<_GalleryPageType>(
+                  value: _GalleryPageType.camera,
+                  label: Text('カメラ'),
+                  icon: Icon(Icons.camera_alt, size: 18),
+                ),
+                const ButtonSegment<_GalleryPageType>(
+                  value: _GalleryPageType.progress,
+                  label: Text('進捗'),
+                  icon: Icon(Icons.trending_up, size: 18),
+                ),
+                const ButtonSegment<_GalleryPageType>(
+                  value: _GalleryPageType.groups,
+                  label: Text('グループ'),
+                  icon: Icon(Icons.group, size: 18),
+                ),
+                const ButtonSegment<_GalleryPageType>(
+                  value: _GalleryPageType.compare,
+                  label: Text('比較'),
+                  icon: Icon(Icons.compare, size: 18),
+                ),
+                const ButtonSegment<_GalleryPageType>(
+                  value: _GalleryPageType.sheet,
+                  label: Text('シート'),
+                  icon: Icon(Icons.restaurant_menu, size: 18),
+                ),
+              ],
+              selected: {_selectedPage},
+              onSelectionChanged: (Set<_GalleryPageType> selected) {
+                setState(() {
+                  _selectedPage = selected.first;
+                });
+              },
+            ),
+          ),
+        ),
+        
+        // 下部：選択中のページをプレビュー表示
+        Expanded(
+          child: Center(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 430),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: ClipRect(
+                child: _buildPreviewContent(),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// プレビューコンテンツ（選択されたページを返す）
+  Widget _buildPreviewContent() {
+    switch (_selectedPage) {
+      case _GalleryPageType.home:
+        return const HomePage();
+      case _GalleryPageType.camera:
+        return const CameraPage();
+      case _GalleryPageType.progress:
+        return const ProgressPage();
+      case _GalleryPageType.groups:
+        return const GroupsPage();
+      case _GalleryPageType.compare:
+        return const ComparePage();
+      case _GalleryPageType.sheet:
+        // MealDetailSheetは埋め込みが難しいため、ボタンで表示
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.restaurant_menu, size: 64, color: Color(0xFF9A9AA5)),
+              const SizedBox(height: 16),
+              const Text(
+                '食事詳細シート',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'ボトムシート形式のため、\n「表示」ボタンから開いてください',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF9A9AA5),
+                ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () {
+                  MealDetailSheet.show(context);
+                },
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('表示'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+            ],
+          ),
+        );
+    }
+  }
+
+  /// 一覧モード（リスト遷移）
+  Widget _buildListMode() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _buildGalleryButton(
+          context: context,
+            title: 'ホーム',
+            subtitle: '新Home',
+          icon: Icons.home,
+          color: Colors.blue,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const HomePage()),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        _buildGalleryButton(
+          context: context,
+            title: 'カメラ',
+            subtitle: '撮影UI',
+          icon: Icons.camera_alt,
+          color: Colors.green,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CameraPage()),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        _buildGalleryButton(
+          context: context,
+            title: '進捗',
+            subtitle: 'ダッシュボード',
+          icon: Icons.trending_up,
+          color: Colors.orange,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ProgressPage()),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        _buildGalleryButton(
+          context: context,
+            title: 'グループ',
+            subtitle: 'フィード',
+          icon: Icons.group,
+          color: Colors.purple,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const GroupsPage()),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        _buildGalleryButton(
+          context: context,
+            title: '比較',
+            subtitle: 'ビフォー/アフター',
+          icon: Icons.compare,
+          color: Colors.teal,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ComparePage()),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        _buildGalleryButton(
+          context: context,
+            title: '食事詳細',
+            subtitle: 'ボトムシート',
+          icon: Icons.restaurant_menu,
+          color: Colors.red,
+          onTap: () {
+            MealDetailSheet.show(context);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGalleryButton({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE9E9EF), width: 1),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF9A9AA5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: Color(0xFF9A9AA5)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// ギャラリーページタイプ（プレビュー用）
+enum _GalleryPageType {
+  home,
+  camera,
+  progress,
+  groups,
+  compare,
+  sheet,
+}
+
 class CalmeeApp extends StatelessWidget {
   const CalmeeApp({
     super.key,
@@ -682,12 +1041,16 @@ class CalmeeApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4A90E2)),
         useMaterial3: true,
       ),
-      home: RootShell(
-        habitRepo: habitRepo,
-        planRepo: planRepo,
-        weightRepo: weightRepo,
-        profileRepo: profileRepo,
-      ),
+      home: debugGallery
+          ? const _DebugGalleryPage() // ギャラリー画面（全UI確認用）
+          : debugUseNewHome
+              ? const HomePage() // 新UI確認用（デバッグ）
+              : RootShell(
+                  habitRepo: habitRepo,
+                  planRepo: planRepo,
+                  weightRepo: weightRepo,
+                  profileRepo: profileRepo,
+                ),
     );
   }
 }
@@ -1240,7 +1603,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),
-                  color: mintColorLight.withOpacity(0.1),
+                  color: mintColorLight.withValues(alpha:0.1),
                   child: Padding(
                     padding: const EdgeInsets.all(32),
                     child: Column(
@@ -1389,32 +1752,11 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           children: [
-            // 【一時確認用】新Home UIへの導線ボタン
-            Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: FilledButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const HomePage(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.preview),
-                label: const Text('新Home UIを確認'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Colors.orange,
-                ),
-              ),
-            ),
-            
             // 今日の予定（チェック式）
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              color: mintColorLight.withOpacity(0.15),
+              color: mintColorLight.withValues(alpha: 0.15),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -1441,7 +1783,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Text(
                         '予定を追加しましょう',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       )
                     else
@@ -1473,7 +1815,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ? TextDecoration.lineThrough
                                         : null,
                                     color: isPast || !item.enabled
-                                        ? theme.colorScheme.onSurface.withOpacity(0.4)
+                                        ? theme.colorScheme.onSurface.withValues(alpha: 0.4)
                                         : null,
                                   ),
                                 ),
@@ -1499,7 +1841,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                backgroundColor: mintColorLight.withOpacity(0.3),
+                backgroundColor: mintColorLight.withValues(alpha: 0.3),
                 foregroundColor: theme.colorScheme.onSurface,
               ),
             ),
@@ -1510,7 +1852,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              color: mintColorLight.withOpacity(0.15),
+              color: mintColorLight.withValues(alpha: 0.15),
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
@@ -1527,7 +1869,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       _buildTodayStateText(todayItems),
                       style: theme.textTheme.bodyLarge?.copyWith(
                         height: 1.6,
-                        color: theme.colorScheme.onSurface.withOpacity(0.8),
+                        color: theme.colorScheme.onSurface.withValues(alpha:0.8),
                       ),
                     ),
                   ],
@@ -1549,7 +1891,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              color: mintColorLight.withOpacity(0.1),
+              color: mintColorLight.withValues(alpha:0.1),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
                 child: Row(
@@ -1650,7 +1992,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              color: mintColorLight.withOpacity(0.15),
+              color: mintColorLight.withValues(alpha: 0.15),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -1662,7 +2004,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Text(
                           'For $_fitType',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.4),
+                            color: theme.colorScheme.onSurface.withValues(alpha:0.4),
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                           ),
@@ -1673,7 +2015,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Icon(
                           Icons.lightbulb_outline,
                           size: 24,
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -1697,7 +2039,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              color: mintColorLight.withOpacity(0.15),
+              color: mintColorLight.withValues(alpha: 0.15),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -2416,7 +2758,7 @@ class _RecordScreenState extends State<RecordScreen> {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      color: mintColorLight.withOpacity(0.15),
+      color: mintColorLight.withValues(alpha:0.15),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -2439,7 +2781,7 @@ class _RecordScreenState extends State<RecordScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                backgroundColor: mintColorLight.withOpacity(0.3),
+                backgroundColor: mintColorLight.withValues(alpha: 0.3),
                 foregroundColor: theme.colorScheme.onSurface,
               ),
             ),
@@ -2558,7 +2900,7 @@ class _RecordScreenState extends State<RecordScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),
-                  color: mintColorLight.withOpacity(0.1),
+                  color: mintColorLight.withValues(alpha:0.1),
                   child: Padding(
                     padding: const EdgeInsets.all(32),
                     child: Column(
@@ -2740,7 +3082,7 @@ class _RecordScreenState extends State<RecordScreen> {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      color: mintColorLight.withOpacity(0.15),
+      color: mintColorLight.withValues(alpha:0.15),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -2750,7 +3092,7 @@ class _RecordScreenState extends State<RecordScreen> {
             Text(
               '今日の食事は？',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                color: theme.colorScheme.onSurface.withValues(alpha:0.7),
               ),
             ),
             const SizedBox(height: 12),
@@ -2825,7 +3167,7 @@ class _RecordScreenState extends State<RecordScreen> {
                             Text(
                               ' / $targetKcal',
                               style: theme.textTheme.titleMedium?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                               ),
                             ),
                           ],
@@ -2836,7 +3178,7 @@ class _RecordScreenState extends State<RecordScreen> {
                               ? 'あと${remaining}kcal'
                               : '目標達成',
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                           ),
                         ),
                       ],
@@ -2872,7 +3214,7 @@ class _RecordScreenState extends State<RecordScreen> {
                               Text(
                                 '${item.kcal} kcal',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                 ),
                               ),
                           ],
@@ -2881,7 +3223,7 @@ class _RecordScreenState extends State<RecordScreen> {
                       Text(
                         item.time,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -2902,7 +3244,7 @@ class _RecordScreenState extends State<RecordScreen> {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      color: mintColorLight.withOpacity(0.15),
+      color: mintColorLight.withValues(alpha:0.15),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -2934,7 +3276,7 @@ class _RecordScreenState extends State<RecordScreen> {
                             Text(
                               ' / $targetKcal',
                               style: theme.textTheme.titleMedium?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                               ),
                             ),
                           ],
@@ -2945,7 +3287,7 @@ class _RecordScreenState extends State<RecordScreen> {
                               ? 'あと${remaining}kcal'
                               : '目標達成',
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                           ),
                         ),
                       ],
@@ -2981,7 +3323,7 @@ class _RecordScreenState extends State<RecordScreen> {
                               Text(
                                 '${item.kcal} kcal',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                 ),
                               ),
                           ],
@@ -2990,7 +3332,7 @@ class _RecordScreenState extends State<RecordScreen> {
                       Text(
                         item.time,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -3050,7 +3392,7 @@ class _RecordScreenState extends State<RecordScreen> {
                         },
                         style: OutlinedButton.styleFrom(
                           backgroundColor: selectedState == 'しっかり'
-                              ? const Color(0xFFB2DFDB).withOpacity(0.2)
+                              ? const Color(0xFFB2DFDB).withValues(alpha:0.2)
                               : null,
                         ),
                         child: const Text('しっかり'),
@@ -3070,7 +3412,7 @@ class _RecordScreenState extends State<RecordScreen> {
                         },
                         style: OutlinedButton.styleFrom(
                           backgroundColor: selectedState == 'ちょうど'
-                              ? const Color(0xFFB2DFDB).withOpacity(0.2)
+                              ? const Color(0xFFB2DFDB).withValues(alpha:0.2)
                               : null,
                         ),
                         child: const Text('ちょうど'),
@@ -3090,7 +3432,7 @@ class _RecordScreenState extends State<RecordScreen> {
                         },
                         style: OutlinedButton.styleFrom(
                           backgroundColor: selectedState == '軽め'
-                              ? const Color(0xFFB2DFDB).withOpacity(0.2)
+                              ? const Color(0xFFB2DFDB).withValues(alpha:0.2)
                               : null,
                         ),
                         child: const Text('軽め'),
@@ -3423,7 +3765,7 @@ class _MealEstimateScreenState extends State<MealEstimateScreen> {
               Card(
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                color: mintColorLight.withOpacity(0.1),
+                color: mintColorLight.withValues(alpha:0.1),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
@@ -3431,14 +3773,14 @@ class _MealEstimateScreenState extends State<MealEstimateScreen> {
                       Icon(
                         Icons.info_outline,
                         size: 20,
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        color: theme.colorScheme.onSurface.withValues(alpha:0.6),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           'AI解析に失敗したため、デフォルト値で表示しています。',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                            color: theme.colorScheme.onSurface.withValues(alpha:0.7),
                             height: 1.4,
                           ),
                         ),
@@ -3454,7 +3796,7 @@ class _MealEstimateScreenState extends State<MealEstimateScreen> {
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              color: mintColorLight.withOpacity(0.15),
+              color: mintColorLight.withValues(alpha: 0.15),
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
@@ -3480,7 +3822,7 @@ class _MealEstimateScreenState extends State<MealEstimateScreen> {
                                 '少なめ・間食・軽食',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   fontSize: 10,
-                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                 ),
                               ),
                             ],
@@ -3497,7 +3839,7 @@ class _MealEstimateScreenState extends State<MealEstimateScreen> {
                                 '通常の1食',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   fontSize: 10,
-                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                 ),
                               ),
                             ],
@@ -3514,7 +3856,7 @@ class _MealEstimateScreenState extends State<MealEstimateScreen> {
                                 '外食・ボリューム多め',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   fontSize: 10,
-                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                 ),
                               ),
                             ],
@@ -3528,7 +3870,7 @@ class _MealEstimateScreenState extends State<MealEstimateScreen> {
                         });
                       },
                       style: SegmentedButton.styleFrom(
-                        selectedBackgroundColor: mintColorLight.withOpacity(0.4),
+                        selectedBackgroundColor: mintColorLight.withValues(alpha:0.4),
                         selectedForegroundColor: theme.colorScheme.onSurface,
                         backgroundColor: Colors.transparent,
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -3545,7 +3887,7 @@ class _MealEstimateScreenState extends State<MealEstimateScreen> {
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              color: mintColorLight.withOpacity(0.1),
+              color: mintColorLight.withValues(alpha:0.1),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                 child: Row(
@@ -3563,7 +3905,7 @@ class _MealEstimateScreenState extends State<MealEstimateScreen> {
                         Text(
                           'kcal',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                             fontSize: 12,
                           ),
                         ),
@@ -3582,7 +3924,7 @@ class _MealEstimateScreenState extends State<MealEstimateScreen> {
                         Text(
                           'P',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                             fontSize: 12,
                           ),
                         ),
@@ -3603,7 +3945,7 @@ class _MealEstimateScreenState extends State<MealEstimateScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
-                backgroundColor: mintColorLight.withOpacity(0.4),
+                backgroundColor: mintColorLight.withValues(alpha:0.4),
                 foregroundColor: theme.colorScheme.onSurface,
               ),
               child: const Text(
@@ -3668,7 +4010,7 @@ class _IntakeGaugeCard extends StatelessWidget {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      color: mintColorLight.withOpacity(0.15),
+      color: mintColorLight.withValues(alpha:0.15),
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -3681,7 +4023,7 @@ class _IntakeGaugeCard extends StatelessWidget {
                 painter: _SemiCircleGaugePainter(
                   progress: target > 0 ? (intake / target).clamp(0.0, 1.0) : 0.0,
                   statusColor: statusColor,
-                  backgroundColor: mintColorLight.withOpacity(0.2),
+                  backgroundColor: mintColorLight.withValues(alpha:0.2),
                 ),
                 child: Center(
                   child: Column(
@@ -3701,7 +4043,7 @@ class _IntakeGaugeCard extends StatelessWidget {
                         'kcal',
                         style: TextStyle(
                           fontSize: 16,
-                          color: statusColor.withOpacity(0.8),
+                          color: statusColor.withValues(alpha:0.8),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -3711,7 +4053,7 @@ class _IntakeGaugeCard extends StatelessWidget {
                         '$intake / $target',
                         style: theme.textTheme.bodySmall?.copyWith(
                           fontSize: 12,
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -3719,7 +4061,7 @@ class _IntakeGaugeCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                         decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.15),
+                          color: statusColor.withValues(alpha:0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
@@ -3779,7 +4121,7 @@ class _SemiCircleGaugePainter extends CustomPainter {
 
     // プログレスアーク
     paint
-      ..color = statusColor.withOpacity(0.8)
+      ..color = statusColor.withValues(alpha:0.8)
       ..strokeWidth = strokeWidth;
     final sweepAngle = math.pi * progress.clamp(0.0, 1.0);
     canvas.drawArc(
@@ -3896,7 +4238,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
-            color: mintColorLight.withOpacity(0.15),
+            color: mintColorLight.withValues(alpha:0.15),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -3949,7 +4291,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
-            color: mintColorLight.withOpacity(0.15),
+            color: mintColorLight.withValues(alpha:0.15),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -4002,7 +4344,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
-            color: mintColorLight.withOpacity(0.15),
+            color: mintColorLight.withValues(alpha:0.15),
             child: ExpansionTile(
               title: Text(
                 'フィットネスタイプ診断',
@@ -4082,7 +4424,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Text(
                       '診断を完了すると表示されます。',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        color: theme.colorScheme.onSurface.withValues(alpha:0.6),
                       ),
                     ),
                   ),
@@ -4406,14 +4748,14 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
               Text(
                 '質問 ${_questionIndex + 1} / ${_questions.length}',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  color: theme.colorScheme.onSurface.withValues(alpha:0.6),
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               LinearProgressIndicator(
                 value: (_questionIndex + 1) / _questions.length,
-                backgroundColor: mintColorLight.withOpacity(0.3),
+                backgroundColor: mintColorLight.withValues(alpha: 0.3),
                 valueColor: AlwaysStoppedAnimation<Color>(mintColorLight),
                 borderRadius: BorderRadius.circular(4),
               ),
@@ -4435,7 +4777,7 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
-                color: mintColorLight.withOpacity(0.15),
+                color: mintColorLight.withValues(alpha: 0.15),
                 child: InkWell(
                   onTap: () => _answer(question.$3),
                   borderRadius: BorderRadius.circular(20),
@@ -4480,7 +4822,7 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
-                color: mintColorLight.withOpacity(0.15),
+                color: mintColorLight.withValues(alpha: 0.15),
                 child: InkWell(
                   onTap: () => _answer(question.$4),
                   borderRadius: BorderRadius.circular(20),
@@ -4600,7 +4942,7 @@ class DiagnosisResultScreen extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
-                color: mintColorLight.withOpacity(0.15),
+                color: mintColorLight.withValues(alpha: 0.15),
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(
@@ -4624,7 +4966,7 @@ class DiagnosisResultScreen extends StatelessWidget {
                       Text(
                         'このタイプで、しばらく進めてみよう。',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                           height: 1.5,
                         ),
                         textAlign: TextAlign.center,
@@ -4672,7 +5014,7 @@ class _InfoRow extends StatelessWidget {
         Text(
           label,
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurface.withOpacity(0.6),
+            color: theme.colorScheme.onSurface.withValues(alpha:0.6),
           ),
         ),
         Text(
@@ -4786,7 +5128,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
-            color: mintColorLight.withOpacity(0.15),
+            color: mintColorLight.withValues(alpha:0.15),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -4810,7 +5152,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       hintText: '例: 72.3',
                       prefixIcon: const Icon(Icons.monitor_weight_outlined),
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.7),
+                      fillColor: Colors.white.withValues(alpha:0.7),
                     ),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     textInputAction: TextInputAction.done,
@@ -4891,7 +5233,7 @@ class _ExtraLargeDonutChart extends StatelessWidget {
               value: 1.0,
               strokeWidth: strokeWidth,
               valueColor: AlwaysStoppedAnimation<Color>(
-                mintColorLight.withOpacity(0.2),
+                mintColorLight.withValues(alpha:0.2),
               ),
               backgroundColor: Colors.transparent,
             ),
@@ -4904,7 +5246,7 @@ class _ExtraLargeDonutChart extends StatelessWidget {
               value: progress,
               strokeWidth: strokeWidth,
               valueColor: AlwaysStoppedAnimation<Color>(
-                mintColor.withOpacity(0.6),
+                mintColor.withValues(alpha:0.6),
               ),
               backgroundColor: Colors.transparent,
               strokeCap: StrokeCap.round,
@@ -4927,7 +5269,7 @@ class _ExtraLargeDonutChart extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontSize: 11,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha:0.5),
                   height: 1.2,
                   fontWeight: FontWeight.w500,
                 ),
@@ -4976,7 +5318,7 @@ class MiniDonutChart extends StatelessWidget {
               value: 1.0,
               strokeWidth: strokeWidth,
               valueColor: AlwaysStoppedAnimation<Color>(
-                mintColorLight.withOpacity(0.2),
+                mintColorLight.withValues(alpha:0.2),
               ),
               backgroundColor: Colors.transparent,
             ),
@@ -4989,7 +5331,7 @@ class MiniDonutChart extends StatelessWidget {
               value: progress,
               strokeWidth: strokeWidth,
               valueColor: AlwaysStoppedAnimation<Color>(
-                mintColor.withOpacity(0.6),
+                mintColor.withValues(alpha:0.6),
               ),
               backgroundColor: Colors.transparent,
               strokeCap: StrokeCap.round,
@@ -5011,7 +5353,7 @@ class MiniDonutChart extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha:0.6),
                   height: 1.2,
                 ),
               ),
@@ -5075,7 +5417,7 @@ class WeeklyKcalMiniGraph extends StatelessWidget {
                         decoration: BoxDecoration(
                           border: Border(
                             top: BorderSide(
-                              color: mintColorLight.withOpacity(0.4),
+                              color: mintColorLight.withValues(alpha:0.4),
                               width: 1,
                               style: BorderStyle.solid,
                             ),
@@ -5089,7 +5431,7 @@ class WeeklyKcalMiniGraph extends StatelessWidget {
                               child: Text(
                                 '2400',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: mintColorLight.withOpacity(0.6),
+                                  color: mintColorLight.withValues(alpha:0.6),
                                   fontSize: 9,
                                 ),
                               ),
@@ -5119,7 +5461,7 @@ class WeeklyKcalMiniGraph extends StatelessWidget {
                                   width: double.infinity,
                                   height: barHeight.clamp(0.0, 120.0),
                                   decoration: BoxDecoration(
-                                    color: mintColor.withOpacity(0.5),
+                                    color: mintColor.withValues(alpha:0.5),
                                     borderRadius: const BorderRadius.only(
                                       topLeft: Radius.circular(4),
                                       topRight: Radius.circular(4),
@@ -5138,7 +5480,7 @@ class WeeklyKcalMiniGraph extends StatelessWidget {
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     fontSize: 9,
                                     color: theme.colorScheme.onSurface
-                                        .withOpacity(0.6),
+                                        .withValues(alpha:0.6),
                                   ),
                                 ),
                               ],

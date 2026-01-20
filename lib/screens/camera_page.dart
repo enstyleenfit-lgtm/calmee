@@ -10,28 +10,28 @@ class CameraPage extends StatefulWidget {
 }
 
 class _CameraPageState extends State<CameraPage> {
-  String selectedMode = 'Scan Food'; // Scan Food / Barcode / Food Label
-  double zoomLevel = 1.0; // .5x or 1x
+  // 表示文字列（i18n未導入のため直書き）
+  String selectedMode = '食事を撮影'; // 食事を撮影 / バーコード / 成分表示
 
   // 食材ラベルのデータ（ダミー）
   final List<FoodLabel> foodLabels = [
     FoodLabel(
-      name: 'Lettuce',
+      name: 'レタス',
       position: Offset(0.25, 0.35), // 相対位置（0.0-1.0）
       anchorPosition: Offset(0.3, 0.4), // ラベルが指す位置
     ),
     FoodLabel(
-      name: 'Parmesan',
+      name: 'パルメザン',
       position: Offset(0.65, 0.3),
       anchorPosition: Offset(0.6, 0.35),
     ),
     FoodLabel(
-      name: 'Cherry Tomatoes',
+      name: 'ミニトマト',
       position: Offset(0.45, 0.55),
       anchorPosition: Offset(0.5, 0.6),
     ),
     FoodLabel(
-      name: 'Croutons',
+      name: 'クルトン',
       position: Offset(0.75, 0.6),
       anchorPosition: Offset(0.7, 0.65),
     ),
@@ -55,9 +55,6 @@ class _CameraPageState extends State<CameraPage> {
                   child: _buildFoodViewArea(),
                 ),
                 
-                // ズームコントロール
-                _buildZoomControls(),
-                
                 // 下部コントロールバー
                 _buildBottomControls(),
               ],
@@ -71,15 +68,15 @@ class _CameraPageState extends State<CameraPage> {
   /// 上部コントロールバー（× / Cal AIロゴ / ?）
   Widget _buildTopBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // 【Home準拠】左右16px
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // ×ボタン
+          // ×ボタン（閉じる）
           _buildCircleButton(
             icon: Icons.close,
             onTap: () {
-              // ダミー処理
+              Navigator.of(context).pop();
             },
           ),
           
@@ -107,13 +104,13 @@ class _CameraPageState extends State<CameraPage> {
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700, // 【Home準拠】太め
                 ),
               ),
             ],
           ),
           
-          // ?ボタン
+          // ?ボタン（ヘルプ）
           _buildCircleButton(
             icon: Icons.help_outline,
             onTap: () {
@@ -136,7 +133,7 @@ class _CameraPageState extends State<CameraPage> {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
+          color: Colors.white.withValues(alpha: 0.15), // 黒半透明
           shape: BoxShape.circle,
         ),
         child: Icon(
@@ -152,130 +149,87 @@ class _CameraPageState extends State<CameraPage> {
   Widget _buildFoodViewArea() {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.symmetric(horizontal: 16), // 【Home準拠】左右16px
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A), // 暗い背景
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18), // 【Home準拠】内側角丸18px
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final areaWidth = constraints.maxWidth;
-              final areaHeight = constraints.maxHeight;
-              
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  // ダミー背景（シーザーサラダ風）
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          const Color(0xFF2C2C2C),
-                          const Color(0xFF1A1A1A),
-                        ],
-                      ),
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // サラダのアイコン表示
-                          Container(
-                            width: 200,
-                            height: 200,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF3A3A3A),
-                              borderRadius: BorderRadius.circular(100),
-                            ),
-                            child: const Icon(
-                              Icons.restaurant,
-                              size: 80,
-                              color: Colors.white38,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            'Caesar Salad',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+        borderRadius: BorderRadius.circular(18), // 【Home準拠】内側角丸18px
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final areaWidth = constraints.maxWidth;
+            final areaHeight = constraints.maxHeight;
+            
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                // ダミー背景（シーザーサラダ風）
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        const Color(0xFF2C2C2C),
+                        const Color(0xFF1A1A1A),
+                      ],
                     ),
                   ),
-                  
-                  // 食材ラベルのオーバーレイ
-                  ...foodLabels.map((label) {
-                    final labelX = label.position.dx * areaWidth;
-                    final labelY = label.position.dy * areaHeight;
-                    final anchorX = label.anchorPosition.dx * areaWidth;
-                    final anchorY = label.anchorPosition.dy * areaHeight;
-                    
-                    return Positioned(
-                      left: labelX,
-                      top: labelY,
-                      child: _FoodLabelWidget(
-                        label: label.name,
-                        anchorPoint: Offset(
-                          anchorX - labelX,
-                          anchorY - labelY,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // サラダのアイコン表示
+                        Container(
+                          width: 200,
+                          height: 200,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF3A3A3A),
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                          child: const Icon(
+                            Icons.restaurant,
+                            size: 80,
+                            color: Colors.white38,
+                          ),
                         ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'シーザーサラダ',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.6),
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600, // 【Home準拠】太め
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // 食材ラベルのオーバーレイ
+                ...foodLabels.map((label) {
+                  final labelX = label.position.dx * areaWidth;
+                  final labelY = label.position.dy * areaHeight;
+                  final anchorX = label.anchorPosition.dx * areaWidth;
+                  final anchorY = label.anchorPosition.dy * areaHeight;
+                  
+                  return Positioned(
+                    left: labelX,
+                    top: labelY,
+                    child: _FoodLabelWidget(
+                      label: label.name,
+                      anchorPoint: Offset(
+                        anchorX - labelX,
+                        anchorY - labelY,
                       ),
-                    );
-                  }).toList(),
-                ],
-              );
-            },
-          ),
-      ),
-    );
-  }
-
-  /// ズームコントロール
-  Widget _buildZoomControls() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          _buildZoomButton('0.5x', 0.5),
-          const SizedBox(width: 8),
-          _buildZoomButton('1x', 1.0),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildZoomButton(String label, double value) {
-    final isSelected = zoomLevel == value;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          zoomLevel = value;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? Colors.white
-              : Colors.white.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.black : Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+                    ),
+                  );
+                }).toList(),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -284,7 +238,7 @@ class _CameraPageState extends State<CameraPage> {
   /// 下部コントロールバー
   Widget _buildBottomControls() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18), // 【Home準拠】左右16px、下部18px
       child: Column(
         children: [
           // モード切替
@@ -296,9 +250,9 @@ class _CameraPageState extends State<CameraPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // 左：フラッシュ/フィルターボタン
+              // 左：フラッシュボタン
               _buildActionButton(
-                icon: Icons.auto_awesome,
+                icon: Icons.flash_on,
                 onTap: () {},
               ),
               
@@ -317,22 +271,26 @@ class _CameraPageState extends State<CameraPage> {
     );
   }
 
-  /// モード切替（Scan Food / Barcode / Food Label）
+  /// モード切替（食事を撮影 / バーコード / 成分表示）
   Widget _buildModeSelector() {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(30),
+            color: Colors.black.withValues(alpha: 0.3), // 【Home準拠】黒半透明背景
+        borderRadius: BorderRadius.circular(999), // 【Home準拠】ピル999
+        border: Border.all(
+              color: Colors.white.withValues(alpha: 0.1), // 【Home準拠】薄い線（#E9E9EF相当の白版）
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildModeButton('Scan Food', Icons.camera_alt, 'Scan Food'),
+          _buildModeButton('食事を撮影', Icons.camera_alt, '食事を撮影'),
           const SizedBox(width: 4),
-          _buildModeButton('Barcode', Icons.qr_code_scanner, 'Barcode'),
+          _buildModeButton('バーコード', Icons.qr_code_scanner, 'バーコード'),
           const SizedBox(width: 4),
-          _buildModeButton('Food Label', Icons.description, 'Food Label'),
+          _buildModeButton('成分表示', Icons.description, '成分表示'),
         ],
       ),
     );
@@ -349,8 +307,9 @@ class _CameraPageState extends State<CameraPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
+          // 【Home準拠】選択中：白地、非選択：黒半透明
           color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(26),
+          borderRadius: BorderRadius.circular(999), // 【Home準拠】ピル999
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -358,15 +317,17 @@ class _CameraPageState extends State<CameraPage> {
             Icon(
               icon,
               size: 18,
+              // 【Home準拠】選択中：黒文字、非選択：白文字
               color: isSelected ? Colors.black : Colors.white,
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
+                // 【Home準拠】選択中：黒文字、非選択：白文字
                 color: isSelected ? Colors.black : Colors.white,
                 fontSize: 14,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700, // 【Home準拠】太め
               ),
             ),
           ],
@@ -375,7 +336,7 @@ class _CameraPageState extends State<CameraPage> {
     );
   }
 
-  /// アクションボタン（左・右）
+  /// アクションボタン（フラッシュ/ギャラリー）
   Widget _buildActionButton({
     required IconData icon,
     required VoidCallback onTap,
@@ -386,7 +347,7 @@ class _CameraPageState extends State<CameraPage> {
         width: 50,
         height: 50,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
+          color: Colors.white.withValues(alpha: 0.15), // 黒半透明
           shape: BoxShape.circle,
         ),
         child: Icon(
@@ -472,15 +433,20 @@ class _FoodLabelWidget extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            // 【Home準拠】白っぽい半透明＋薄い線
+            color: Colors.white.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(999), // 【Home準拠】ピル型（radius 999）
+            border: Border.all(
+              color: const Color(0xFFE9E9EF).withValues(alpha: 0.5), // 【Home準拠】薄い線
+              width: 1,
+            ),
           ),
           child: Text(
             label,
             style: const TextStyle(
               color: Colors.black,
               fontSize: 13,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700, // 【Home準拠】太め
             ),
           ),
         ),
@@ -497,8 +463,9 @@ class _LabelPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 【Home準拠】線の色を薄く
     final paint = Paint()
-      ..color = Colors.white
+      ..color = Colors.white.withValues(alpha: 0.7)
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke;
 
@@ -510,7 +477,7 @@ class _LabelPainter extends CustomPainter {
 
     // アンカーポイントに円を描画
     final circlePaint = Paint()
-      ..color = Colors.white
+      ..color = Colors.white.withValues(alpha: 0.7)
       ..style = PaintingStyle.fill;
 
     canvas.drawCircle(endPoint, 4, circlePaint);
@@ -521,4 +488,3 @@ class _LabelPainter extends CustomPainter {
     return oldDelegate.anchorPoint != anchorPoint;
   }
 }
-

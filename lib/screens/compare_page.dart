@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Cal AI風Compare UI（Before/After比較）
+/// Cal AI風Compare UI（ビフォー/アフター比較）
 class ComparePage extends StatefulWidget {
   const ComparePage({super.key});
 
@@ -14,9 +14,9 @@ class _ComparePageState extends State<ComparePage> {
 
   // ダミーデータ
   final beforeWeight = 355.0; // lbs
-  final beforeDate = 'Sep 20, 2023';
+  final beforeDate = '2023/9/20';
   final afterWeight = 182.0; // lbs
-  final afterDate = 'Jul 7, 2025';
+  final afterDate = '2025/7/7';
 
   // サムネイル一覧（ダミー）
   final List<ThumbnailItem> thumbnails = List.generate(
@@ -28,10 +28,8 @@ class _ComparePageState extends State<ComparePage> {
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFFF6F6F8);
-
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: const Color(0xFFF6F6F8), // 【Home準拠】背景色
       body: SafeArea(
         child: Column(
           children: [
@@ -41,24 +39,24 @@ class _ComparePageState extends State<ComparePage> {
             // メインコンテンツ
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // 【Home準拠】左右16px
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Before / After 比較カード
                     _buildComparisonCards(),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18), // 【Home準拠】セクション間18px
 
                     // Hide weight トグル
                     _buildHideWeightToggle(),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 18), // 【Home準拠】セクション間18px
 
                     // サムネイル一覧
                     _buildThumbnailsList(),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 18), // 【Home準拠】セクション間18px
 
                     // Shareボタン
                     _buildShareButton(),
@@ -74,15 +72,15 @@ class _ComparePageState extends State<ComparePage> {
     );
   }
 
-  /// ヘッダー
+  /// ヘッダー（タイトル＋Shareボタン）
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // 【Home準拠】左右16px
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
           bottom: BorderSide(
-            color: Colors.black.withOpacity(0.08),
+            color: const Color(0xFFE9E9EF), // 【Home準拠】border色
             width: 1,
           ),
         ),
@@ -92,20 +90,54 @@ class _ComparePageState extends State<ComparePage> {
           // 戻るボタン
           IconButton(
             icon: const Icon(Icons.arrow_back, size: 24),
+            color: Colors.black,
             onPressed: () {
               Navigator.of(context).pop();
             },
           ),
           const SizedBox(width: 8),
           const Text(
-            'Compare',
+            '比較',
             style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
+              fontSize: 24,
+              fontWeight: FontWeight.w700, // 【Home準拠】太め
               color: Colors.black,
             ),
           ),
           const Spacer(),
+          // Shareボタン（ピル型）
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(999), // 【Home準拠】ピル999
+            ),
+            child: InkWell(
+              onTap: () {
+                // ダミー処理
+              },
+              borderRadius: BorderRadius.circular(999),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.share,
+                    size: 18,
+                    color: Colors.white,
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    '共有',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -124,7 +156,7 @@ class _ComparePageState extends State<ComparePage> {
             isSelected: false,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14), // 【Home準拠】カード間14px
         // Afterカード（右）
         Expanded(
           child: _buildPhotoCard(
@@ -145,109 +177,109 @@ class _ComparePageState extends State<ComparePage> {
     required bool isAfter,
     required bool isSelected,
   }) {
-    return Container(
-      height: 500,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        border: isSelected
-            ? Border.all(
-                color: Colors.black,
-                width: 2,
-              )
-            : null,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // ダミー背景画像
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: isAfter
-                      ? [
-                          const Color(0xFFE8F5E9),
-                          const Color(0xFFC8E6C9),
-                        ]
-                      : [
-                          const Color(0xFFF5F5F5),
-                          const Color(0xFFE0E0E0),
-                        ],
-                ),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      isAfter ? Icons.check_circle : Icons.circle,
-                      size: 80,
-                      color: isAfter
-                          ? const Color(0xFF34C759)
-                          : Colors.black.withOpacity(0.3),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      isAfter ? 'After' : 'Before',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black.withOpacity(0.6),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // 体重＋日付のオーバーレイ（下部）
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                padding: const EdgeInsets.all(16),
+    return _StyledCard(
+      padding: EdgeInsets.zero,
+      useSubtleBorder: false, // 【Home準拠】主要カードは0.8（標準border）
+      child: Container(
+        height: 500,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px（写真角丸）
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // ダミー背景画像
+              Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.7),
+                    colors: isAfter
+                        ? [
+                            const Color(0xFFE8F5E9),
+                            const Color(0xFFC8E6C9),
+                          ]
+                        : [
+                            const Color(0xFFF5F5F5),
+                            const Color(0xFFE0E0E0),
+                          ],
+                  ),
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        isAfter ? Icons.check_circle : Icons.circle,
+                        size: 80,
+                        color: isAfter
+                            ? const Color(0xFF34C759)
+                            : Colors.black.withValues(alpha: 0.3),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        // 表示文字列（i18n未導入のため直書き）
+                        isAfter ? 'アフター' : 'ビフォー',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700, // 【Home準拠】太め
+                          color: Colors.black.withValues(alpha: 0.6),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!hideWeight)
+              ),
+
+              // 体重＋日付のオーバーレイ（下部）
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    // 【Home準拠】薄背景＋白文字（控えめなグラデーション）
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.5), // 【Home準拠】薄めの背景
+                      ],
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!hideWeight)
+                        Text(
+                          '${weight.toStringAsFixed(0)} lbs',
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700, // 【Home準拠】太字
+                            color: Colors.white,
+                            height: 1.0,
+                          ),
+                        ),
+                      if (!hideWeight) const SizedBox(height: 4),
                       Text(
-                        '${weight.toStringAsFixed(0)} lbs',
+                        date,
                         style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          height: 1.0,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white, // 【Home準拠】白文字
                         ),
                       ),
-                    if (!hideWeight) const SizedBox(height: 4),
-                    Text(
-                      date,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withOpacity(0.9),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -255,25 +287,18 @@ class _ComparePageState extends State<ComparePage> {
 
   /// Hide weight トグル
   Widget _buildHideWeightToggle() {
-    return Container(
+    return _StyledCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.black.withOpacity(0.08),
-          width: 1,
-        ),
-      ),
+      useSubtleBorder: true, // 【最終調整】補助要素は0.6（控えめ）
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           const Text(
-            'Hide weight',
+            '体重を隠す',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: Colors.black,
+              color: Color(0xFF7A7A86), // 【Home準拠】description色（控えめに）
             ),
           ),
           Switch(
@@ -292,80 +317,72 @@ class _ComparePageState extends State<ComparePage> {
 
   /// サムネイル一覧
   Widget _buildThumbnailsList() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          height: 80,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: thumbnails.length,
-            itemBuilder: (context, index) {
-              final thumbnail = thumbnails[index];
-              final isSelected = selectedThumbnailIndex == index;
+    return SizedBox(
+      height: 80,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: thumbnails.length,
+        itemBuilder: (context, index) {
+          final thumbnail = thumbnails[index];
+          final isSelected = selectedThumbnailIndex == index;
 
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    selectedThumbnailIndex = index;
-                  });
-                },
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                selectedThumbnailIndex = index;
+              });
+            },
+            child: Container(
+              width: 80,
+              margin: EdgeInsets.only(
+                right: index < thumbnails.length - 1 ? 12 : 0,
+              ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+                border: Border.all(
+                  color: isSelected
+                      ? Colors.black
+                      : const Color(0xFFE9E9EF).withValues(alpha: 0.8), // 【Home準拠】border色
+                  width: isSelected ? 2 : 1,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
                 child: Container(
-                  width: 80,
-                  margin: EdgeInsets.only(
-                    right: index < thumbnails.length - 1 ? 12 : 0,
-                  ),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: isSelected
-                        ? Border.all(
-                            color: Colors.black,
-                            width: 2,
-                          )
-                        : Border.all(
-                            color: Colors.black.withOpacity(0.2),
-                            width: 1,
-                          ),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: thumbnail.isAfter
+                          ? [
+                              const Color(0xFFE8F5E9),
+                              const Color(0xFFC8E6C9),
+                            ]
+                          : [
+                              const Color(0xFFF5F5F5),
+                              const Color(0xFFE0E0E0),
+                            ],
+                    ),
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: thumbnail.isAfter
-                              ? [
-                                  const Color(0xFFE8F5E9),
-                                  const Color(0xFFC8E6C9),
-                                ]
-                              : [
-                                  const Color(0xFFF5F5F5),
-                                  const Color(0xFFE0E0E0),
-                                ],
-                        ),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          thumbnail.isAfter ? Icons.check_circle : Icons.circle,
-                          size: 32,
-                          color: thumbnail.isAfter
-                              ? const Color(0xFF34C759)
-                              : Colors.black.withOpacity(0.3),
-                        ),
-                      ),
+                  child: Center(
+                    child: Icon(
+                      thumbnail.isAfter ? Icons.check_circle : Icons.circle,
+                      size: 32,
+                      color: thumbnail.isAfter
+                          ? const Color(0xFF34C759)
+                          : Colors.black.withValues(alpha: 0.3),
                     ),
                   ),
                 ),
-              );
-            },
-          ),
-        ),
-      ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
-  /// Shareボタン
+  /// Shareボタン（下部）
   Widget _buildShareButton() {
     return SizedBox(
       width: double.infinity,
@@ -373,23 +390,57 @@ class _ComparePageState extends State<ComparePage> {
         onPressed: () {
           // ダミー処理
         },
-        icon: const Icon(Icons.share, size: 24),
+        icon: const Icon(Icons.share, size: 20),
         label: const Text(
-          'Share',
+          '共有',
           style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
+            fontSize: 16,
+            fontWeight: FontWeight.w700, // 【Home準拠】太め
           ),
         ),
         style: FilledButton.styleFrom(
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 18),
+          padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 共通スタイルカード（Home準拠）
+class _StyledCard extends StatelessWidget {
+  const _StyledCard({
+    required this.child,
+    this.padding,
+    this.useSubtleBorder = false,
+  });
+
+  final Widget child;
+  final EdgeInsets? padding;
+  final bool useSubtleBorder;
+
+  @override
+  Widget build(BuildContext context) {
+    // 【Home準拠】浮き感の最適化
+    final borderColor = useSubtleBorder
+        ? const Color(0xFFE9E9EF).withValues(alpha: 0.6) // より薄く（60%）
+        : const Color(0xFFE9E9EF).withValues(alpha: 0.8); // 標準（80%）
+    
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22), // 【Home準拠】カード角丸22px
+        border: Border.all(
+          color: borderColor,
+          width: 1,
+        ),
+      ),
+      child: child,
     );
   }
 }
@@ -402,4 +453,3 @@ class ThumbnailItem {
     required this.isAfter,
   });
 }
-

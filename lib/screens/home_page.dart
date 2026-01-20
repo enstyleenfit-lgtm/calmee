@@ -30,12 +30,12 @@ class _HomePageState extends State<HomePage> {
   // 最近の食事（ダミー）
   final List<Map<String, dynamic>> recentMeals = [
     {
-      'name': 'Grilled Salmon',
+      'name': 'サーモンのグリル',
       'calories': 550,
       'protein': 35,
       'carbs': 40,
       'fat': 28,
-      'time': '12:37pm',
+      'time': '12:37',
       'imageUrl': null,
     },
   ];
@@ -48,7 +48,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   String _getDayName(DateTime date) {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    // 表示文字列（i18n未導入のため直書き）
+    const days = ['日', '月', '火', '水', '木', '金', '土'];
     return days[date.weekday % 7];
   }
 
@@ -138,7 +139,7 @@ class _HomePageState extends State<HomePage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFFFF9500).withOpacity(0.1),
+              color: const Color(0xFFFF9500).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Row(
@@ -244,8 +245,9 @@ class _HomePageState extends State<HomePage> {
   Widget _buildCaloriesCard() {
     final progress = (caloriesEaten / caloriesTarget).clamp(0.0, 1.0);
     
-    // 【調整】数値と説明文の間に呼吸を作る（6px → 8px）
+    // 【最終調整】数値と説明文の間を10pxに（情報密度の最適化）
     return _StyledCard(
+      useSubtleBorder: true, // より薄いborderを使用
       child: Row(
         children: [
           // 左：数値
@@ -262,9 +264,9 @@ class _HomePageState extends State<HomePage> {
                     height: 1.2,
                   ),
                 ),
-                const SizedBox(height: 8), // 6px → 8px（情報密度調整）
+                const SizedBox(height: 10), // 8px → 10px（最終調整：数値周りの呼吸）
                 Text(
-                  'Calories eaten',
+                  '摂取カロリー',
                   style: _TextStyles.description,
                 ),
               ],
@@ -274,7 +276,7 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(width: 16),
           
           // 右：リング
-          // 【調整】リングを少し控えめに（サイズ78px、strokeWidth 7px）
+          // 【最終調整】リングサイズを控えめに（視線誘導最適化）
           SizedBox(
             width: 78,
             height: 78,
@@ -287,7 +289,7 @@ class _HomePageState extends State<HomePage> {
                   height: 78,
                   child: CircularProgressIndicator(
                     value: 1.0,
-                    strokeWidth: 7, // 8px → 7px（視線誘導調整）
+                    strokeWidth: 7,
                     valueColor: const AlwaysStoppedAnimation<Color>(
                       Color(0xFFE9E9EF),
                     ),
@@ -299,7 +301,7 @@ class _HomePageState extends State<HomePage> {
                   height: 78,
                   child: CircularProgressIndicator(
                     value: progress,
-                    strokeWidth: 7, // 8px → 7px（視線誘導調整）
+                    strokeWidth: 7,
                     valueColor: const AlwaysStoppedAnimation<Color>(
                       Color(0xFF007AFF),
                     ),
@@ -309,7 +311,7 @@ class _HomePageState extends State<HomePage> {
                 // 中央アイコン
                 const Icon(
                   Icons.water_drop,
-                  size: 26, // 28px → 26px（リングサイズに合わせて調整）
+                  size: 26,
                   color: Color(0xFF007AFF),
                 ),
               ],
@@ -326,7 +328,7 @@ class _HomePageState extends State<HomePage> {
       children: [
         Expanded(
           child: _buildMacroCard(
-            label: 'Protein eaten',
+            label: 'たんぱく質',
             current: proteinEaten,
             target: proteinTarget,
             unit: 'g',
@@ -337,7 +339,7 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(width: 12),
         Expanded(
           child: _buildMacroCard(
-            label: 'Carbs eaten',
+            label: '炭水化物',
             current: carbsEaten,
             target: carbsTarget,
             unit: 'g',
@@ -348,7 +350,7 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(width: 12),
         Expanded(
           child: _buildMacroCard(
-            label: 'Fat eaten',
+            label: '脂質',
             current: fatEaten,
             target: fatTarget,
             unit: 'g',
@@ -373,6 +375,7 @@ class _HomePageState extends State<HomePage> {
     
     return _StyledCard(
       padding: const EdgeInsets.all(16),
+      useSubtleBorder: true, // より薄いborderを使用
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -402,7 +405,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           
-          // 【調整】メーターと数値の間の余白を増やす（12px → 14px）
+          // 【最終調整】メーターと数値の間を14px維持
           const SizedBox(height: 14),
           
           // 数値
@@ -416,8 +419,8 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           
-          // 【調整】数値とラベルの間の余白を増やす（4px → 6px）
-          const SizedBox(height: 6),
+          // 【最終調整】数値とラベルの間を8pxに（6px → 8px：情報密度の最適化）
+          const SizedBox(height: 8),
           
           // ラベル
           Text(
@@ -437,15 +440,15 @@ class _HomePageState extends State<HomePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Recently uploaded',
+          '最近追加した食事',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: Colors.black,
           ),
         ),
-        // 【調整】見出し下の余白を最適化（14px → 12px）
-        const SizedBox(height: 12),
+        // 【最終調整】見出し下の余白を10pxに（8〜12pxの最適値）
+        const SizedBox(height: 10),
         
         ...recentMeals.map((meal) => Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -457,7 +460,7 @@ class _HomePageState extends State<HomePage> {
 
   /// 個別食事カード
   Widget _buildMealCard(Map<String, dynamic> meal) {
-    // 【調整】InkWell化でクリック感を向上
+    // 【最終調整】InkWell化でクリック感を向上（リップル効果）
     return InkWell(
       onTap: () {
         // ダミー処理
@@ -465,11 +468,12 @@ class _HomePageState extends State<HomePage> {
       borderRadius: BorderRadius.circular(22),
       child: _StyledCard(
         padding: const EdgeInsets.all(16),
+        // 食事カードは標準のborderで（浮き感のバランス）
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 画像プレースホルダー
-            // 【調整】画像部分のborderを削除（カードのborderで十分）
+            // 【最終調整】画像部分のborder無し（カードのborderで十分、浮き感向上）
             Container(
               width: 80,
               height: 80,
@@ -537,7 +541,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       const SizedBox(width: 5),
                       Text(
-                        '${meal['calories']} Calories',
+                        '${meal['calories']} kcal',
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -600,21 +604,27 @@ class _StyledCard extends StatelessWidget {
   const _StyledCard({
     required this.child,
     this.padding,
+    this.useSubtleBorder = false, // 【最終調整】より薄いborderオプション
   });
 
   final Widget child;
   final EdgeInsets? padding;
+  final bool useSubtleBorder; // 浮き感を最適化するための薄いborder
 
   @override
   Widget build(BuildContext context) {
+    // 【最終調整】浮き感の最適化：useSubtleBorder=trueの場合はより薄いborder、falseの場合は標準
+    final borderColor = useSubtleBorder
+        ? const Color(0xFFE9E9EF).withValues(alpha: 0.6) // より薄く（60%）
+        : const Color(0xFFE9E9EF).withValues(alpha: 0.8); // 標準（80%）
+    
     return Container(
       padding: padding ?? const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        // 【調整】borderを薄く感じるようにopacity調整（より軽く見せる）
         border: Border.all(
-          color: const Color(0xFFE9E9EF).withOpacity(0.8),
+          color: borderColor,
           width: 1,
         ),
       ),

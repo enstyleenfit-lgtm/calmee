@@ -9,6 +9,9 @@ class GroupsPage extends StatefulWidget {
 }
 
 class _GroupsPageState extends State<GroupsPage> {
+  // 表示文字列（i18n未導入のため直書き）
+  String selectedGroup = 'すべて'; // すべて / 友だち / シュレッド・スクワッド
+
   // ダミーデータ
   final List<GroupMember> members = [
     GroupMember(name: 'Alex', streak: 31, avatar: '👑', isCrown: true),
@@ -20,9 +23,9 @@ class _GroupsPageState extends State<GroupsPage> {
 
   final List<MealPost> posts = [
     MealPost(
-      userName: 'Cole Belvins',
-      timestamp: 'Today at 3:49pm',
-      mealName: 'Grilled Chicken with Avocado, Garlic Spinach, and Toast',
+      userName: 'コール',
+      timestamp: '今日 15:49',
+      mealName: '鶏肉とアボカド',
       imagePlaceholder: true,
       calories: 480,
       protein: 38,
@@ -33,9 +36,9 @@ class _GroupsPageState extends State<GroupsPage> {
       comments: 2,
     ),
     MealPost(
-      userName: 'Devin Carroll',
-      timestamp: 'Today at 3:26pm',
-      mealName: 'Caesar Salad with Grilled Salmon',
+      userName: 'デビン',
+      timestamp: '今日 15:26',
+      mealName: 'サーモンのシーザーサラダ',
       imagePlaceholder: true,
       calories: 520,
       protein: 42,
@@ -46,9 +49,9 @@ class _GroupsPageState extends State<GroupsPage> {
       comments: 3,
     ),
     MealPost(
-      userName: 'Sarah Johnson',
-      timestamp: 'Today at 2:15pm',
-      mealName: 'Quinoa Bowl with Vegetables',
+      userName: 'サラ',
+      timestamp: '今日 14:15',
+      mealName: '野菜のキヌアボウル',
       imagePlaceholder: true,
       calories: 380,
       protein: 15,
@@ -62,30 +65,39 @@ class _GroupsPageState extends State<GroupsPage> {
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFFF6F6F8);
-
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: const Color(0xFFF6F6F8), // 【Home準拠】背景色
       body: SafeArea(
         child: Column(
           children: [
-            // ヘッダー
+            // ヘッダー（グループ選択ピル）
             _buildHeader(),
 
             // メインコンテンツ
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // 【Home準拠】左右16px
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // グループメンバー（ストーリー風）
                     _buildMembersSection(),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 18), // 【Home準拠】セクション間18px
 
                     // 投稿フィード
-                    ...posts.map((post) => _buildPostCard(post)),
+                    ...posts.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final post = entry.value;
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index < posts.length - 1 ? 14 : 0, // 【Home準拠】カード間14px
+                        ),
+                        child: _buildPostCard(post),
+                      );
+                    }),
+                    
+                    const SizedBox(height: 32),
                   ],
                 ),
               ),
@@ -99,12 +111,12 @@ class _GroupsPageState extends State<GroupsPage> {
   /// ヘッダー（グループ選択ピル）
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // 【Home準拠】左右16px
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
           bottom: BorderSide(
-            color: Colors.black.withOpacity(0.08),
+            color: const Color(0xFFE9E9EF), // 【Home準拠】border色
             width: 1,
           ),
         ),
@@ -113,46 +125,27 @@ class _GroupsPageState extends State<GroupsPage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // 左：グループ選択ピル
-          GestureDetector(
-            onTap: () {
-              // ダミー処理
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF34C759).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.restaurant_menu,
-                    size: 20,
-                    color: Color(0xFF34C759),
-                  ),
+                      _buildGroupPill('すべて', 'すべて'),
                   const SizedBox(width: 8),
-                  const Text(
-                    'Shred Squad',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  const Icon(
-                    Icons.keyboard_arrow_down,
-                    size: 20,
-                    color: Colors.black54,
-                  ),
+                      _buildGroupPill('友だち', '友だち'),
+                  const SizedBox(width: 8),
+                      _buildGroupPill('シュレッド', 'シュレッド・スクワッド'),
                 ],
               ),
             ),
           ),
 
+          const SizedBox(width: 12),
+
           // 右：フィルター/ソートボタン
           IconButton(
             icon: const Icon(Icons.tune, size: 24),
+            color: Colors.black,
             onPressed: () {
               // ダミー処理
             },
@@ -162,115 +155,149 @@ class _GroupsPageState extends State<GroupsPage> {
     );
   }
 
-  /// グループメンバーセクション（ストーリー風）
-  Widget _buildMembersSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          height: 100,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: members.length,
-            itemBuilder: (context, index) {
-              final member = members[index];
-              return Container(
-                width: 80,
-                margin: const EdgeInsets.only(right: 12),
-                child: Column(
-                  children: [
-                    // アバター
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.black.withOpacity(0.05),
-                            border: Border.all(
-                              color: member.isCrown
-                                  ? const Color(0xFFFFD700)
-                                  : Colors.black.withOpacity(0.1),
-                              width: 2,
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              member.avatar,
-                              style: const TextStyle(fontSize: 32),
-                            ),
-                          ),
-                        ),
-                        if (member.isCrown)
-                          Positioned(
-                            top: -2,
-                            right: -2,
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFFFD700),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.star,
-                                size: 14,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // ストリーク数
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.local_fire_department,
-                          size: 14,
-                          color: Color(0xFFFF9500),
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          '${member.streak}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
+  /// グループ選択ピル
+  Widget _buildGroupPill(String label, String value) {
+    final isSelected = selectedGroup == value;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedGroup = value;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          // 【最終調整】選択中：白背景＋線薄め、非選択：透明＋線薄め
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(999), // 【Home準拠】ピル999
+          border: Border.all(
+            color: const Color(0xFFE9E9EF).withValues(alpha: 0.6), // 【最終調整】線を薄め
+            width: 1,
           ),
         ),
-      ],
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700, // 【Home準拠】太め
+            color: isSelected ? Colors.black : Colors.black,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// グループメンバーセクション（ストーリー風）
+  Widget _buildMembersSection() {
+    return SizedBox(
+      height: 100,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: members.length,
+        itemBuilder: (context, index) {
+          final member = members[index];
+          return Container(
+            width: 80,
+            margin: EdgeInsets.only(
+              right: index < members.length - 1 ? 12 : 0, // 最後の要素以外にmargin
+            ),
+            child: Column(
+              children: [
+                // アバター
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFFF6F6F8), // 【Home準拠】背景色
+                        border: Border.all(
+                          color: member.isCrown
+                              ? const Color(0xFFFFD700)
+                              : const Color(0xFFE9E9EF), // 【Home準拠】border色（薄線）
+                          width: 2,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          member.avatar,
+                          style: const TextStyle(fontSize: 32),
+                        ),
+                      ),
+                    ),
+                    if (member.isCrown)
+                      Positioned(
+                        top: -2,
+                        right: -2,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFFD700),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.star,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // ストリーク数（ピル型バッジ）
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    // 【最終調整】主張しすぎ防止：背景/線を薄く
+                    color: Colors.white.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(999), // 【Home準拠】ピル999
+                    border: Border.all(
+                      color: const Color(0xFFE9E9EF).withValues(alpha: 0.6), // 【最終調整】線を薄く
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.local_fire_department,
+                        size: 12,
+                        color: Color(0xFFFF9500),
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        '${member.streak}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
   /// 投稿カード
   Widget _buildPostCard(MealPost post) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: Colors.black.withOpacity(0.08),
-          width: 1,
-        ),
-      ),
+    return _StyledCard(
+      padding: EdgeInsets.zero,
+      useSubtleBorder: false, // 【Home準拠】主要カードは0.8（標準border）
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ユーザー情報ヘッダー
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16), // 【Home準拠】内側余白
             child: Row(
               children: [
                 // アバター
@@ -279,14 +306,14 @@ class _GroupsPageState extends State<GroupsPage> {
                   height: 44,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.black.withOpacity(0.05),
+                    color: const Color(0xFFF6F6F8), // 【Home準拠】背景色
                   ),
                   child: Center(
                     child: Text(
                       post.userName[0],
                       style: const TextStyle(
                         fontSize: 20,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700, // 【Home準拠】太め
                         color: Colors.black,
                       ),
                     ),
@@ -302,17 +329,17 @@ class _GroupsPageState extends State<GroupsPage> {
                         post.userName,
                         style: const TextStyle(
                           fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700, // 【Home準拠】太め
                           color: Colors.black,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         post.timestamp,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          color: Colors.black.withOpacity(0.5),
+                          color: Color(0xFF9A9AA5), // 【Home準拠】caption色
                         ),
                       ),
                     ],
@@ -321,6 +348,7 @@ class _GroupsPageState extends State<GroupsPage> {
                 // メニューボタン
                 IconButton(
                   icon: const Icon(Icons.more_vert, size: 20),
+                  color: Colors.black,
                   onPressed: () {},
                 ),
               ],
@@ -341,7 +369,7 @@ class _GroupsPageState extends State<GroupsPage> {
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 10), // 【最終調整】余白リズム：10px
 
           // 料理画像
           Container(
@@ -350,10 +378,10 @@ class _GroupsPageState extends State<GroupsPage> {
             margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A1A),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -386,9 +414,9 @@ class _GroupsPageState extends State<GroupsPage> {
                       Text(
                         post.mealName,
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.6),
+                          color: Colors.white.withValues(alpha: 0.6),
                           fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600, // 【Home準拠】太め
                         ),
                         textAlign: TextAlign.center,
                         maxLines: 2,
@@ -401,49 +429,72 @@ class _GroupsPageState extends State<GroupsPage> {
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 14), // 【最終調整】余白リズム：14px
 
-          // 栄養情報
+          // 栄養情報（Calories強調）
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _buildNutrientInfo(
-                    icon: Icons.local_fire_department,
-                    value: '${post.calories}',
-                    color: const Color(0xFFFF9500),
-                  ),
+                // Calories強調
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.local_fire_department,
+                      size: 20,
+                      color: Color(0xFFFF9500),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${post.calories}',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700, // 【Home準拠】太字
+                        color: Colors.black,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'カロリー',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF7A7A86), // 【Home準拠】description色
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildNutrientInfo(
-                    icon: Icons.restaurant,
-                    value: '${post.protein}g',
-                    color: const Color(0xFFE53935),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildNutrientInfo(
-                    icon: Icons.grain,
-                    value: '${post.carbs}g',
-                    color: const Color(0xFFFF9500),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildNutrientInfo(
-                    icon: Icons.circle,
-                    value: '${post.fats}g',
-                    color: const Color(0xFF007AFF),
-                  ),
+                
+                const SizedBox(height: 12),
+
+                // P/C/F 行（Homeマクロと同じ規格、折り返しOK）
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildMacroPill(
+                      icon: Icons.restaurant,
+                      value: '${post.protein}g',
+                      color: const Color(0xFFE53935),
+                    ),
+                    _buildMacroPill(
+                      icon: Icons.grain,
+                      value: '${post.carbs}g',
+                      color: const Color(0xFFFF9500),
+                    ),
+                    _buildMacroPill(
+                      icon: Icons.circle,
+                      value: '${post.fats}g',
+                      color: const Color(0xFF007AFF),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 14), // 【最終調整】余白リズム：14px
 
           // リアクションとコメント
           Padding(
@@ -463,7 +514,7 @@ class _GroupsPageState extends State<GroupsPage> {
                       '${post.reactions}',
                       style: const TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700, // 【Home準拠】太め
                         color: Colors.black,
                       ),
                     ),
@@ -484,7 +535,7 @@ class _GroupsPageState extends State<GroupsPage> {
                         '${post.stars}',
                         style: const TextStyle(
                           fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700, // 【Home準拠】太め
                           color: Colors.black,
                         ),
                       ),
@@ -496,7 +547,7 @@ class _GroupsPageState extends State<GroupsPage> {
                 Expanded(
                   child: _buildActionButton(
                     icon: Icons.emoji_emotions_outlined,
-                    label: 'React',
+                    label: 'リアクション',
                     onTap: () {},
                   ),
                 ),
@@ -505,7 +556,7 @@ class _GroupsPageState extends State<GroupsPage> {
                 Expanded(
                   child: _buildActionButton(
                     icon: Icons.comment_outlined,
-                    label: 'Comment',
+                    label: 'コメント',
                     onTap: () {},
                   ),
                 ),
@@ -515,17 +566,17 @@ class _GroupsPageState extends State<GroupsPage> {
 
           // コメント数
           if (post.comments > 0) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 10), // 【最終調整】余白リズム：10px
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: GestureDetector(
                 onTap: () {},
                 child: Text(
-                  'View ${post.comments} comment${post.comments > 1 ? 's' : ''}',
-                  style: TextStyle(
+                  'コメントを${post.comments}件見る',
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black.withOpacity(0.6),
+                    color: Color(0xFF7A7A86), // 【Home準拠】description色
                   ),
                 ),
               ),
@@ -538,27 +589,33 @@ class _GroupsPageState extends State<GroupsPage> {
     );
   }
 
-  /// 栄養情報アイテム
-  Widget _buildNutrientInfo({
+  /// マクロピル（Homeマクロカードと同じ規格）
+  Widget _buildMacroPill({
     required IconData icon,
     required String value,
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        // 【最終調整】P/C/Fは補助的に：背景/線を薄く（主従関係を明確に）
+        color: color.withValues(alpha: 0.08), // 背景をより薄く
+        borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+        border: Border.all(
+          color: color.withValues(alpha: 0.15), // 【最終調整】borderをsubtle寄り（0.6相当）
+          width: 1,
+        ),
       ),
-      child: Column(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 20, color: color),
-          const SizedBox(height: 4),
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              fontWeight: FontWeight.w700, // 【Home準拠】太め
               color: Colors.black,
             ),
           ),
@@ -573,16 +630,19 @@ class _GroupsPageState extends State<GroupsPage> {
     required String label,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    // 【最終調整】ボタン主張を弱める：border/背景を控えめに、タップ領域は維持
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(18), // InkWellの角丸も合わせる
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
+          color: Colors.transparent, // 背景を透明に
           border: Border.all(
-            color: Colors.black.withOpacity(0.2),
+            color: const Color(0xFFE9E9EF).withValues(alpha: 0.6), // 【最終調整】borderを控えめに
             width: 1,
           ),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -593,13 +653,47 @@ class _GroupsPageState extends State<GroupsPage> {
               label,
               style: const TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700, // 【Home準拠】太め
                 color: Colors.black,
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 共通スタイルカード（Home準拠）
+class _StyledCard extends StatelessWidget {
+  const _StyledCard({
+    required this.child,
+    this.padding,
+    this.useSubtleBorder = false,
+  });
+
+  final Widget child;
+  final EdgeInsets? padding;
+  final bool useSubtleBorder;
+
+  @override
+  Widget build(BuildContext context) {
+    // 【Home準拠】浮き感の最適化
+    final borderColor = useSubtleBorder
+        ? const Color(0xFFE9E9EF).withValues(alpha: 0.6) // より薄く（60%）
+        : const Color(0xFFE9E9EF).withValues(alpha: 0.8); // 標準（80%）
+    
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22), // 【Home準拠】カード角丸22px
+        border: Border.all(
+          color: borderColor,
+          width: 1,
+        ),
+      ),
+      child: child,
     );
   }
 }
@@ -647,4 +741,3 @@ class MealPost {
     required this.comments,
   });
 }
-
