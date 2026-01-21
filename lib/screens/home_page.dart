@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import '../widgets/centered_content.dart';
 
 /// Cal AI風Home UI
 class HomePage extends StatefulWidget {
@@ -70,31 +71,26 @@ class _HomePageState extends State<HomePage> {
             
             // メインコンテンツ（PC幅でもスマホ幅で中央表示）
             Expanded(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 430),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 大きなCaloriesカード
-                        _buildCaloriesCard(),
-                        
-                        const SizedBox(height: 14),
-                        
-                        // マクロ3カード
-                        _buildMacroCards(),
-                        
-                        const SizedBox(height: 18),
-                        
-                        // Recently uploaded
-                        _buildRecentlyUploaded(),
-                        
-                        const SizedBox(height: 32),
-                      ],
-                    ),
-                  ),
+              child: CenteredContent(
+                padding: const EdgeInsets.symmetric(horizontal: 16), // vertical paddingは不要
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 大きなCaloriesカード
+                    _buildCaloriesCard(),
+                    
+                    const SizedBox(height: 14),
+                    
+                    // マクロ3カード
+                    _buildMacroCards(),
+                    
+                    const SizedBox(height: 18),
+                    
+                    // Recently uploaded
+                    _buildRecentlyUploaded(),
+                    
+                    const SizedBox(height: 32),
+                  ],
                 ),
               ),
             ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/centered_content.dart';
 
 /// Cal AI風Compare UI（ビフォー/アフター比較）
 class ComparePage extends StatefulWidget {
@@ -38,36 +39,30 @@ class _ComparePageState extends State<ComparePage> {
 
             // メインコンテンツ（PC幅でもスマホ幅で中央表示）
             Expanded(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 430),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // 【Home準拠】左右16px
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Before / After 比較カード
-                        _buildComparisonCards(),
+              child: CenteredContent(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Before / After 比較カード
+                    _buildComparisonCards(),
 
-                        const SizedBox(height: 18), // 【Home準拠】セクション間18px
+                    const SizedBox(height: 18), // 【Home準拠】セクション間18px
 
-                        // Hide weight トグル
-                        _buildHideWeightToggle(),
+                    // Hide weight トグル
+                    _buildHideWeightToggle(),
 
-                        const SizedBox(height: 18), // 【Home準拠】セクション間18px
+                    const SizedBox(height: 18), // 【Home準拠】セクション間18px
 
-                        // サムネイル一覧
-                        _buildThumbnailsList(),
+                    // サムネイル一覧
+                    _buildThumbnailsList(),
 
-                        const SizedBox(height: 18), // 【Home準拠】セクション間18px
+                    const SizedBox(height: 18), // 【Home準拠】セクション間18px
 
-                        // Shareボタン
-                        _buildShareButton(),
+                    // Shareボタン
+                    _buildShareButton(),
 
-                        const SizedBox(height: 32),
-                      ],
-                    ),
-                  ),
+                    const SizedBox(height: 32),
+                  ],
                 ),
               ),
             ),
