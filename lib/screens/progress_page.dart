@@ -24,48 +24,54 @@ class _ProgressPageState extends State<ProgressPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F6F8), // 【Home準拠】背景色
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // 【Home準拠】左右16px
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // タイトル
-              const Text(
-                '進捗',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black,
-                ),
-              ),
-
-              const SizedBox(height: 18), // 【Home準拠】セクション上下18px
-
-              // 上部カード2枚（Weight / Day Streak）
-              Row(
+        // メインコンテンツ（PC幅でもスマホ幅で中央表示）
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 430),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // 【Home準拠】左右16px
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: _buildWeightCard(),
+                  // タイトル
+                  const Text(
+                    '進捗',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black,
+                    ),
                   ),
-                  const SizedBox(width: 12), // 【Home準拠】カード間12px
-                  Expanded(
-                    child: _buildDayStreakCard(),
+
+                  const SizedBox(height: 18), // 【Home準拠】セクション上下18px
+
+                  // 上部カード2枚（Weight / Day Streak）
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildWeightCard(),
+                      ),
+                      const SizedBox(width: 12), // 【Home準拠】カード間12px
+                      Expanded(
+                        child: _buildDayStreakCard(),
+                      ),
+                    ],
                   ),
+
+                  const SizedBox(height: 14), // 【Home準拠】カード間14px
+
+                  // Weight Progressカード
+                  _buildWeightProgressCard(),
+
+                  const SizedBox(height: 14), // 【Home準拠】カード間14px
+
+                  // Daily Average Caloriesカード
+                  _buildDailyAverageCaloriesCard(),
+
+                  const SizedBox(height: 32),
                 ],
               ),
-
-              const SizedBox(height: 14), // 【Home準拠】カード間14px
-
-              // Weight Progressカード
-              _buildWeightProgressCard(),
-
-              const SizedBox(height: 14), // 【Home準拠】カード間14px
-
-              // Daily Average Caloriesカード
-              _buildDailyAverageCaloriesCard(),
-
-              const SizedBox(height: 32),
-            ],
+            ),
           ),
         ),
       ),

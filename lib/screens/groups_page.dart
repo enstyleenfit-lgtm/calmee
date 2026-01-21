@@ -73,32 +73,37 @@ class _GroupsPageState extends State<GroupsPage> {
             // ヘッダー（グループ選択ピル）
             _buildHeader(),
 
-            // メインコンテンツ
+            // メインコンテンツ（PC幅でもスマホ幅で中央表示）
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // 【Home準拠】左右16px
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // グループメンバー（ストーリー風）
-                    _buildMembersSection(),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 430),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // 【Home準拠】左右16px
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // グループメンバー（ストーリー風）
+                        _buildMembersSection(),
 
-                    const SizedBox(height: 18), // 【Home準拠】セクション間18px
+                        const SizedBox(height: 18), // 【Home準拠】セクション間18px
 
-                    // 投稿フィード
-                    ...posts.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final post = entry.value;
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          bottom: index < posts.length - 1 ? 14 : 0, // 【Home準拠】カード間14px
-                        ),
-                        child: _buildPostCard(post),
-                      );
-                    }),
-                    
-                    const SizedBox(height: 32),
-                  ],
+                        // 投稿フィード
+                        ...posts.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final post = entry.value;
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              bottom: index < posts.length - 1 ? 14 : 0, // 【Home準拠】カード間14px
+                            ),
+                            child: _buildPostCard(post),
+                          );
+                        }),
+                        
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),

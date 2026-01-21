@@ -36,33 +36,38 @@ class _ComparePageState extends State<ComparePage> {
             // ヘッダー
             _buildHeader(),
 
-            // メインコンテンツ
+            // メインコンテンツ（PC幅でもスマホ幅で中央表示）
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // 【Home準拠】左右16px
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Before / After 比較カード
-                    _buildComparisonCards(),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 430),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // 【Home準拠】左右16px
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Before / After 比較カード
+                        _buildComparisonCards(),
 
-                    const SizedBox(height: 18), // 【Home準拠】セクション間18px
+                        const SizedBox(height: 18), // 【Home準拠】セクション間18px
 
-                    // Hide weight トグル
-                    _buildHideWeightToggle(),
+                        // Hide weight トグル
+                        _buildHideWeightToggle(),
 
-                    const SizedBox(height: 18), // 【Home準拠】セクション間18px
+                        const SizedBox(height: 18), // 【Home準拠】セクション間18px
 
-                    // サムネイル一覧
-                    _buildThumbnailsList(),
+                        // サムネイル一覧
+                        _buildThumbnailsList(),
 
-                    const SizedBox(height: 18), // 【Home準拠】セクション間18px
+                        const SizedBox(height: 18), // 【Home準拠】セクション間18px
 
-                    // Shareボタン
-                    _buildShareButton(),
+                        // Shareボタン
+                        _buildShareButton(),
 
-                    const SizedBox(height: 32),
-                  ],
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -143,28 +148,25 @@ class _ComparePageState extends State<ComparePage> {
     );
   }
 
-  /// Before / After 比較カード
+  /// Before / After 比較カード（430px内では縦積み）
   Widget _buildComparisonCards() {
-    return Row(
+    // PC幅でも430px内に収まるよう縦積みに変更
+    return Column(
       children: [
-        // Beforeカード（左）
-        Expanded(
-          child: _buildPhotoCard(
-            weight: beforeWeight,
-            date: beforeDate,
-            isAfter: false,
-            isSelected: false,
-          ),
+        // Beforeカード
+        _buildPhotoCard(
+          weight: beforeWeight,
+          date: beforeDate,
+          isAfter: false,
+          isSelected: false,
         ),
-        const SizedBox(width: 14), // 【Home準拠】カード間14px
-        // Afterカード（右）
-        Expanded(
-          child: _buildPhotoCard(
-            weight: afterWeight,
-            date: afterDate,
-            isAfter: true,
-            isSelected: true,
-          ),
+        const SizedBox(height: 14), // 【Home準拠】カード間14px
+        // Afterカード
+        _buildPhotoCard(
+          weight: afterWeight,
+          date: afterDate,
+          isAfter: true,
+          isSelected: true,
         ),
       ],
     );
