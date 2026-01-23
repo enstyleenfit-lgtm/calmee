@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/centered_content.dart';
+import '../theme/ui_constants.dart';
 
 /// Cal AI風Progress UI
 class ProgressPage extends StatefulWidget {
@@ -23,7 +24,7 @@ class _ProgressPageState extends State<ProgressPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F8), // 【Home準拠】背景色
+      backgroundColor: UIConstants.colorBackground, // 【Home準拠】背景色
       body: SafeArea(
         // メインコンテンツ（PC幅でもスマホ幅で中央表示）
         child: CenteredContent(
@@ -40,7 +41,7 @@ class _ProgressPageState extends State<ProgressPage> {
                 ),
               ),
 
-              const SizedBox(height: 18), // 【Home準拠】セクション上下18px
+              const SizedBox(height: UIConstants.spacingSection), // 【Home準拠】セクション上下18px
 
               // 上部カード2枚（Weight / Day Streak）
               Row(
@@ -55,17 +56,17 @@ class _ProgressPageState extends State<ProgressPage> {
                 ],
               ),
 
-              const SizedBox(height: 18), // 【最終調整】セクション間18px
+              const SizedBox(height: UIConstants.spacingSection), // 【最終調整】セクション間18px
 
               // Weight Progressカード
               _buildWeightProgressCard(),
 
-              const SizedBox(height: 18), // 【最終調整】セクション間18px
+              const SizedBox(height: UIConstants.spacingSection), // 【最終調整】セクション間18px
 
               // Daily Average Caloriesカード
               _buildDailyAverageCaloriesCard(),
 
-              const SizedBox(height: 14), // 【最終調整】カード下部余白14px
+              const SizedBox(height: UIConstants.spacingCard), // 【最終調整】カード下部余白14px
             ],
           ),
         ),
@@ -91,7 +92,7 @@ class _ProgressPageState extends State<ProgressPage> {
               color: Colors.black.withValues(alpha: 0.6), // 【視線誘導】ラベルを弱め（opacity 0.6）
             ),
           ),
-          const SizedBox(height: 8), // 【最終調整】ラベル↔値：8px
+          const SizedBox(height: UIConstants.spacingLabel), // 【最終調整】ラベル↔値：8px
           Text(
             '${currentWeight.toStringAsFixed(1)} lbs',
             style: const TextStyle(
@@ -101,14 +102,14 @@ class _ProgressPageState extends State<ProgressPage> {
               height: 1.0,
             ),
           ),
-          const SizedBox(height: 10), // 【最終調整】数値↔説明：10px
+          const SizedBox(height: UIConstants.spacingText), // 【最終調整】数値↔説明：10px
           // プログレスバー
           Stack(
             children: [
               Container(
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE9E9EF), // 【Home準拠】border色
+                  color: UIConstants.colorBorder, // 【Home準拠】border色
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -135,7 +136,7 @@ class _ProgressPageState extends State<ProgressPage> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: UIConstants.spacingLabel),
           Text(
             '目標 ${goalWeight.toStringAsFixed(0)} lb',
             style: TextStyle(
@@ -144,7 +145,7 @@ class _ProgressPageState extends State<ProgressPage> {
               color: Colors.black.withValues(alpha: 0.52), // 【視線誘導】補足説明を最弱（opacity 0.52）
             ),
           ),
-          const SizedBox(height: 10), // 【最終調整】テキスト行間：10px
+          const SizedBox(height: UIConstants.spacingText), // 【最終調整】テキスト行間：10px
           // Log Weightボタン
           SizedBox(
             width: double.infinity,
@@ -155,7 +156,7 @@ class _ProgressPageState extends State<ProgressPage> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+                  borderRadius: BorderRadius.circular(UIConstants.radiusInner), // 【Home準拠】内側要素18px
                 ),
               ),
               child: const Row(
@@ -197,7 +198,7 @@ class _ProgressPageState extends State<ProgressPage> {
             height: 56,
             decoration: BoxDecoration(
               color: const Color(0xFFFF9500).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+              borderRadius: BorderRadius.circular(UIConstants.radiusInner), // 【Home準拠】内側要素18px
             ),
             child: Stack(
               alignment: Alignment.center,
@@ -221,7 +222,7 @@ class _ProgressPageState extends State<ProgressPage> {
               ],
             ),
           ),
-          const SizedBox(height: 10), // 【最終調整】アイコン↔ラベル：10px
+          const SizedBox(height: UIConstants.spacingText), // 【最終調整】アイコン↔ラベル：10px
           Text(
             '連続日数',
             style: TextStyle(
@@ -230,7 +231,7 @@ class _ProgressPageState extends State<ProgressPage> {
               color: Colors.black.withValues(alpha: 0.6), // 【視線誘導】ラベルを弱め（opacity 0.6）
             ),
           ),
-          const SizedBox(height: 10), // 【最終調整】ラベル↔値：10px
+          const SizedBox(height: UIConstants.spacingText), // 【最終調整】ラベル↔値：10px
           // 曜日の円
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -245,7 +246,7 @@ class _ProgressPageState extends State<ProgressPage> {
                 decoration: BoxDecoration(
                   color: isChecked
                       ? const Color(0xFF34C759)
-                      : const Color(0xFFF6F6F8), // 【Home準拠】背景色
+                      : UIConstants.colorBackground, // 【Home準拠】背景色
                   shape: BoxShape.circle,
                 ),
                 child: Center(
@@ -312,12 +313,12 @@ class _ProgressPageState extends State<ProgressPage> {
             ],
           ),
 
-          const SizedBox(height: 10), // 【最終調整】見出し↔グラフ：10px
+          const SizedBox(height: UIConstants.spacingText), // 【最終調整】見出し↔グラフ：10px
 
           // グラフエリア（プレースホルダー）
           _buildGraphPlaceholder(),
 
-          const SizedBox(height: 10), // 【最終調整】グラフ↔補足テキスト：10px
+          const SizedBox(height: UIConstants.spacingText), // 【最終調整】グラフ↔補足テキスト：10px
 
           // 期間切替ボタン
           Row(
@@ -340,7 +341,7 @@ class _ProgressPageState extends State<ProgressPage> {
             decoration: BoxDecoration(
               // 【最終調整】グリーンを薄く上品に（背景/線/文字が浮かない）
               color: const Color(0xFF34C759).withValues(alpha: 0.08), // より薄く
-              borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+              borderRadius: BorderRadius.circular(UIConstants.radiusInner), // 【Home準拠】内側要素18px
               border: Border.all(
                 color: const Color(0xFF34C759).withValues(alpha: 0.12), // 【最終調整】より薄く
                 width: 1,
@@ -378,7 +379,7 @@ class _ProgressPageState extends State<ProgressPage> {
     return Container(
       height: 200,
       decoration: BoxDecoration(
-        color: const Color(0xFFF6F6F8), // 【Home準拠】背景色
+        color: UIConstants.colorBackground, // 【Home準拠】背景色
         borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
       ),
       child: Stack(
@@ -420,7 +421,7 @@ class _ProgressPageState extends State<ProgressPage> {
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF9A9AA5), // 【Home準拠】caption色
+                      color: UIConstants.colorCaption, // 【Home準拠】caption色
                     ),
                   );
                 }).toList(),
@@ -445,7 +446,7 @@ class _ProgressPageState extends State<ProgressPage> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.black,
-                borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+                borderRadius: BorderRadius.circular(UIConstants.radiusInner), // 【Home準拠】内側要素18px
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -495,8 +496,8 @@ class _ProgressPageState extends State<ProgressPage> {
           borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
           border: Border.all(
             color: isSelected
-                ? const Color(0xFFE9E9EF).withValues(alpha: 0.6) // 【最終調整】選択中は線薄め
-                : const Color(0xFFE9E9EF), // 非選択は標準
+                ? UIConstants.colorBorder.withValues(alpha: 0.6) // 【最終調整】選択中は線薄め
+                : UIConstants.colorBorder, // 非選択は標準
             width: 1,
           ),
         ),
@@ -610,14 +611,14 @@ class _StyledCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // 【Home準拠】浮き感の最適化：useSubtleBorder=trueの場合はより薄いborder
     final borderColor = useSubtleBorder
-        ? const Color(0xFFE9E9EF).withValues(alpha: 0.6) // より薄く（60%）
-        : const Color(0xFFE9E9EF).withValues(alpha: 0.8); // 標準（80%）
+        ? UIConstants.colorBorder.withValues(alpha: 0.6) // より薄く（60%）
+        : UIConstants.colorBorder.withValues(alpha: 0.8); // 標準（80%）
     
     return Container(
       padding: padding ?? const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22), // 【Home準拠】カード角丸22px
+        borderRadius: BorderRadius.circular(UIConstants.radiusCard), // 【Home準拠】カード角丸22px
         border: Border.all(
           color: borderColor,
           width: 1,

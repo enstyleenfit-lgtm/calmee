@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../widgets/centered_content.dart';
+import '../theme/ui_constants.dart';
 
 /// Cal AI風Home UI
 class HomePage extends StatefulWidget {
@@ -57,7 +58,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F8),
+      backgroundColor: UIConstants.colorBackground,
       body: SafeArea(
         child: Column(
           children: [
@@ -67,7 +68,7 @@ class _HomePageState extends State<HomePage> {
             // 曜日ストリップ
             _buildWeekStrip(),
             
-            const SizedBox(height: 18), // 【最終調整】セクション間18px
+            const SizedBox(height: UIConstants.spacingSection), // 【最終調整】セクション間18px
             
             // メインコンテンツ（PC幅でもスマホ幅で中央表示）
             Expanded(
@@ -79,12 +80,12 @@ class _HomePageState extends State<HomePage> {
                     // 大きなCaloriesカード
                     _buildCaloriesCard(),
                     
-                    const SizedBox(height: 14),
+                    const SizedBox(height: UIConstants.spacingCard),
                     
                     // マクロ3カード
                     _buildMacroCards(),
                     
-                    const SizedBox(height: 18),
+                    const SizedBox(height: UIConstants.spacingSection),
                     
                     // Recently uploaded
                     _buildRecentlyUploaded(),
@@ -141,7 +142,7 @@ class _HomePageState extends State<HomePage> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: const Color(0xFFFF9500).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(UIConstants.radiusPill),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -205,10 +206,10 @@ class _HomePageState extends State<HomePage> {
                       fontWeight: FontWeight.w500,
                       color: isSelected
                           ? Colors.black
-                          : const Color(0xFF9A9AA5),
+                          : UIConstants.colorCaption,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: UIConstants.spacingLabel),
                   Container(
                     width: 40,
                     height: 40,
@@ -218,7 +219,7 @@ class _HomePageState extends State<HomePage> {
                       border: Border.all(
                         color: isSelected
                             ? Colors.black
-                            : const Color(0xFFE9E9EF),
+                            : UIConstants.colorBorder,
                         width: 1.5,
                       ),
                     ),
@@ -265,7 +266,7 @@ class _HomePageState extends State<HomePage> {
                     height: 1.2,
                   ),
                 ),
-                const SizedBox(height: 10), // 8px → 10px（最終調整：数値周りの呼吸）
+                const SizedBox(height: UIConstants.spacingText), // 8px → 10px（最終調整：数値周りの呼吸）
                 Text(
                   '摂取カロリー',
                   style: _TextStyles.description.copyWith(
@@ -294,7 +295,7 @@ class _HomePageState extends State<HomePage> {
                     value: 1.0,
                     strokeWidth: 7,
                     valueColor: const AlwaysStoppedAnimation<Color>(
-                      Color(0xFFE9E9EF),
+                      UIConstants.colorBorder,
                     ),
                   ),
                 ),
@@ -393,7 +394,7 @@ class _HomePageState extends State<HomePage> {
                   painter: _SemiCircleProgressPainter(
                     progress: progress,
                     color: color,
-                    backgroundColor: const Color(0xFFE9E9EF),
+                    backgroundColor: UIConstants.colorBorder,
                   ),
                 ),
                 Positioned(
@@ -409,7 +410,7 @@ class _HomePageState extends State<HomePage> {
           ),
           
           // 【最終調整】メーターと数値の間を14px維持
-          const SizedBox(height: 14),
+          const SizedBox(height: UIConstants.spacingCard),
           
           // 数値
           Text(
@@ -453,10 +454,10 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         // 【最終調整】見出し下の余白を10pxに（8〜12pxの最適値）
-        const SizedBox(height: 10),
+        const SizedBox(height: UIConstants.spacingText),
         
         ...recentMeals.map((meal) => Padding(
-          padding: const EdgeInsets.only(bottom: 14), // 【最終調整】カード間14px
+          padding: const EdgeInsets.only(bottom: UIConstants.spacingCard), // 【最終調整】カード間14px
           child: _buildMealCard(meal),
         )),
       ],
@@ -483,11 +484,11 @@ class _HomePageState extends State<HomePage> {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: const Color(0xFFF6F6F8),
-                borderRadius: BorderRadius.circular(18),
+                color: UIConstants.colorBackground,
+                borderRadius: BorderRadius.circular(UIConstants.radiusInner),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(UIConstants.radiusInner),
                 child: meal['imageUrl'] != null
                     ? Image.network(
                         meal['imageUrl'],
@@ -497,7 +498,7 @@ class _HomePageState extends State<HomePage> {
                         child: Icon(
                           Icons.restaurant,
                           size: 36,
-                          color: Color(0xFF9A9AA5),
+                          color: UIConstants.colorCaption,
                         ),
                       ),
               ),
@@ -537,7 +538,7 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                   
-                  const SizedBox(height: 10),
+                  const SizedBox(height: UIConstants.spacingText),
                   
                   Row(
                     children: [
@@ -558,7 +559,7 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                   
-                  const SizedBox(height: 10),
+                  const SizedBox(height: UIConstants.spacingText),
                   
                   // マクロ情報
                   Wrap(
@@ -624,14 +625,14 @@ class _StyledCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // 【最終調整】浮き感の最適化：useSubtleBorder=trueの場合はより薄いborder、falseの場合は標準
     final borderColor = useSubtleBorder
-        ? const Color(0xFFE9E9EF).withValues(alpha: 0.6) // より薄く（60%）
-        : const Color(0xFFE9E9EF).withValues(alpha: 0.8); // 標準（80%）
+        ? UIConstants.colorBorder.withValues(alpha: 0.6) // より薄く（60%）
+        : UIConstants.colorBorder.withValues(alpha: 0.8); // 標準（80%）
     
     return Container(
       padding: padding ?? const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(UIConstants.radiusCard),
         border: Border.all(
           color: borderColor,
           width: 1,
@@ -647,13 +648,13 @@ class _TextStyles {
   static const description = TextStyle(
     fontSize: 15,
     fontWeight: FontWeight.w500,
-    color: Color(0xFF7A7A86),
+    color: UIConstants.colorDescription,
   );
 
   static const caption = TextStyle(
     fontSize: 12,
     fontWeight: FontWeight.w500,
-    color: Color(0xFF9A9AA5),
+    color: UIConstants.colorCaption,
   );
 }
 

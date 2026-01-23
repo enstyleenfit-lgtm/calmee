@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/ui_constants.dart';
 
 /// Cal AI風食事詳細ボトムシート
 class MealDetailSheet extends StatelessWidget {
@@ -31,7 +32,7 @@ class MealDetailSheet extends StatelessWidget {
       builder: (context, scrollController) {
         return Container(
           decoration: const BoxDecoration(
-            color: Color(0xFFF6F6F8), // 【Home準拠】背景色を#F6F6F8に
+            color: UIConstants.colorBackground, // 【Home準拠】背景色を#F6F6F8に
             borderRadius: BorderRadius.vertical(
               top: Radius.circular(30),
             ),
@@ -52,22 +53,22 @@ class MealDetailSheet extends StatelessWidget {
                       // 上部の料理画像
                       _buildFoodImage(context),
                       
-                      const SizedBox(height: 18), // 【Home準拠】セクション間18px
+                      const SizedBox(height: UIConstants.spacingSection), // 【Home準拠】セクション間18px
                       
                       // 食事名＋数量ステッパー
                       _buildMealHeader(),
                       
-                      const SizedBox(height: 18), // 【Home準拠】セクション間18px
+                      const SizedBox(height: UIConstants.spacingSection), // 【Home準拠】セクション間18px
                       
                       // 大きなCalories表示カード
                       _buildCaloriesCard(),
                       
-                      const SizedBox(height: 14), // 【Home準拠】カード間14px
+                      const SizedBox(height: UIConstants.spacingCard), // 【Home準拠】カード間14px
                       
                       // Protein / Carbs / Fats の横並び
                       _buildMacroCards(),
                       
-                      const SizedBox(height: 18), // 【Home準拠】セクション間18px
+                      const SizedBox(height: UIConstants.spacingSection), // 【Home準拠】セクション間18px
                       
                       // Ingredientsリスト
                       _buildIngredientsSection(),
@@ -219,7 +220,7 @@ class MealDetailSheet extends StatelessWidget {
                   const Icon(
                     Icons.bookmark_border,
                     size: 16,
-                    color: Color(0xFF9A9AA5), // 【Home準拠】caption色
+                    color: UIConstants.colorCaption, // 【Home準拠】caption色
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -227,12 +228,12 @@ class MealDetailSheet extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF9A9AA5), // 【Home準拠】caption色
+                      color: UIConstants.colorCaption, // 【Home準拠】caption色
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10), // 【Home準拠】数値周りの呼吸（8px → 10px）
+              const SizedBox(height: UIConstants.spacingText), // 【Home準拠】数値周りの呼吸（8px → 10px）
               Text(
                 mealName,
                 style: const TextStyle(
@@ -252,7 +253,7 @@ class MealDetailSheet extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             border: Border.all(
-              color: const Color(0xFFE9E9EF), // 【Home準拠】border色
+              color: UIConstants.colorBorder, // 【Home準拠】border色
               width: 1,
             ),
             borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
@@ -334,7 +335,7 @@ class MealDetailSheet extends StatelessWidget {
             height: 56,
             decoration: BoxDecoration(
               color: const Color(0xFFFF9500).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+              borderRadius: BorderRadius.circular(UIConstants.radiusInner), // 【Home準拠】内側要素18px
             ),
             child: const Icon(
               Icons.local_fire_department,
@@ -355,10 +356,10 @@ class MealDetailSheet extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF7A7A86), // 【Home準拠】description色
+                    color: UIConstants.colorDescription, // 【Home準拠】description色
                   ),
                 ),
-                const SizedBox(height: 10), // 【Home準拠】数値周りの呼吸（4px → 10px）
+                const SizedBox(height: UIConstants.spacingText), // 【Home準拠】数値周りの呼吸（4px → 10px）
                 Text(
                   '$calories',
                   style: const TextStyle(
@@ -431,7 +432,7 @@ class MealDetailSheet extends StatelessWidget {
             size: 20,
             color: color,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: UIConstants.spacingLabel),
           Text(
             label,
             style: const TextStyle(
@@ -440,7 +441,7 @@ class MealDetailSheet extends StatelessWidget {
               color: Color(0xFF9A9AA5), // 【Home準拠】caption色
             ),
           ),
-          const SizedBox(height: 8), // 【Home準拠】数値周りの呼吸（4px → 8px）
+          const SizedBox(height: UIConstants.spacingLabel), // 【Home準拠】数値周りの呼吸（4px → 8px）
           Text(
             '$value$unit',
             style: const TextStyle(
@@ -510,13 +511,13 @@ class MealDetailSheet extends StatelessWidget {
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF6F6F8),
-                            borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+                            color: UIConstants.colorBackground,
+                            borderRadius: BorderRadius.circular(UIConstants.radiusInner), // 【Home準拠】内側要素18px
                           ),
                           child: const Icon(
                             Icons.circle,
                             size: 24,
-                            color: Color(0xFF9A9AA5), // 【Home準拠】caption色
+                            color: UIConstants.colorCaption, // 【Home準拠】caption色
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -538,7 +539,7 @@ class MealDetailSheet extends StatelessWidget {
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
-                                  color: Color(0xFF9A9AA5), // 【Home準拠】caption色
+                                  color: UIConstants.colorCaption, // 【Home準拠】caption色
                                 ),
                               ),
                             ],
@@ -601,7 +602,7 @@ class MealDetailSheet extends StatelessWidget {
                     width: 1,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+                    borderRadius: BorderRadius.circular(UIConstants.radiusInner), // 【Home準拠】内側要素18px
                   ),
                 ),
               ),
@@ -620,7 +621,7 @@ class MealDetailSheet extends StatelessWidget {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+                    borderRadius: BorderRadius.circular(UIConstants.radiusInner), // 【Home準拠】内側要素18px
                   ),
                 ),
                 child: const Text(
@@ -655,14 +656,14 @@ class _StyledCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // 【Home準拠】浮き感の最適化：useSubtleBorder=trueの場合はより薄いborder
     final borderColor = useSubtleBorder
-        ? const Color(0xFFE9E9EF).withValues(alpha: 0.6) // より薄く（60%）
-        : const Color(0xFFE9E9EF).withValues(alpha: 0.8); // 標準（80%）
+        ? UIConstants.colorBorder.withValues(alpha: 0.6) // より薄く（60%）
+        : UIConstants.colorBorder.withValues(alpha: 0.8); // 標準（80%）
     
     return Container(
       padding: padding ?? const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22), // 【Home準拠】カード角丸22px
+        borderRadius: BorderRadius.circular(UIConstants.radiusCard), // 【Home準拠】カード角丸22px
         border: Border.all(
           color: borderColor,
           width: 1,

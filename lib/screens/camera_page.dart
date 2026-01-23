@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import '../theme/ui_constants.dart';
 
 /// Cal AI風Camera UI
 class CameraPage extends StatefulWidget {
@@ -437,7 +438,7 @@ class _FoodLabelWidget extends StatelessWidget {
             color: Colors.white.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(999), // 【Home準拠】ピル型（radius 999）
             border: Border.all(
-              color: const Color(0xFFE9E9EF).withValues(alpha: 0.5), // 【Home準拠】薄い線
+              color: UIConstants.colorBorder.withValues(alpha: 0.5), // 【Home準拠】薄い線
               width: 1,
             ),
           ),

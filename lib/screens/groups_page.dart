@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/centered_content.dart';
+import '../theme/ui_constants.dart';
 
 /// Cal AI風Groups UI（コミュニティフィード型）
 class GroupsPage extends StatefulWidget {
@@ -67,7 +68,7 @@ class _GroupsPageState extends State<GroupsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F8), // 【Home準拠】背景色
+      backgroundColor: UIConstants.colorBackground, // 【Home準拠】背景色
       body: SafeArea(
         child: Column(
           children: [
@@ -84,7 +85,7 @@ class _GroupsPageState extends State<GroupsPage> {
                     // グループメンバー（ストーリー風）
                     _buildMembersSection(),
 
-                    const SizedBox(height: 18), // 【最終調整】セクション間18px
+                    const SizedBox(height: UIConstants.spacingSection), // 【最終調整】セクション間18px
 
                     // 投稿フィード
                     ...posts.asMap().entries.map((entry) {
@@ -117,7 +118,7 @@ class _GroupsPageState extends State<GroupsPage> {
         color: Colors.white,
         border: Border(
           bottom: BorderSide(
-            color: const Color(0xFFE9E9EF), // 【Home準拠】border色
+            color: UIConstants.colorBorder, // 【Home準拠】border色
             width: 1,
           ),
         ),
@@ -170,9 +171,9 @@ class _GroupsPageState extends State<GroupsPage> {
         decoration: BoxDecoration(
           // 【最終調整】選択中：白背景＋線薄め、非選択：透明＋線薄め
           color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(999), // 【Home準拠】ピル999
+          borderRadius: BorderRadius.circular(UIConstants.radiusPill), // 【Home準拠】ピル999
           border: Border.all(
-            color: const Color(0xFFE9E9EF).withValues(alpha: 0.6), // 【最終調整】線を薄め
+            color: UIConstants.colorBorder.withValues(alpha: 0.6), // 【最終調整】線を薄め
             width: 1,
           ),
         ),
@@ -213,11 +214,11 @@ class _GroupsPageState extends State<GroupsPage> {
                       height: 64,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: const Color(0xFFF6F6F8), // 【Home準拠】背景色
+                        color: UIConstants.colorBackground, // 【Home準拠】背景色
                         border: Border.all(
                           color: member.isCrown
                               ? const Color(0xFFFFD700)
-                              : const Color(0xFFE9E9EF), // 【Home準拠】border色（薄線）
+                              : UIConstants.colorBorder, // 【Home準拠】border色（薄線）
                           width: 2,
                         ),
                       ),
@@ -247,16 +248,16 @@ class _GroupsPageState extends State<GroupsPage> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 10), // 【最終調整】アバター下のバッジとの距離10px
+                const SizedBox(height: UIConstants.spacingText), // 【最終調整】アバター下のバッジとの距離10px
                 // ストリーク数（ピル型バッジ）
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     // 【最終調整】主張しすぎ防止：背景/線を薄く
                     color: Colors.white.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(999), // 【Home準拠】ピル999
+                    borderRadius: BorderRadius.circular(UIConstants.radiusPill), // 【Home準拠】ピル999
                     border: Border.all(
-                      color: const Color(0xFFE9E9EF).withValues(alpha: 0.6), // 【最終調整】線を薄く
+                      color: UIConstants.colorBorder.withValues(alpha: 0.6), // 【最終調整】線を薄く
                       width: 1,
                     ),
                   ),
@@ -307,7 +308,7 @@ class _GroupsPageState extends State<GroupsPage> {
                   height: 44,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFFF6F6F8), // 【Home準拠】背景色
+                    color: UIConstants.colorBackground, // 【Home準拠】背景色
                   ),
                   child: Center(
                     child: Text(
@@ -380,10 +381,10 @@ class _GroupsPageState extends State<GroupsPage> {
             margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A1A),
-              borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+              borderRadius: BorderRadius.circular(UIConstants.radiusInner), // 【Home準拠】内側要素18px
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+              borderRadius: BorderRadius.circular(UIConstants.radiusInner), // 【Home準拠】内側要素18px
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -431,7 +432,7 @@ class _GroupsPageState extends State<GroupsPage> {
             ),
           ),
 
-          const SizedBox(height: 14), // 【最終調整】余白リズム：14px
+          const SizedBox(height: UIConstants.spacingCard), // 【最終調整】余白リズム：14px
 
           // 栄養情報（Calories強調）
           Padding(
@@ -468,7 +469,7 @@ class _GroupsPageState extends State<GroupsPage> {
                   ],
                 ),
                 
-                const SizedBox(height: 10), // 【最終調整】Calories ↔ P/C/F：10px
+                const SizedBox(height: UIConstants.spacingText), // 【最終調整】Calories ↔ P/C/F：10px
 
                 // P/C/F 行（Homeマクロと同じ規格、折り返しOK）
                 Wrap(
@@ -496,7 +497,7 @@ class _GroupsPageState extends State<GroupsPage> {
             ),
           ),
 
-          const SizedBox(height: 14), // 【最終調整】余白リズム：14px
+          const SizedBox(height: UIConstants.spacingCard), // 【最終調整】余白リズム：14px
 
           // リアクションとコメント
           Padding(
@@ -585,7 +586,7 @@ class _GroupsPageState extends State<GroupsPage> {
             ),
           ],
 
-          const SizedBox(height: 14), // 【最終調整】カード下部余白：14px（カード間14pxに統一）
+          const SizedBox(height: UIConstants.spacingCard), // 【最終調整】カード下部余白：14px（カード間14pxに統一）
         ],
       ),
     );
@@ -635,16 +636,16 @@ class _GroupsPageState extends State<GroupsPage> {
     // 【最終調整】ボタン主張を弱める：border/背景を控えめに、タップ領域は維持
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18), // InkWellの角丸も合わせる
+      borderRadius: BorderRadius.circular(UIConstants.radiusInner), // InkWellの角丸も合わせる
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           color: Colors.transparent, // 背景を透明に
           border: Border.all(
-            color: const Color(0xFFE9E9EF).withValues(alpha: 0.6), // 【最終調整】borderを控えめに
+            color: UIConstants.colorBorder.withValues(alpha: 0.6), // 【最終調整】borderを控えめに
             width: 1,
           ),
-          borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+          borderRadius: BorderRadius.circular(UIConstants.radiusInner), // 【Home準拠】内側要素18px
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -682,14 +683,14 @@ class _StyledCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // 【Home準拠】浮き感の最適化
     final borderColor = useSubtleBorder
-        ? const Color(0xFFE9E9EF).withValues(alpha: 0.6) // より薄く（60%）
-        : const Color(0xFFE9E9EF).withValues(alpha: 0.8); // 標準（80%）
+        ? UIConstants.colorBorder.withValues(alpha: 0.6) // より薄く（60%）
+        : UIConstants.colorBorder.withValues(alpha: 0.8); // 標準（80%）
     
     return Container(
       padding: padding,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22), // 【Home準拠】カード角丸22px
+        borderRadius: BorderRadius.circular(UIConstants.radiusCard), // 【Home準拠】カード角丸22px
         border: Border.all(
           color: borderColor,
           width: 1,

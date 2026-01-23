@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/centered_content.dart';
+import '../theme/ui_constants.dart';
 
 /// Cal AI風Compare UI（ビフォー/アフター比較）
 class ComparePage extends StatefulWidget {
@@ -30,7 +31,7 @@ class _ComparePageState extends State<ComparePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F8), // 【Home準拠】背景色
+      backgroundColor: UIConstants.colorBackground, // 【Home準拠】背景色
       body: SafeArea(
         child: Column(
           children: [
@@ -47,7 +48,7 @@ class _ComparePageState extends State<ComparePage> {
                     // Before / After 比較カード
                     _buildComparisonCards(),
 
-                    const SizedBox(height: 18), // 【最終調整】セクション間18px
+                    const SizedBox(height: UIConstants.spacingSection), // 【最終調整】セクション間18px
 
                     // Hide weight トグル
                     _buildHideWeightToggle(),
@@ -62,7 +63,7 @@ class _ComparePageState extends State<ComparePage> {
                     // Shareボタン
                     _buildShareButton(),
 
-                    const SizedBox(height: 14), // 【最終調整】カード下部余白14px
+                    const SizedBox(height: UIConstants.spacingCard), // 【最終調整】カード下部余白14px
                   ],
                 ),
               ),
@@ -81,7 +82,7 @@ class _ComparePageState extends State<ComparePage> {
         color: Colors.white,
         border: Border(
           bottom: BorderSide(
-            color: const Color(0xFFE9E9EF), // 【Home準拠】border色
+            color: UIConstants.colorBorder, // 【Home準拠】border色
             width: 1,
           ),
         ),
@@ -110,7 +111,7 @@ class _ComparePageState extends State<ComparePage> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.5), // 【視線誘導】背景を弱め（opacity 0.5）
-              borderRadius: BorderRadius.circular(999), // 【Home準拠】ピル999
+              borderRadius: BorderRadius.circular(UIConstants.radiusPill), // 【Home準拠】ピル999
             ),
             child: InkWell(
               onTap: () {
@@ -155,7 +156,7 @@ class _ComparePageState extends State<ComparePage> {
           isAfter: false,
           isSelected: false,
         ),
-        const SizedBox(height: 14), // 【Home準拠】カード間14px
+        const SizedBox(height: UIConstants.spacingCard), // 【Home準拠】カード間14px
         // Afterカード
         _buildPhotoCard(
           weight: afterWeight,
@@ -180,7 +181,7 @@ class _ComparePageState extends State<ComparePage> {
       child: Container(
         height: 500,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px（写真角丸）
+              borderRadius: BorderRadius.circular(UIConstants.radiusInner), // 【Home準拠】内側要素18px（写真角丸）
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
@@ -262,7 +263,7 @@ class _ComparePageState extends State<ComparePage> {
                             height: 1.0,
                           ),
                         ),
-                      if (!hideWeight) const SizedBox(height: 10), // 【最終調整】テキスト行間：10px
+                      if (!hideWeight) const SizedBox(height: UIConstants.spacingText), // 【最終調整】テキスト行間：10px
                       Text(
                         date,
                         style: TextStyle(
@@ -341,7 +342,7 @@ class _ComparePageState extends State<ComparePage> {
                 border: Border.all(
                   color: isSelected
                       ? Colors.black
-                      : const Color(0xFFE9E9EF).withValues(alpha: 0.8), // 【Home準拠】border色
+                      : UIConstants.colorBorder.withValues(alpha: 0.8), // 【Home準拠】border色
                   width: isSelected ? 2 : 1,
                 ),
               ),
@@ -428,14 +429,14 @@ class _StyledCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // 【Home準拠】浮き感の最適化
     final borderColor = useSubtleBorder
-        ? const Color(0xFFE9E9EF).withValues(alpha: 0.6) // より薄く（60%）
-        : const Color(0xFFE9E9EF).withValues(alpha: 0.8); // 標準（80%）
+        ? UIConstants.colorBorder.withValues(alpha: 0.6) // より薄く（60%）
+        : UIConstants.colorBorder.withValues(alpha: 0.8); // 標準（80%）
     
     return Container(
       padding: padding,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22), // 【Home準拠】カード角丸22px
+        borderRadius: BorderRadius.circular(UIConstants.radiusCard), // 【Home準拠】カード角丸22px
         border: Border.all(
           color: borderColor,
           width: 1,

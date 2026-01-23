@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/ui_constants.dart';
 
 /// PC幅でもスマホ幅で中央表示する共通Widget
 /// Center + ConstrainedBox(maxWidth) + SingleChildScrollView/Padding をラップ
@@ -6,7 +7,7 @@ class CenteredContent extends StatelessWidget {
   const CenteredContent({
     super.key,
     required this.child,
-    this.maxWidth = 430,
+    this.maxWidth = UIConstants.maxWidth,
     this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     this.scroll = true,
   });
