@@ -51,12 +51,22 @@ class Tappable extends StatelessWidget {
       );
     }
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: effectiveBorderRadius,
-      splashColor: splashColor ?? Colors.black.withValues(alpha: 0.08), // 弱めのリップル
-      highlightColor: highlightColor ?? Colors.black.withValues(alpha: 0.04), // 弱めのハイライト
-      child: content,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: effectiveBorderRadius,
+        splashColor: splashColor ?? Colors.black.withValues(alpha: 0.11), // 【最終調整】少し分かりやすく（0.08 → 0.11）
+        highlightColor: highlightColor ?? Colors.black.withValues(alpha: 0.055), // 【最終調整】少し分かりやすく（0.04 → 0.055）
+        overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+          // 【最終調整】押下中だけほんの少し暗くなる
+          if (states.contains(WidgetState.pressed)) {
+            return Colors.black.withValues(alpha: 0.03); // 押下中の暗さ
+          }
+          return null;
+        }),
+        child: content,
+      ),
     );
   }
 }
