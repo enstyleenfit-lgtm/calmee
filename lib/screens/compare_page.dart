@@ -90,8 +90,7 @@ class _ComparePageState extends State<ComparePage> {
         children: [
           // 戻るボタン
           IconButton(
-            icon: const Icon(Icons.arrow_back, size: 24),
-            color: Colors.black,
+            icon: Icon(Icons.arrow_back, size: 24, color: Colors.black.withValues(alpha: 0.5)), // 【視線誘導】戻るボタンを弱め
             onPressed: () {
               Navigator.of(context).pop();
             },
@@ -110,7 +109,7 @@ class _ComparePageState extends State<ComparePage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.black,
+              color: Colors.black.withValues(alpha: 0.5), // 【視線誘導】背景を弱め（opacity 0.5）
               borderRadius: BorderRadius.circular(999), // 【Home準拠】ピル999
             ),
             child: InkWell(
@@ -118,21 +117,21 @@ class _ComparePageState extends State<ComparePage> {
                 // ダミー処理
               },
               borderRadius: BorderRadius.circular(999),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     Icons.share,
                     size: 18,
-                    color: Colors.white,
+                    color: Colors.white.withValues(alpha: 0.5), // 【視線誘導】アイコンを弱め（opacity 0.5）
                   ),
-                  SizedBox(width: 6),
+                  const SizedBox(width: 6),
                   Text(
                     '共有',
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      fontWeight: FontWeight.w500, // 【視線誘導】共有ボタンを弱め（w700 → w500）
+                      color: Colors.white.withValues(alpha: 0.5), // 【視線誘導】テキストを弱め（opacity 0.5）
                     ),
                   ),
                 ],
@@ -222,8 +221,8 @@ class _ComparePageState extends State<ComparePage> {
                         isAfter ? '後' : '前',
                         style: TextStyle(
                           fontSize: 24,
-                          fontWeight: FontWeight.w700, // 【Home準拠】太め
-                          color: Colors.black.withValues(alpha: 0.6),
+                          fontWeight: FontWeight.w600, // 【視線誘導】ラベルを弱め（w700 → w600）
+                          color: Colors.black.withValues(alpha: 0.55), // 【視線誘導】ラベルを弱め（opacity 0.55）
                         ),
                       ),
                     ],
@@ -266,10 +265,10 @@ class _ComparePageState extends State<ComparePage> {
                       if (!hideWeight) const SizedBox(height: 10), // 【最終調整】テキスト行間：10px
                       Text(
                         date,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          color: Colors.white, // 【Home準拠】白文字
+                          color: Colors.white.withValues(alpha: 0.58), // 【視線誘導】日付を弱め（opacity 0.58）
                         ),
                       ),
                     ],
@@ -291,12 +290,12 @@ class _ComparePageState extends State<ComparePage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
+          Text(
             '体重非表示',
             style: TextStyle(
               fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF7A7A86), // 【Home準拠】description色（控えめに）
+              fontWeight: FontWeight.w500, // 【視線誘導】トグルを弱め（w600 → w500）
+              color: Colors.black.withValues(alpha: 0.5), // 【視線誘導】トグルを最弱（opacity 0.5）
             ),
           ),
           Switch(
@@ -306,7 +305,7 @@ class _ComparePageState extends State<ComparePage> {
                 hideWeight = value;
               });
             },
-            activeThumbColor: Colors.black,
+            activeThumbColor: Colors.black.withValues(alpha: 0.5), // 【視線誘導】スイッチを弱め（opacity 0.5）
           ),
         ],
       ),
@@ -391,16 +390,17 @@ class _ComparePageState extends State<ComparePage> {
         onPressed: () {
           // ダミー処理
         },
-        icon: const Icon(Icons.share, size: 20),
-        label: const Text(
+        icon: Icon(Icons.share, size: 20, color: Colors.white.withValues(alpha: 0.5)), // 【視線誘導】アイコンを弱め（opacity 0.5）
+        label: Text(
           '共有',
           style: TextStyle(
             fontSize: 16,
-            fontWeight: FontWeight.w700, // 【Home準拠】太め
+            fontWeight: FontWeight.w500, // 【視線誘導】共有ボタンを弱め（w700 → w500）
+            color: Colors.white.withValues(alpha: 0.5), // 【視線誘導】テキストを弱め（opacity 0.5）
           ),
         ),
         style: FilledButton.styleFrom(
-          backgroundColor: Colors.black,
+          backgroundColor: Colors.black.withValues(alpha: 0.5), // 【視線誘導】背景を弱め（opacity 0.5）
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(

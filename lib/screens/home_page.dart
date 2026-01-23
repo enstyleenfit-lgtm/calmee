@@ -268,7 +268,9 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 10), // 8px → 10px（最終調整：数値周りの呼吸）
                 Text(
                   '摂取カロリー',
-                  style: _TextStyles.description,
+                  style: _TextStyles.description.copyWith(
+                    color: Colors.black.withValues(alpha: 0.65), // 【視線誘導】説明テキストを弱め（opacity 0.65）
+                  ),
                 ),
               ],
             ),
@@ -414,7 +416,7 @@ class _HomePageState extends State<HomePage> {
             '$current/$target$unit',
             style: const TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600, // 【視線誘導】Caloriesより一段弱く（w700 → w600）
               color: Colors.black,
               height: 1.2,
             ),
@@ -426,7 +428,9 @@ class _HomePageState extends State<HomePage> {
           // ラベル
           Text(
             label,
-            style: _TextStyles.caption,
+            style: _TextStyles.caption.copyWith(
+              color: Colors.black.withValues(alpha: 0.6), // 【視線誘導】ラベルを弱め（opacity 0.6）
+            ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -444,7 +448,7 @@ class _HomePageState extends State<HomePage> {
           '最近の食事',
           style: TextStyle(
             fontSize: 20,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600, // 【視線誘導】セクション見出しを弱め（w700 → w600）
             color: Colors.black,
           ),
         ),
@@ -525,7 +529,9 @@ class _HomePageState extends State<HomePage> {
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
                           meal['time'],
-                          style: _TextStyles.caption,
+                          style: _TextStyles.caption.copyWith(
+                            color: Colors.black.withValues(alpha: 0.55), // 【視線誘導】時刻を弱め（opacity 0.55）
+                          ),
                         ),
                       ),
                     ],
@@ -589,11 +595,13 @@ class _HomePageState extends State<HomePage> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13, color: color),
+        Icon(icon, size: 13, color: color.withValues(alpha: 0.7)), // 【視線誘導】アイコンを弱め（主張しすぎない）
         const SizedBox(width: 4),
         Text(
           value,
-          style: _TextStyles.caption,
+          style: _TextStyles.caption.copyWith(
+            color: Colors.black.withValues(alpha: 0.55), // 【視線誘導】補足情報を弱め（opacity 0.55）
+          ),
         ),
       ],
     );

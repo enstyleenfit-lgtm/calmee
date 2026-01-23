@@ -85,10 +85,10 @@ class _ProgressPageState extends State<ProgressPage> {
         children: [
           Text(
             '現在の体重',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF9A9AA5), // 【Home準拠】caption色
+              color: Colors.black.withValues(alpha: 0.6), // 【視線誘導】ラベルを弱め（opacity 0.6）
             ),
           ),
           const SizedBox(height: 8), // 【最終調整】ラベル↔値：8px
@@ -138,10 +138,10 @@ class _ProgressPageState extends State<ProgressPage> {
           const SizedBox(height: 8),
           Text(
             '目標 ${goalWeight.toStringAsFixed(0)} lb',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF9A9AA5), // 【Home準拠】caption色
+              color: Colors.black.withValues(alpha: 0.52), // 【視線誘導】補足説明を最弱（opacity 0.52）
             ),
           ),
           const SizedBox(height: 10), // 【最終調整】テキスト行間：10px
@@ -224,10 +224,10 @@ class _ProgressPageState extends State<ProgressPage> {
           const SizedBox(height: 10), // 【最終調整】アイコン↔ラベル：10px
           Text(
             '連続日数',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF9A9AA5), // 【Home準拠】caption色
+              color: Colors.black.withValues(alpha: 0.6), // 【視線誘導】ラベルを弱め（opacity 0.6）
             ),
           ),
           const SizedBox(height: 10), // 【最終調整】ラベル↔値：10px
@@ -257,10 +257,10 @@ class _ProgressPageState extends State<ProgressPage> {
                         )
                       : Text(
                           day,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF9A9AA5), // 【Home準拠】caption色
+                            color: Colors.black.withValues(alpha: 0.52), // 【視線誘導】補足説明を最弱（opacity 0.52）
                           ),
                         ),
                 ),
@@ -293,18 +293,18 @@ class _ProgressPageState extends State<ProgressPage> {
               ),
               Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.flag,
                     size: 18,
-                    color: Color(0xFF34C759),
+                    color: const Color(0xFF34C759).withValues(alpha: 0.65), // 【視線誘導】アイコンを弱め（opacity 0.65）
                   ),
                   const SizedBox(width: 6),
                   Text(
                     '目標の${goalProgress.toStringAsFixed(0)}%',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF34C759),
+                      color: const Color(0xFF34C759).withValues(alpha: 0.65), // 【視線誘導】変化量を弱め（opacity 0.65）
                     ),
                   ),
                 ],
@@ -395,10 +395,10 @@ class _ProgressPageState extends State<ProgressPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF9A9AA5), // 【Home準拠】caption色
+                      color: Colors.black.withValues(alpha: 0.52), // 【視線誘導】グラフラベルを最弱（opacity 0.52）
                     ),
                   ),
                 );
@@ -523,10 +523,10 @@ class _ProgressPageState extends State<ProgressPage> {
         children: [
           Text(
             '1日の平均カロリー',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF7A7A86), // 【Home準拠】description色
+              color: Colors.black.withValues(alpha: 0.6), // 【視線誘導】ラベルを弱め（opacity 0.6）
             ),
           ),
           const SizedBox(height: 10), // 【Home準拠】数値周りの呼吸
@@ -547,10 +547,10 @@ class _ProgressPageState extends State<ProgressPage> {
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Text(
                   'kcal',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF7A7A86), // 【Home準拠】description色
+                    color: Colors.black.withValues(alpha: 0.6), // 【視線誘導】単位を弱め（opacity 0.6）
                   ),
                 ),
               ),
@@ -569,18 +569,18 @@ class _ProgressPageState extends State<ProgressPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.arrow_upward,
                       size: 16,
-                      color: Color(0xFF34C759),
+                      color: const Color(0xFF34C759).withValues(alpha: 0.65), // 【視線誘導】アイコンを弱め（opacity 0.65）
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '${caloriesPercent.toStringAsFixed(0)}%',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF34C759),
+                        fontWeight: FontWeight.w600, // 【視線誘導】%ピルを弱め（w700 → w600）
+                        color: const Color(0xFF34C759).withValues(alpha: 0.65), // 【視線誘導】変化量を弱め（opacity 0.65）
                       ),
                     ),
                   ],

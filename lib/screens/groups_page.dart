@@ -328,19 +328,19 @@ class _GroupsPageState extends State<GroupsPage> {
                     children: [
                       Text(
                         post.userName,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
-                          fontWeight: FontWeight.w700, // 【Home準拠】太め
-                          color: Colors.black,
+                          fontWeight: FontWeight.w500, // 【視線誘導】ユーザー名を弱め（w700 → w500）
+                          color: Colors.black.withValues(alpha: 0.5), // 【視線誘導】補足情報を最弱（opacity 0.5）
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         post.timestamp,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF9A9AA5), // 【Home準拠】caption色
+                          color: Colors.black.withValues(alpha: 0.5), // 【視線誘導】時間を最弱（opacity 0.5）
                         ),
                       ),
                     ],
@@ -348,8 +348,7 @@ class _GroupsPageState extends State<GroupsPage> {
                 ),
                 // メニューボタン
                 IconButton(
-                  icon: const Icon(Icons.more_vert, size: 20),
-                  color: Colors.black,
+                  icon: Icon(Icons.more_vert, size: 20, color: Colors.black.withValues(alpha: 0.5)), // 【視線誘導】メニューボタンを弱め
                   onPressed: () {},
                 ),
               ],
@@ -363,10 +362,10 @@ class _GroupsPageState extends State<GroupsPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
               post.mealName,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.black,
+                color: Colors.black.withValues(alpha: 0.6), // 【視線誘導】食事名を弱め（写真を主役に）
                 height: 1.3,
               ),
             ),
@@ -443,10 +442,10 @@ class _GroupsPageState extends State<GroupsPage> {
                 // Calories強調
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.local_fire_department,
                       size: 20,
-                      color: Color(0xFFFF9500),
+                      color: const Color(0xFFFF9500).withValues(alpha: 0.7), // 【視線誘導】Caloriesアイコンを弱め（主張しすぎない）
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -458,12 +457,12 @@ class _GroupsPageState extends State<GroupsPage> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Text(
+                    Text(
                       'カロリー',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF7A7A86), // 【Home準拠】description色
+                        color: Colors.black.withValues(alpha: 0.63), // 【視線誘導】単位を弱め（opacity 0.63）
                       ),
                     ),
                   ],
@@ -507,18 +506,18 @@ class _GroupsPageState extends State<GroupsPage> {
                 // リアクション数
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.local_fire_department,
                       size: 18,
-                      color: Color(0xFFFF9500),
+                      color: const Color(0xFFFF9500).withValues(alpha: 0.6), // 【視線誘導】アイコンを弱め
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '${post.reactions}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w700, // 【Home準拠】太め
-                        color: Colors.black,
+                        fontWeight: FontWeight.w500, // 【視線誘導】アクションを弱め（w700 → w500）
+                        color: Colors.black.withValues(alpha: 0.58), // 【視線誘導】色を弱め（opacity 0.58）
                       ),
                     ),
                   ],
@@ -528,18 +527,18 @@ class _GroupsPageState extends State<GroupsPage> {
                 if (post.stars > 0) ...[
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.star,
                         size: 18,
-                        color: Color(0xFFFFD700),
+                        color: const Color(0xFFFFD700).withValues(alpha: 0.6), // 【視線誘導】アイコンを弱め
                       ),
                       const SizedBox(width: 4),
                       Text(
                         '${post.stars}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
-                          fontWeight: FontWeight.w700, // 【Home準拠】太め
-                          color: Colors.black,
+                          fontWeight: FontWeight.w500, // 【視線誘導】アクションを弱め（w700 → w500）
+                          color: Colors.black.withValues(alpha: 0.58), // 【視線誘導】色を弱め（opacity 0.58）
                         ),
                       ),
                     ],
@@ -576,10 +575,10 @@ class _GroupsPageState extends State<GroupsPage> {
                 onTap: () {},
                 child: Text(
                   'コメントを${post.comments}件見る',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF7A7A86), // 【Home準拠】description色
+                    fontWeight: FontWeight.w500, // 【視線誘導】補足情報を弱め（w600 → w500）
+                    color: Colors.black.withValues(alpha: 0.5), // 【視線誘導】補足情報を最弱（opacity 0.5）
                   ),
                 ),
               ),
@@ -612,13 +611,13 @@ class _GroupsPageState extends State<GroupsPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: color),
+          Icon(icon, size: 16, color: color.withValues(alpha: 0.7)), // 【視線誘導】アイコンを弱め（主張しすぎない）
           const SizedBox(width: 6),
           Text(
             value,
             style: const TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.w700, // 【Home準拠】太め
+              fontWeight: FontWeight.w600, // 【視線誘導】P/C/F数値を弱め（w700 → w600）
               color: Colors.black,
             ),
           ),
@@ -650,14 +649,14 @@ class _GroupsPageState extends State<GroupsPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: Colors.black),
+            Icon(icon, size: 18, color: Colors.black.withValues(alpha: 0.58)), // 【視線誘導】アイコンを弱め（opacity 0.58）
             const SizedBox(width: 6),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.w700, // 【Home準拠】太め
-                color: Colors.black,
+                fontWeight: FontWeight.w500, // 【視線誘導】アクションを弱め（w700 → w500）
+                color: Colors.black.withValues(alpha: 0.58), // 【視線誘導】色を弱め（opacity 0.58）
               ),
             ),
           ],
