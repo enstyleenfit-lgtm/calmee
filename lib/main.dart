@@ -56,7 +56,7 @@ Future<void> main() async {
       FirebaseFunctions.instance.useFunctionsEmulator('localhost', 5001);
     } catch (e) {
       // エミュレータが起動していない場合は無視
-      print('Functions emulator not available: $e');
+      debugPrint('Functions emulator not available: $e');
     }
   }
 
@@ -610,7 +610,7 @@ class _RewardSparkleLayerState extends State<_RewardSparkleLayer>
     return IgnorePointer(
       child: AnimatedBuilder(
         animation: _a,
-        builder: (_, __) {
+        builder: (context, _) {
           final t = _a.value; // 0→1
           final opacity = (1.0 - t).clamp(0.0, 1.0);
           final scale = 0.85 + (t * 0.35);
@@ -1465,7 +1465,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (stateCounts.isEmpty) {
       // 状態選択がない場合は、カロリーから判定
-      final totalKcal = mealItems.fold<int>(0, (sum, item) => sum + (item.kcal ?? 0));
+      final totalKcal = mealItems.fold<int>(0, (acc, item) => acc + (item.kcal ?? 0));
       if (totalKcal >= 2000) {
         return 'しっかり食べています。';
       } else if (totalKcal >= 1200) {
@@ -1483,13 +1483,13 @@ class _HomeScreenState extends State<HomeScreen> {
       if (count == 1) {
         return '$state食べました。';
       } else {
-        return '$stateを${count}回食べました。';
+        return '$stateを$count回食べました。';
       }
     } else {
       // 複数の状態がある場合
       final stateTexts = states.map((state) {
         final count = stateCounts[state]!;
-        return count == 1 ? state : '$state${count}回';
+        return count == 1 ? state : '$state$count回';
       }).join('、');
       return '$stateTextsを食べました。';
     }
@@ -1500,7 +1500,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final workoutProgress = workoutKcal >= workoutTarget ? '目標達成' : 'あと${workoutTarget - workoutKcal}kcal';
     final proteinProgress = proteinCurrent >= proteinTarget ? '目標達成' : 'あと${proteinTarget - proteinCurrent}g';
     
-    return '摂取カロリーは$mealProgress。消費カロリーは$workoutProgress。たんぱく質は$proteinProgress。残り予定は${remainingCount}件です。';
+    return '摂取カロリーは$mealProgress。消費カロリーは$workoutProgress。たんぱく質は$proteinProgress。残り予定は$remainingCount件です。';
   }
 
   /// Firebase Storageへ画像をアップロード
@@ -1550,7 +1550,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return 'ちょうど'; // normal または デフォルト
     } catch (e) {
       // エラー時はnullを返す（フォールバック用）
-      print('Exception in _analyzeMealImage: $e');
+      debugPrint('Exception in _analyzeMealImage: $e');
       return null;
     }
   }
@@ -1745,8 +1745,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final mealItems = todayItems.where((item) => item.type == 'meal').toList();
     final workoutItems = todayItems.where((item) => item.type == 'workout').toList();
     
-    final mealKcal = mealItems.fold<int>(0, (sum, item) => sum + (item.kcal ?? 0));
-    final workoutKcal = workoutItems.fold<int>(0, (sum, item) => sum + (item.kcal ?? 0));
+    final mealKcal = mealItems.fold<int>(0, (acc, item) => acc + (item.kcal ?? 0));
+    final workoutKcal = workoutItems.fold<int>(0, (acc, item) => acc + (item.kcal ?? 0));
     const mealTarget = 2400;
     const workoutTarget = 400;
     const proteinTarget = 100; // 仮の値
@@ -2682,7 +2682,7 @@ class _RecordScreenState extends State<RecordScreen> {
         // 成功時: { "result": { "level": "..." } }
         // エラー時: { "error": { ... } }
         if (json.containsKey('error')) {
-          print('Functions error: ${json['error']}');
+          debugPrint('Functions error: ${json['error']}');
           return null;
         }
         
@@ -2695,12 +2695,12 @@ class _RecordScreenState extends State<RecordScreen> {
         return 'ちょうど'; // normal または デフォルト
       } else {
         // HTTPエラー時はnullを返す（フォールバック用）
-        print('HTTP error: ${response.statusCode} - ${response.body}');
+        debugPrint('HTTP error: ${response.statusCode} - ${response.body}');
         return null;
       }
     } catch (e) {
       // エラー時はnullを返す（フォールバック用）
-      print('Exception in _analyzeMealImage: $e');
+      debugPrint('Exception in _analyzeMealImage: $e');
       return null;
     }
   }
@@ -2734,8 +2734,8 @@ class _RecordScreenState extends State<RecordScreen> {
     final mealItems = todayItems.where((item) => item.type == 'meal').toList();
     final workoutItems = todayItems.where((item) => item.type == 'workout').toList();
     
-    final mealKcal = mealItems.fold<int>(0, (sum, item) => sum + (item.kcal ?? 0));
-    final workoutKcal = workoutItems.fold<int>(0, (sum, item) => sum + (item.kcal ?? 0));
+    final mealKcal = mealItems.fold<int>(0, (acc, item) => acc + (item.kcal ?? 0));
+    final workoutKcal = workoutItems.fold<int>(0, (acc, item) => acc + (item.kcal ?? 0));
     const mealTarget = 2400;
     const workoutTarget = 400;
 

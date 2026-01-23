@@ -534,7 +534,7 @@ class _ProgressPageState extends State<ProgressPage> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${dailyAverageCalories.toStringAsFixed(0)}',
+                dailyAverageCalories.toStringAsFixed(0),
                 style: const TextStyle(
                   fontSize: 36,
                   fontWeight: FontWeight.w700,
