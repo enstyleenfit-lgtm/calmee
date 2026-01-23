@@ -40,13 +40,14 @@ class _ComparePageState extends State<ComparePage> {
             // メインコンテンツ（PC幅でもスマホ幅で中央表示）
             Expanded(
               child: CenteredContent(
+                padding: const EdgeInsets.only(top: 18, bottom: 16, left: 16, right: 16), // 【最終調整】ヘッダー下18px
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Before / After 比較カード
                     _buildComparisonCards(),
 
-                    const SizedBox(height: 18), // 【Home準拠】セクション間18px
+                    const SizedBox(height: 18), // 【最終調整】セクション間18px
 
                     // Hide weight トグル
                     _buildHideWeightToggle(),
@@ -61,7 +62,7 @@ class _ComparePageState extends State<ComparePage> {
                     // Shareボタン
                     _buildShareButton(),
 
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 14), // 【最終調整】カード下部余白14px
                   ],
                 ),
               ),
@@ -218,7 +219,7 @@ class _ComparePageState extends State<ComparePage> {
                       const SizedBox(height: 16),
                       Text(
                         // 表示文字列（i18n未導入のため直書き）
-                        isAfter ? 'アフター' : 'ビフォー',
+                        isAfter ? '後' : '前',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w700, // 【Home準拠】太め
@@ -262,7 +263,7 @@ class _ComparePageState extends State<ComparePage> {
                             height: 1.0,
                           ),
                         ),
-                      if (!hideWeight) const SizedBox(height: 4),
+                      if (!hideWeight) const SizedBox(height: 10), // 【最終調整】テキスト行間：10px
                       Text(
                         date,
                         style: const TextStyle(
@@ -291,7 +292,7 @@ class _ComparePageState extends State<ComparePage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           const Text(
-            '体重を隠す',
+            '体重非表示',
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
@@ -314,9 +315,11 @@ class _ComparePageState extends State<ComparePage> {
 
   /// サムネイル一覧
   Widget _buildThumbnailsList() {
-    return SizedBox(
-      height: 80,
-      child: ListView.builder(
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14), // 【最終調整】サムネ列の上下余白14px
+      child: SizedBox(
+        height: 80,
+        child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: thumbnails.length,
         itemBuilder: (context, index) {
@@ -375,6 +378,7 @@ class _ComparePageState extends State<ComparePage> {
             ),
           );
         },
+      ),
       ),
     );
   }

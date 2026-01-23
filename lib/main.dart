@@ -346,7 +346,7 @@ class HabitRepository {
         final ts = data['lastDoneDate'] as Timestamp?;
         lastDone = ts?.toDate();
         if (lastDone != null) {
-          lastDone = toDateOnly(lastDone!);
+          lastDone = toDateOnly(lastDone);
         }
       }
 
@@ -559,8 +559,6 @@ class RewardSparkle extends StatefulWidget {
 
   static Future<void> play(BuildContext context) async {
     final overlay = Overlay.of(context);
-    if (overlay == null) return;
-
     final entry = OverlayEntry(builder: (_) => const _RewardSparkleLayer());
     overlay.insert(entry);
     await Future.delayed(const Duration(milliseconds: 750));
@@ -922,7 +920,7 @@ class _DebugGalleryPageState extends State<_DebugGalleryPage> {
         _buildGalleryButton(
           context: context,
             title: '比較',
-            subtitle: 'ビフォー/アフター',
+            subtitle: '前/後',
           icon: Icons.compare,
           color: Colors.teal,
           onTap: () {
@@ -1406,27 +1404,6 @@ class _HomeScreenState extends State<HomeScreen> {
       return defaultGuide;
     }
     return fitTypeGuide[_fitType!] ?? defaultGuide;
-  }
-
-  PlanItem? _nextPlan(List<PlanItem> items) {
-    if (items.isEmpty) return null;
-    
-    final now = DateTime.now();
-    DateTime? bestAt;
-    PlanItem? best;
-
-    for (final it in items.where((e) => e.enabled)) {
-      final parts = it.time.split(':');
-      final hh = int.tryParse(parts[0]) ?? 0;
-      final mm = int.tryParse(parts[1]) ?? 0;
-      final t = DateTime(now.year, now.month, now.day, hh, mm);
-
-      if (t.isAfter(now) && (bestAt == null || t.isBefore(bestAt))) {
-        bestAt = t;
-        best = it;
-      }
-    }
-    return best;
   }
 
   int _countRemainingPlans(List<PlanItem> items) {

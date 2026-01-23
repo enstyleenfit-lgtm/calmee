@@ -48,24 +48,24 @@ class _ProgressPageState extends State<ProgressPage> {
                   Expanded(
                     child: _buildWeightCard(),
                   ),
-                  const SizedBox(width: 12), // 【Home準拠】カード間12px
+                  const SizedBox(width: 14), // 【最終調整】カード間14px
                   Expanded(
                     child: _buildDayStreakCard(),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 14), // 【Home準拠】カード間14px
+              const SizedBox(height: 18), // 【最終調整】セクション間18px
 
               // Weight Progressカード
               _buildWeightProgressCard(),
 
-              const SizedBox(height: 14), // 【Home準拠】カード間14px
+              const SizedBox(height: 18), // 【最終調整】セクション間18px
 
               // Daily Average Caloriesカード
               _buildDailyAverageCaloriesCard(),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 14), // 【最終調整】カード下部余白14px
             ],
           ),
         ),
@@ -91,7 +91,7 @@ class _ProgressPageState extends State<ProgressPage> {
               color: Color(0xFF9A9AA5), // 【Home準拠】caption色
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8), // 【最終調整】ラベル↔値：8px
           Text(
             '${currentWeight.toStringAsFixed(1)} lbs',
             style: const TextStyle(
@@ -101,7 +101,7 @@ class _ProgressPageState extends State<ProgressPage> {
               height: 1.0,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10), // 【最終調整】数値↔説明：10px
           // プログレスバー
           Stack(
             children: [
@@ -144,7 +144,7 @@ class _ProgressPageState extends State<ProgressPage> {
               color: Color(0xFF9A9AA5), // 【Home準拠】caption色
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10), // 【最終調整】テキスト行間：10px
           // Log Weightボタン
           SizedBox(
             width: double.infinity,
@@ -221,7 +221,7 @@ class _ProgressPageState extends State<ProgressPage> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10), // 【最終調整】アイコン↔ラベル：10px
           Text(
             '連続日数',
             style: const TextStyle(
@@ -230,7 +230,7 @@ class _ProgressPageState extends State<ProgressPage> {
               color: Color(0xFF9A9AA5), // 【Home準拠】caption色
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10), // 【最終調整】ラベル↔値：10px
           // 曜日の円
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -312,12 +312,12 @@ class _ProgressPageState extends State<ProgressPage> {
             ],
           ),
 
-          const SizedBox(height: 18), // 【Home準拠】セクション上下18px
+          const SizedBox(height: 10), // 【最終調整】見出し↔グラフ：10px
 
           // グラフエリア（プレースホルダー）
           _buildGraphPlaceholder(),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 10), // 【最終調整】グラフ↔補足テキスト：10px
 
           // 期間切替ボタン
           Row(

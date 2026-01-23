@@ -67,7 +67,7 @@ class _HomePageState extends State<HomePage> {
             // 曜日ストリップ
             _buildWeekStrip(),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: 18), // 【最終調整】セクション間18px
             
             // メインコンテンツ（PC幅でもスマホ幅で中央表示）
             Expanded(
@@ -441,7 +441,7 @@ class _HomePageState extends State<HomePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          '最近追加した食事',
+          '最近の食事',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w700,
@@ -452,7 +452,7 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 10),
         
         ...recentMeals.map((meal) => Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.only(bottom: 14), // 【最終調整】カード間14px
           child: _buildMealCard(meal),
         )),
       ],

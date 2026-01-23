@@ -11,7 +11,7 @@ class GroupsPage extends StatefulWidget {
 
 class _GroupsPageState extends State<GroupsPage> {
   // 表示文字列（i18n未導入のため直書き）
-  String selectedGroup = 'すべて'; // すべて / 友だち / シュレッド・スクワッド
+  String selectedGroup = '全て'; // 全て / 友達 / チーム
 
   // ダミーデータ
   final List<GroupMember> members = [
@@ -77,13 +77,14 @@ class _GroupsPageState extends State<GroupsPage> {
             // メインコンテンツ（PC幅でもスマホ幅で中央表示）
             Expanded(
               child: CenteredContent(
+                padding: const EdgeInsets.only(top: 18, bottom: 16, left: 16, right: 16), // 【最終調整】ヘッダー下18px
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // グループメンバー（ストーリー風）
                     _buildMembersSection(),
 
-                    const SizedBox(height: 18), // 【Home準拠】セクション間18px
+                    const SizedBox(height: 18), // 【最終調整】セクション間18px
 
                     // 投稿フィード
                     ...posts.asMap().entries.map((entry) {
@@ -130,11 +131,11 @@ class _GroupsPageState extends State<GroupsPage> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                      _buildGroupPill('すべて', 'すべて'),
+                      _buildGroupPill('全て', '全て'),
                   const SizedBox(width: 8),
-                      _buildGroupPill('友だち', '友だち'),
+                      _buildGroupPill('友達', '友達'),
                   const SizedBox(width: 8),
-                      _buildGroupPill('シュレッド', 'シュレッド・スクワッド'),
+                      _buildGroupPill('チーム', 'チーム'),
                 ],
               ),
             ),
@@ -246,7 +247,7 @@ class _GroupsPageState extends State<GroupsPage> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10), // 【最終調整】アバター下のバッジとの距離10px
                 // ストリーク数（ピル型バッジ）
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -354,6 +355,8 @@ class _GroupsPageState extends State<GroupsPage> {
               ],
             ),
           ),
+
+          const SizedBox(height: 10), // 【最終調整】ヘッダー ↔ 食事名：10px
 
           // 食事名
           Padding(
@@ -466,7 +469,7 @@ class _GroupsPageState extends State<GroupsPage> {
                   ],
                 ),
                 
-                const SizedBox(height: 12),
+                const SizedBox(height: 10), // 【最終調整】Calories ↔ P/C/F：10px
 
                 // P/C/F 行（Homeマクロと同じ規格、折り返しOK）
                 Wrap(
@@ -547,7 +550,7 @@ class _GroupsPageState extends State<GroupsPage> {
                 Expanded(
                   child: _buildActionButton(
                     icon: Icons.emoji_emotions_outlined,
-                    label: 'リアクション',
+                    label: '反応',
                     onTap: () {},
                   ),
                 ),
@@ -583,7 +586,7 @@ class _GroupsPageState extends State<GroupsPage> {
             ),
           ],
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 14), // 【最終調整】カード下部余白：14px（カード間14pxに統一）
         ],
       ),
     );
