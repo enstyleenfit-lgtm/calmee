@@ -305,7 +305,7 @@ class _ComparePageState extends State<ComparePage> {
                 hideWeight = value;
               });
             },
-            activeColor: Colors.black,
+            activeThumbColor: Colors.black,
           ),
         ],
       ),

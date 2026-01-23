@@ -28,6 +28,7 @@ import 'screens/progress_page.dart';
 import 'screens/groups_page.dart';
 import 'screens/compare_page.dart';
 import 'screens/meal_detail_sheet.dart';
+import 'widgets/centered_content.dart';
 
 // 【デバッグ】UI切り分け用フラグ
 // debugGallery=true のとき：UIギャラリー画面を表示（全画面へ遷移可能）
@@ -778,20 +779,21 @@ class _DebugGalleryPageState extends State<_DebugGalleryPage> {
         
         // 下部：選択中のページをプレビュー表示
         Expanded(
-          child: Center(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 430),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: ClipRect(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: ClipRect(
+              child: CenteredContent(
+                scroll: false, // 各ページが既にスクロールを持つため
+                padding: EdgeInsets.zero, // 各ページが既にpaddingを持つため
                 child: _buildPreviewContent(),
               ),
             ),
@@ -1175,6 +1177,14 @@ class _RootShellState extends State<RootShell> {
     setState(() {});
   }
 
+  /// リワードとダイアログを表示（context使用をState内に閉じ込める）
+  Future<void> _handleRewardAndDialog(int streak) async {
+    if (!mounted) return;
+    await RewardSparkle.play(context);
+    if (!mounted) return;
+    await showPraiseRewardDialog(context, streak: streak);
+  }
+
   @override
   Widget build(BuildContext context) {
     final screens = <Widget>[
@@ -1242,10 +1252,9 @@ class _RootShellState extends State<RootShell> {
           setState(() => _loading = true);
           try {
             final newStreak = await _recordToday(habit);
-
-            await RewardSparkle.play(context);
-            await showPraiseRewardDialog(context, streak: newStreak);
-
+            if (!mounted) return;
+            await _handleRewardAndDialog(newStreak);
+            if (!mounted) return;
             setState(() => _index = 0);
           } finally {
             if (mounted) setState(() => _loading = false);
@@ -1592,10 +1601,12 @@ class _HomeScreenState extends State<HomeScreen> {
           barrierDismissible: false,
           builder: (context) {
             const mintColorLight = Color(0xFFB2DFDB);
-            return WillPopScope(
-              onWillPop: () async {
-                cancelled = true;
-                return true;
+            return PopScope(
+              canPop: true,
+              onPopInvokedWithResult: (didPop, result) {
+                if (didPop) {
+                  cancelled = true;
+                }
               },
               child: Center(
                 child: Card(
@@ -2282,7 +2293,7 @@ class _PlanScreenState extends State<PlanScreen> {
                 const SizedBox(height: 12),
                 // タイプ選択
                 DropdownButtonFormField<String>(
-                  value: type,
+                  initialValue: type,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
                     labelText: 'タイプ',
@@ -2889,10 +2900,12 @@ class _RecordScreenState extends State<RecordScreen> {
           barrierDismissible: false,
           builder: (context) {
             const mintColorLight = Color(0xFFB2DFDB);
-            return WillPopScope(
-              onWillPop: () async {
-                cancelled = true;
-                return true;
+            return PopScope(
+              canPop: true,
+              onPopInvokedWithResult: (didPop, result) {
+                if (didPop) {
+                  cancelled = true;
+                }
               },
               child: Center(
                 child: Card(
@@ -4215,6 +4228,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return descriptions[type] ?? 'あなたのフィットネスタイプです。';
   }
 
+  /// Navigator.popとSnackBarを表示（context使用をState内に閉じ込める）
+  Future<void> _handlePopAndSnackBar({required String successMessage, String? errorMessage}) async {
+    if (!mounted) return;
+    Navigator.pop(context);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(errorMessage ?? successMessage)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -4506,20 +4529,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       weightKg: weight,
                       bodyFatPct: bodyFat,
                     );
-                    if (mounted) {
-                      setState(() {
-                        _height = height;
-                        _weight = weight;
-                        _bodyFat = bodyFat;
-                      });
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('保存しました')),
-                      );
-                    }
+                    if (!mounted) return;
+                    setState(() {
+                      _height = height;
+                      _weight = weight;
+                      _bodyFat = bodyFat;
+                    });
+                    if (!mounted) return;
+                    await _handlePopAndSnackBar(successMessage: '保存しました');
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('保存に失敗しました: $e')),
+                    if (!mounted) return;
+                    await _handlePopAndSnackBar(
+                      successMessage: '',
+                      errorMessage: '保存に失敗しました: $e',
                     );
                   }
                 } else {
@@ -4612,20 +4634,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       targetDays: targetPeriod,
                       policyText: targetPolicy,
                     );
-                    if (mounted) {
-                      setState(() {
-                        _targetWeight = targetWeight;
-                        _targetPeriod = targetPeriod;
-                        _targetPolicy = targetPolicy;
-                      });
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('保存しました')),
-                      );
-                    }
+                    if (!mounted) return;
+                    setState(() {
+                      _targetWeight = targetWeight;
+                      _targetPeriod = targetPeriod;
+                      _targetPolicy = targetPolicy;
+                    });
+                    if (!mounted) return;
+                    await _handlePopAndSnackBar(successMessage: '保存しました');
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('保存に失敗しました: $e')),
+                    if (!mounted) return;
+                    await _handlePopAndSnackBar(
+                      successMessage: '',
+                      errorMessage: '保存に失敗しました: $e',
                     );
                   }
                 } else {
