@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/centered_content.dart';
 import '../theme/ui_constants.dart';
+import '../widgets/tappable.dart';
 
 /// Cal AI風Progress UI
 class ProgressPage extends StatefulWidget {
@@ -479,15 +480,15 @@ class _ProgressPageState extends State<ProgressPage> {
   /// 期間切替ボタン
   Widget _buildTimeRangeButton(String label, String value) {
     final isSelected = selectedTimeRange == value;
-    return GestureDetector(
+    return Tappable(
       onTap: () {
         setState(() {
           selectedTimeRange = value;
         });
       },
+      borderRadius: BorderRadius.circular(UIConstants.radiusInner),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4), // 【最終調整】余白を+2px（詰まって見えないように）
       child: Container(
-        // 【最終調整】余白を+2px（詰まって見えないように）
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         decoration: BoxDecoration(
           // 【最終調整】選択中：白背景＋線薄め、非選択：透明寄り
           color: isSelected

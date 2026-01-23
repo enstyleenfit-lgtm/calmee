@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/ui_constants.dart';
+import '../widgets/tappable.dart';
 
 /// Cal AI風食事詳細ボトムシート
 class MealDetailSheet extends StatelessWidget {
@@ -169,9 +170,10 @@ class MealDetailSheet extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () {
+                    TappableIcon(
+                      icon: Icons.arrow_back,
+                      color: Colors.white,
+                      onTap: () {
                         Navigator.of(context).pop();
                       },
                     ),
@@ -185,13 +187,15 @@ class MealDetailSheet extends StatelessWidget {
                     ),
                     Row(
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.share, color: Colors.white),
-                          onPressed: () {},
+                        TappableIcon(
+                          icon: Icons.share,
+                          color: Colors.white,
+                          onTap: () {},
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.more_vert, color: Colors.white),
-                          onPressed: () {},
+                        TappableIcon(
+                          icon: Icons.more_vert,
+                          color: Colors.white,
+                          onTap: () {},
                         ),
                       ],
                     ),
@@ -261,23 +265,21 @@ class MealDetailSheet extends StatelessWidget {
           child: Row(
             children: [
               // -ボタン
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {},
-                  borderRadius: const BorderRadius.horizontal(
-                    left: Radius.circular(18),
+              Tappable(
+                onTap: () {},
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(UIConstants.radiusInner),
+                ),
+                minSize: 0, // paddingでタップ領域確保
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    child: const Icon(
-                      Icons.remove,
-                      size: 20,
-                      color: Colors.black,
-                    ),
+                  child: const Icon(
+                    Icons.remove,
+                    size: 20,
+                    color: Colors.black,
                   ),
                 ),
               ),
@@ -296,23 +298,21 @@ class MealDetailSheet extends StatelessWidget {
               ),
               
               // +ボタン
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {},
-                  borderRadius: const BorderRadius.horizontal(
-                    right: Radius.circular(18),
+              Tappable(
+                onTap: () {},
+                borderRadius: const BorderRadius.horizontal(
+                  right: Radius.circular(UIConstants.radiusInner),
+                ),
+                minSize: 0, // paddingでタップ領域確保
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    child: const Icon(
-                      Icons.add,
-                      size: 20,
-                      color: Colors.black,
-                    ),
+                  child: const Icon(
+                    Icons.add,
+                    size: 20,
+                    color: Colors.black,
                   ),
                 ),
               ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/centered_content.dart';
 import '../theme/ui_constants.dart';
+import '../widgets/tappable.dart';
 
 /// Cal AI風Groups UI（コミュニティフィード型）
 class GroupsPage extends StatefulWidget {
@@ -160,14 +161,14 @@ class _GroupsPageState extends State<GroupsPage> {
   /// グループ選択ピル
   Widget _buildGroupPill(String label, String value) {
     final isSelected = selectedGroup == value;
-    return GestureDetector(
+    return TappablePill(
       onTap: () {
         setState(() {
           selectedGroup = value;
         });
       },
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           // 【最終調整】選択中：白背景＋線薄め、非選択：透明＋線薄め
           color: isSelected ? Colors.white : Colors.transparent,
@@ -291,10 +292,16 @@ class _GroupsPageState extends State<GroupsPage> {
 
   /// 投稿カード
   Widget _buildPostCard(MealPost post) {
-    return _StyledCard(
-      padding: EdgeInsets.zero,
-      useSubtleBorder: false, // 【Home準拠】主要カードは0.8（標準border）
-      child: Column(
+    // 【タップ感統一】投稿カード全体をTappableで統一
+    return Tappable(
+      onTap: () {
+        // ダミー処理
+      },
+      borderRadius: BorderRadius.circular(UIConstants.radiusCard),
+      child: _StyledCard(
+        padding: EdgeInsets.zero,
+        useSubtleBorder: false, // 【Home準拠】主要カードは0.8（標準border）
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ユーザー情報ヘッダー
@@ -348,9 +355,11 @@ class _GroupsPageState extends State<GroupsPage> {
                   ),
                 ),
                 // メニューボタン
-                IconButton(
-                  icon: Icon(Icons.more_vert, size: 20, color: Colors.black.withValues(alpha: 0.5)), // 【視線誘導】メニューボタンを弱め
-                  onPressed: () {},
+                TappableIcon(
+                  icon: Icons.more_vert,
+                  size: 20,
+                  color: Colors.black.withValues(alpha: 0.5), // 【視線誘導】メニューボタンを弱め
+                  onTap: () {},
                 ),
               ],
             ),
@@ -572,8 +581,9 @@ class _GroupsPageState extends State<GroupsPage> {
             const SizedBox(height: 10), // 【最終調整】余白リズム：10px
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: GestureDetector(
+              child: Tappable(
                 onTap: () {},
+                minSize: 0, // テキストなのでタップ領域は自動
                 child: Text(
                   'コメントを${post.comments}件見る',
                   style: TextStyle(
@@ -588,6 +598,7 @@ class _GroupsPageState extends State<GroupsPage> {
 
           const SizedBox(height: UIConstants.spacingCard), // 【最終調整】カード下部余白：14px（カード間14pxに統一）
         ],
+      ),
       ),
     );
   }
@@ -633,10 +644,10 @@ class _GroupsPageState extends State<GroupsPage> {
     required String label,
     required VoidCallback onTap,
   }) {
-    // 【最終調整】ボタン主張を弱める：border/背景を控えめに、タップ領域は維持
-    return InkWell(
+    // 【タップ感統一】Tappableで統一
+    return Tappable(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(UIConstants.radiusInner), // InkWellの角丸も合わせる
+      borderRadius: BorderRadius.circular(UIConstants.radiusInner),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(

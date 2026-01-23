@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../theme/ui_constants.dart';
+import '../widgets/tappable.dart';
 
 /// Cal AI風Camera UI
 class CameraPage extends StatefulWidget {
@@ -128,7 +129,10 @@ class _CameraPageState extends State<CameraPage> {
     required IconData icon,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return TappableIcon(
+      icon: icon,
+      size: 20,
+      color: Colors.white,
       onTap: onTap,
       child: Container(
         width: 40,
@@ -299,18 +303,18 @@ class _CameraPageState extends State<CameraPage> {
 
   Widget _buildModeButton(String label, IconData icon, String mode) {
     final isSelected = selectedMode == mode;
-    return GestureDetector(
+    return TappablePill(
       onTap: () {
         setState(() {
           selectedMode = mode;
         });
       },
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           // 【Home準拠】選択中：白地、非選択：黒半透明
           color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(999), // 【Home準拠】ピル999
+          borderRadius: BorderRadius.circular(UIConstants.radiusPill), // 【Home準拠】ピル999
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -342,7 +346,10 @@ class _CameraPageState extends State<CameraPage> {
     required IconData icon,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return TappableIcon(
+      icon: icon,
+      size: 24,
+      color: Colors.white,
       onTap: onTap,
       child: Container(
         width: 50,
@@ -362,10 +369,12 @@ class _CameraPageState extends State<CameraPage> {
 
   /// シャッターボタン（白外枠＋黒内円）
   Widget _buildShutterButton() {
-    return GestureDetector(
+    return Tappable(
       onTap: () {
         // ダミー処理
       },
+      borderRadius: BorderRadius.circular(999), // 円形
+      minSize: 80, // シャッターボタンは大きめ
       child: Container(
         width: 80,
         height: 80,

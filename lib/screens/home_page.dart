@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../widgets/centered_content.dart';
 import '../theme/ui_constants.dart';
+import '../widgets/tappable.dart';
 
 /// Cal AI風Home UI
 class HomePage extends StatefulWidget {
@@ -187,12 +188,13 @@ class _HomePageState extends State<HomePage> {
               date.month == selectedDate.month &&
               date.day == selectedDate.day;
           
-          return GestureDetector(
+          return Tappable(
             onTap: () {
               setState(() {
                 selectedDate = date;
               });
             },
+            borderRadius: BorderRadius.circular(UIConstants.radiusInner),
             child: Container(
               width: 60,
               margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -466,12 +468,12 @@ class _HomePageState extends State<HomePage> {
 
   /// 個別食事カード
   Widget _buildMealCard(Map<String, dynamic> meal) {
-    // 【最終調整】InkWell化でクリック感を向上（リップル効果）
-    return InkWell(
+    // 【タップ感統一】Tappableで統一
+    return Tappable(
       onTap: () {
         // ダミー処理
       },
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(UIConstants.radiusCard),
       child: _StyledCard(
         padding: const EdgeInsets.all(16),
         // 食事カードは標準のborderで（浮き感のバランス）

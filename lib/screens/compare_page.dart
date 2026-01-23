@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/centered_content.dart';
 import '../theme/ui_constants.dart';
+import '../widgets/tappable.dart';
 
 /// Cal AI風Compare UI（ビフォー/アフター比較）
 class ComparePage extends StatefulWidget {
@@ -90,9 +91,11 @@ class _ComparePageState extends State<ComparePage> {
       child: Row(
         children: [
           // 戻るボタン
-          IconButton(
-            icon: Icon(Icons.arrow_back, size: 24, color: Colors.black.withValues(alpha: 0.5)), // 【視線誘導】戻るボタンを弱め
-            onPressed: () {
+          TappableIcon(
+            icon: Icons.arrow_back,
+            size: 24,
+            color: Colors.black.withValues(alpha: 0.5), // 【視線誘導】戻るボタンを弱め
+            onTap: () {
               Navigator.of(context).pop();
             },
           ),
@@ -107,24 +110,28 @@ class _ComparePageState extends State<ComparePage> {
           ),
           const Spacer(),
           // Shareボタン（ピル型）
-          Container(
+          // 【タップ感統一】弱めるけど押せる感は維持（背景opacity戻す＋枠線追加）
+          TappablePill(
+            onTap: () {
+              // ダミー処理
+            },
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.5), // 【視線誘導】背景を弱め（opacity 0.5）
-              borderRadius: BorderRadius.circular(UIConstants.radiusPill), // 【Home準拠】ピル999
-            ),
-            child: InkWell(
-              onTap: () {
-                // ダミー処理
-              },
-              borderRadius: BorderRadius.circular(999),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.7), // 【タップ感統一】背景を少し戻す（0.5 → 0.7）
+                borderRadius: BorderRadius.circular(UIConstants.radiusPill),
+                border: Border.all(
+                  color: Colors.black.withValues(alpha: 0.3), // 【タップ感統一】枠線追加でボタンらしさ維持
+                  width: 1,
+                ),
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     Icons.share,
                     size: 18,
-                    color: Colors.white.withValues(alpha: 0.5), // 【視線誘導】アイコンを弱め（opacity 0.5）
+                    color: Colors.white.withValues(alpha: 0.7), // 【タップ感統一】アイコンを少し戻す（0.5 → 0.7）
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -132,7 +139,7 @@ class _ComparePageState extends State<ComparePage> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500, // 【視線誘導】共有ボタンを弱め（w700 → w500）
-                      color: Colors.white.withValues(alpha: 0.5), // 【視線誘導】テキストを弱め（opacity 0.5）
+                      color: Colors.white.withValues(alpha: 0.7), // 【タップ感統一】テキストを少し戻す（0.5 → 0.7）
                     ),
                   ),
                 ],
@@ -326,12 +333,13 @@ class _ComparePageState extends State<ComparePage> {
           final thumbnail = thumbnails[index];
           final isSelected = selectedThumbnailIndex == index;
 
-          return GestureDetector(
+          return Tappable(
             onTap: () {
               setState(() {
                 selectedThumbnailIndex = index;
               });
             },
+            borderRadius: BorderRadius.circular(UIConstants.radiusInner),
             child: Container(
               width: 80,
               margin: EdgeInsets.only(
@@ -385,27 +393,38 @@ class _ComparePageState extends State<ComparePage> {
 
   /// Shareボタン（下部）
   Widget _buildShareButton() {
+    // 【タップ感統一】弱めるけど押せる感は維持（背景opacity戻す＋枠線追加）
     return SizedBox(
       width: double.infinity,
-      child: FilledButton.icon(
-        onPressed: () {
+      child: Tappable(
+        onTap: () {
           // ダミー処理
         },
-        icon: Icon(Icons.share, size: 20, color: Colors.white.withValues(alpha: 0.5)), // 【視線誘導】アイコンを弱め（opacity 0.5）
-        label: Text(
-          '共有',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500, // 【視線誘導】共有ボタンを弱め（w700 → w500）
-            color: Colors.white.withValues(alpha: 0.5), // 【視線誘導】テキストを弱め（opacity 0.5）
+        borderRadius: BorderRadius.circular(UIConstants.radiusInner),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.7), // 【タップ感統一】背景を少し戻す（0.5 → 0.7）
+            borderRadius: BorderRadius.circular(UIConstants.radiusInner),
+            border: Border.all(
+              color: Colors.black.withValues(alpha: 0.3), // 【タップ感統一】枠線追加でボタンらしさ維持
+              width: 1,
+            ),
           ),
-        ),
-        style: FilledButton.styleFrom(
-          backgroundColor: Colors.black.withValues(alpha: 0.5), // 【視線誘導】背景を弱め（opacity 0.5）
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18), // 【Home準拠】内側要素18px
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.share, size: 20, color: Colors.white.withValues(alpha: 0.7)), // 【タップ感統一】アイコンを少し戻す（0.5 → 0.7）
+              const SizedBox(width: 6),
+              Text(
+                '共有',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500, // 【視線誘導】共有ボタンを弱め（w700 → w500）
+                  color: Colors.white.withValues(alpha: 0.7), // 【タップ感統一】テキストを少し戻す（0.5 → 0.7）
+                ),
+              ),
+            ],
           ),
         ),
       ),
