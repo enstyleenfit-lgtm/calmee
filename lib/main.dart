@@ -128,6 +128,56 @@ class MealLog {
   });
 }
 
+class MealLogEntry {
+  final String? id;
+  final String name;
+  final int kcal;
+  final double protein;
+  final double fat;
+  final double carb;
+  final DateTime loggedAt;
+  final DateTime date;
+
+  MealLogEntry({
+    this.id,
+    required this.name,
+    required this.kcal,
+    required this.protein,
+    required this.fat,
+    required this.carb,
+    required this.loggedAt,
+    required this.date,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'name': name,
+        'kcal': kcal,
+        'protein': protein,
+        'fat': fat,
+        'carb': carb,
+        'loggedAt': Timestamp.fromDate(loggedAt),
+        'date': Timestamp.fromDate(date),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+  static MealLogEntry fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
+    final loggedAt =
+        (data['loggedAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+    final date = (data['date'] as Timestamp?)?.toDate() ?? DateTime.now();
+    return MealLogEntry(
+      id: doc.id,
+      name: (data['name'] as String?) ?? '',
+      kcal: (data['kcal'] as num?)?.toInt() ?? 0,
+      protein: (data['protein'] as num?)?.toDouble() ?? 0.0,
+      fat: (data['fat'] as num?)?.toDouble() ?? 0.0,
+      carb: (data['carb'] as num?)?.toDouble() ?? 0.0,
+      loggedAt: loggedAt,
+      date: date,
+    );
+  }
+}
+
 /// ----------------------------
 /// Noti + TTS
 /// ----------------------------
@@ -380,6 +430,40 @@ class PlanRepository {
   }
 }
 
+class MealRepository {
+  MealRepository(this.uid);
+  final String uid;
+
+  CollectionReference<Map<String, dynamic>> get _ref =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('mealLogs');
+
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  Future<void> saveMeal(MealLogEntry entry) async {
+    await _ref.add(entry.toMap());
+  }
+
+  Future<List<MealLogEntry>> loadToday() async {
+    final today = _dateOnly(DateTime.now());
+    final tomorrow = today.add(const Duration(days: 1));
+
+    final snap = await _ref
+        .where('date',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(today))
+        .where('date', isLessThan: Timestamp.fromDate(tomorrow))
+        .get();
+
+    final entries = snap.docs
+        .map((d) => MealLogEntry.fromDoc(d))
+        .toList()
+      ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
+    return entries;
+  }
+}
+
 /// ----------------------------
 /// Reward (A+B: 褒め進化) + (C: キラッ)
 /// ----------------------------
@@ -571,6 +655,7 @@ class _RootShellState extends State<RootShell> {
   TodayStatus _today =
       TodayStatus(doneToday: false, todayEntry: null, streak: 0);
   List<PlanItem> _planItems = [];
+  List<MealLogEntry> _mealLogs = [];
 
   final List<String> habitOptions = const [
     '食事：バランスを意識した',
@@ -607,6 +692,7 @@ class _RootShellState extends State<RootShell> {
 
   HabitRepository get _habitRepo => HabitRepository(_uid!);
   PlanRepository get _planRepo => PlanRepository(_uid!);
+  MealRepository? get _mealRepo => _uid == null ? null : MealRepository(_uid!);
 
   DateTime _toDateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -644,6 +730,9 @@ class _RootShellState extends State<RootShell> {
     final doneToday = todayEntry.date.millisecondsSinceEpoch != 0;
     final streak = _calcStreakFromRecent(recent);
     final plan = await _planRepo.loadToday();
+    final meals = _mealRepo != null
+        ? await _mealRepo!.loadToday()
+        : <MealLogEntry>[];
 
     setState(() {
       _recent = recent;
@@ -653,6 +742,7 @@ class _RootShellState extends State<RootShell> {
         streak: streak,
       );
       _planItems = plan;
+      _mealLogs = meals;
     });
   }
 
@@ -674,6 +764,12 @@ class _RootShellState extends State<RootShell> {
     await _reloadAll();
   }
 
+  Future<void> _addMeal(MealLogEntry entry) async {
+    if (_uid == null) return;
+    await _mealRepo!.saveMeal(entry);
+    await _reloadAll();
+  }
+
   void _clearNotiPayload() {
     NotiTtsService.instance.lastPayload = null;
     setState(() {});
@@ -684,6 +780,7 @@ class _RootShellState extends State<RootShell> {
     final screens = <Widget>[
       HomeScreen(
         loading: _loading,
+        mealLogs: _mealLogs,
         onRefresh: () async {
           setState(() => _loading = true);
           await _reloadAll();
@@ -717,9 +814,24 @@ class _RootShellState extends State<RootShell> {
       body: screens[_index],
       floatingActionButton: _index == 0
           ? FloatingActionButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('食事を記録 → 近日実装')),
+              onPressed: () async {
+                await showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  builder: (ctx) => MealInputSheet(
+                    onSave: (entry) async {
+                      setState(() => _loading = true);
+                      try {
+                        await _addMeal(entry);
+                      } finally {
+                        if (mounted) setState(() => _loading = false);
+                      }
+                    },
+                  ),
                 );
               },
               backgroundColor: const Color(0xFF222222),
@@ -767,24 +879,25 @@ class HomeScreen extends StatelessWidget {
   const HomeScreen({
     super.key,
     required this.loading,
+    required this.mealLogs,
     required this.onRefresh,
   });
 
   final bool loading;
+  final List<MealLogEntry> mealLogs;
   final Future<void> Function() onRefresh;
 
-  static const _summary = DailyCalorieSummary(intake: 1340, target: 2000);
-  static const _proteinIntake = 68.0;
-  static const _fatIntake = 41.0;
-  static const _carbIntake = 173.0;
-  static const _proteinTarget = 120.0;
-  static const _fatTarget = 55.0;
-  static const _carbTarget = 250.0;
-  static const _meals = [
-    MealLog(name: '朝食', kcal: 480, protein: 22.0, fat: 15.0, carb: 60.0, time: '07:30'),
-    MealLog(name: 'ランチ', kcal: 620, protein: 30.0, fat: 18.0, carb: 75.0, time: '12:15'),
-    MealLog(name: 'おやつ', kcal: 240, protein: 5.0, fat: 8.0, carb: 38.0, time: '15:00'),
-  ];
+  static const int _targetKcal = 2000;
+  static const double _proteinTarget = 120.0;
+  static const double _fatTarget = 55.0;
+  static const double _carbTarget = 250.0;
+
+  int get _intake => mealLogs.fold(0, (s, m) => s + m.kcal);
+  double get _proteinIntake => mealLogs.fold(0.0, (s, m) => s + m.protein);
+  double get _fatIntake => mealLogs.fold(0.0, (s, m) => s + m.fat);
+  double get _carbIntake => mealLogs.fold(0.0, (s, m) => s + m.carb);
+  DailyCalorieSummary get _summary =>
+      DailyCalorieSummary(intake: _intake, target: _targetKcal);
 
   String _todayLabel() {
     final now = DateTime.now();
@@ -895,7 +1008,16 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            ..._meals.map((m) => _MealCard(meal: m)),
+            if (mealLogs.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  '+ ボタンから食事を記録しよう',
+                  style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
+                ),
+              )
+            else
+              ...mealLogs.map((m) => _MealCard(entry: m)),
           ],
         ),
       ),
@@ -1158,11 +1280,13 @@ class _PfcCard extends StatelessWidget {
 
 // ── 食事ログカード ──
 class _MealCard extends StatelessWidget {
-  const _MealCard({required this.meal});
-  final MealLog meal;
+  const _MealCard({required this.entry});
+  final MealLogEntry entry;
 
   @override
   Widget build(BuildContext context) {
+    final timeStr =
+        '${entry.loggedAt.hour.toString().padLeft(2, '0')}:${entry.loggedAt.minute.toString().padLeft(2, '0')}';
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Container(
@@ -1185,7 +1309,7 @@ class _MealCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    meal.name,
+                    entry.name,
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -1194,7 +1318,7 @@ class _MealCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    meal.time,
+                    timeStr,
                     style: const TextStyle(fontSize: 12, color: Color(0xFF999999)),
                   ),
                 ],
@@ -1204,7 +1328,7 @@ class _MealCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${meal.kcal} kcal',
+                  '${entry.kcal} kcal',
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -1213,7 +1337,7 @@ class _MealCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'P${meal.protein.toStringAsFixed(0)} F${meal.fat.toStringAsFixed(0)} C${meal.carb.toStringAsFixed(0)}',
+                  'P${entry.protein.toStringAsFixed(0)} F${entry.fat.toStringAsFixed(0)} C${entry.carb.toStringAsFixed(0)}',
                   style: const TextStyle(fontSize: 11, color: Color(0xFF999999)),
                 ),
               ],
@@ -1689,6 +1813,155 @@ class SettingsScreen extends StatelessWidget {
             title: Text('ここは後で拡張（例：通知、テーマ、音声）'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// ----------------------------
+/// MealInputSheet
+/// ----------------------------
+
+class MealInputSheet extends StatefulWidget {
+  const MealInputSheet({super.key, required this.onSave});
+  final Future<void> Function(MealLogEntry) onSave;
+
+  @override
+  State<MealInputSheet> createState() => _MealInputSheetState();
+}
+
+class _MealInputSheetState extends State<MealInputSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _kcalCtrl = TextEditingController();
+  final _proteinCtrl = TextEditingController();
+  final _fatCtrl = TextEditingController();
+  final _carbCtrl = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _kcalCtrl.dispose();
+    _proteinCtrl.dispose();
+    _fatCtrl.dispose();
+    _carbCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      final now = DateTime.now();
+      final dateOnly = DateTime(now.year, now.month, now.day);
+      final entry = MealLogEntry(
+        name: _nameCtrl.text.trim(),
+        kcal: int.parse(_kcalCtrl.text.trim()),
+        protein: double.tryParse(_proteinCtrl.text.trim()) ?? 0.0,
+        fat: double.tryParse(_fatCtrl.text.trim()) ?? 0.0,
+        carb: double.tryParse(_carbCtrl.text.trim()) ?? 0.0,
+        loggedAt: now,
+        date: dateOnly,
+      );
+      await widget.onSave(entry);
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Widget _numField({
+    required TextEditingController ctrl,
+    required String label,
+    bool required = false,
+  }) {
+    return TextFormField(
+      controller: ctrl,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+      validator: required
+          ? (v) {
+              if (v == null || v.trim().isEmpty) return '入力してください';
+              final n = num.tryParse(v.trim());
+              if (n == null || n <= 0) return '0より大きい数値を入力';
+              return null;
+            }
+          : null,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottom),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '食事を記録',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(
+                labelText: '食事名（例：朝食、ランチ）',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? '食事名を入力してください' : null,
+            ),
+            const SizedBox(height: 12),
+            _numField(ctrl: _kcalCtrl, label: 'カロリー (kcal)', required: true),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                    child:
+                        _numField(ctrl: _proteinCtrl, label: 'たんぱく質 (g)')),
+                const SizedBox(width: 8),
+                Expanded(child: _numField(ctrl: _fatCtrl, label: '脂質 (g)')),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _numField(ctrl: _carbCtrl, label: '炭水化物 (g)')),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _saving ? null : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF222222),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: _saving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text(
+                          '保存する',
+                          style: TextStyle(fontSize: 16, color: Colors.white),
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
