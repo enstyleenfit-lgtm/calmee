@@ -102,12 +102,18 @@ class PlanItem {
 
 class DailyCalorieSummary {
   final int intake;
+  final int burn; // 消費カロリー（運動）
   final int target;
 
-  const DailyCalorieSummary({required this.intake, required this.target});
+  const DailyCalorieSummary({
+    required this.intake,
+    this.burn = 0,
+    required this.target,
+  });
 
-  int get remaining => target - intake;
-  double get progress => (intake / target).clamp(0.0, 1.0);
+  int get balance => intake - burn; // 純収支（摂取 - 消費）
+  int get remaining => target - balance; // 残り枠（目標 - 純収支）
+  double get progress => (balance / target).clamp(0.0, 1.0);
 }
 
 class MealLog {
@@ -174,6 +180,56 @@ class MealLogEntry {
       carb: (data['carb'] as num?)?.toDouble() ?? 0.0,
       loggedAt: loggedAt,
       date: date,
+    );
+  }
+}
+
+class ExerciseLogEntry {
+  final String? id;
+  final String name;
+  final int kcal;
+  final String category; // "self" = 自主運動, "trainer_session" = トレーナーとのトレーニング
+  final String memo;
+  final DateTime loggedAt;
+  final DateTime date;
+  final String createdByRole; // "customer" | "trainer"（将来のロール分岐用）
+
+  ExerciseLogEntry({
+    this.id,
+    required this.name,
+    required this.kcal,
+    required this.category,
+    this.memo = '',
+    required this.loggedAt,
+    required this.date,
+    this.createdByRole = 'customer',
+  });
+
+  Map<String, dynamic> toMap() => {
+        'name': name,
+        'kcal': kcal,
+        'category': category,
+        'memo': memo,
+        'loggedAt': Timestamp.fromDate(loggedAt),
+        'date': Timestamp.fromDate(date),
+        'createdByRole': createdByRole,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+  static ExerciseLogEntry fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
+    final loggedAt =
+        (data['loggedAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+    final date = (data['date'] as Timestamp?)?.toDate() ?? DateTime.now();
+    return ExerciseLogEntry(
+      id: doc.id,
+      name: (data['name'] as String?) ?? '',
+      kcal: (data['kcal'] as num?)?.toInt() ?? 0,
+      category: (data['category'] as String?) ?? 'self',
+      memo: (data['memo'] as String?) ?? '',
+      loggedAt: loggedAt,
+      date: date,
+      createdByRole: (data['createdByRole'] as String?) ?? 'customer',
     );
   }
 }
@@ -468,6 +524,42 @@ class MealRepository {
   }
 }
 
+class ExerciseRepository {
+  ExerciseRepository(this.uid);
+  final String uid;
+
+  CollectionReference<Map<String, dynamic>> get _ref =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('exerciseLogs');
+
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  Future<void> saveExercise(ExerciseLogEntry entry) async {
+    await _ref.add(entry.toMap());
+  }
+
+  Future<List<ExerciseLogEntry>> loadToday() async {
+    final today = _dateOnly(DateTime.now());
+    final tomorrow = today.add(const Duration(days: 1));
+
+    final snap = await _ref
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(today))
+        .where('date', isLessThan: Timestamp.fromDate(tomorrow))
+        .get();
+
+    return snap.docs
+        .map((d) => ExerciseLogEntry.fromDoc(d))
+        .toList()
+      ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
+  }
+
+  Future<void> deleteExercise(String id) async {
+    await _ref.doc(id).delete();
+  }
+}
+
 /// ----------------------------
 /// GoalSettings + GoalsRepository
 /// ----------------------------
@@ -716,6 +808,7 @@ class _RootShellState extends State<RootShell> {
       TodayStatus(doneToday: false, todayEntry: null, streak: 0);
   List<PlanItem> _planItems = [];
   List<MealLogEntry> _mealLogs = [];
+  List<ExerciseLogEntry> _exerciseLogs = [];
   GoalSettings _goals = const GoalSettings();
 
   final List<String> habitOptions = const [
@@ -754,6 +847,8 @@ class _RootShellState extends State<RootShell> {
   HabitRepository get _habitRepo => HabitRepository(_uid!);
   PlanRepository get _planRepo => PlanRepository(_uid!);
   MealRepository? get _mealRepo => _uid == null ? null : MealRepository(_uid!);
+  ExerciseRepository? get _exerciseRepo =>
+      _uid == null ? null : ExerciseRepository(_uid!);
   GoalsRepository? get _goalsRepo => _uid == null ? null : GoalsRepository(_uid!);
 
   DateTime _toDateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -795,6 +890,9 @@ class _RootShellState extends State<RootShell> {
     final meals = _mealRepo != null
         ? await _mealRepo!.loadToday()
         : <MealLogEntry>[];
+    final exercises = _exerciseRepo != null
+        ? await _exerciseRepo!.loadToday()
+        : <ExerciseLogEntry>[];
     final goals = _goalsRepo != null
         ? await _goalsRepo!.load()
         : const GoalSettings();
@@ -808,6 +906,7 @@ class _RootShellState extends State<RootShell> {
       );
       _planItems = plan;
       _mealLogs = meals;
+      _exerciseLogs = exercises;
       _goals = goals;
     });
   }
@@ -842,6 +941,18 @@ class _RootShellState extends State<RootShell> {
     await _reloadAll();
   }
 
+  Future<void> _addExercise(ExerciseLogEntry entry) async {
+    if (_uid == null) return;
+    await _exerciseRepo!.saveExercise(entry);
+    await _reloadAll();
+  }
+
+  Future<void> _deleteExercise(String id) async {
+    if (_uid == null) return;
+    await _exerciseRepo!.deleteExercise(id);
+    await _reloadAll();
+  }
+
   Future<void> _updateGoals(GoalSettings goals) async {
     if (_uid == null) return;
     await _goalsRepo!.save(goals);
@@ -860,6 +971,7 @@ class _RootShellState extends State<RootShell> {
         loading: _loading,
         goals: _goals,
         mealLogs: _mealLogs,
+        exerciseLogs: _exerciseLogs,
         onRefresh: () async {
           setState(() => _loading = true);
           await _reloadAll();
@@ -869,6 +981,14 @@ class _RootShellState extends State<RootShell> {
           setState(() => _loading = true);
           try {
             await _deleteMeal(id);
+          } finally {
+            if (mounted) setState(() => _loading = false);
+          }
+        },
+        onDeleteExercise: (id) async {
+          setState(() => _loading = true);
+          try {
+            await _deleteExercise(id);
           } finally {
             if (mounted) setState(() => _loading = false);
           }
@@ -907,20 +1027,74 @@ class _RootShellState extends State<RootShell> {
               onPressed: () async {
                 await showModalBottomSheet(
                   context: context,
-                  isScrollControlled: true,
                   shape: const RoundedRectangleBorder(
                     borderRadius:
                         BorderRadius.vertical(top: Radius.circular(20)),
                   ),
-                  builder: (ctx) => MealInputSheet(
-                    onSave: (entry) async {
-                      setState(() => _loading = true);
-                      try {
-                        await _addMeal(entry);
-                      } finally {
-                        if (mounted) setState(() => _loading = false);
-                      }
-                    },
+                  builder: (ctx) => SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.restaurant_outlined),
+                            title: const Text('食事を記録'),
+                            onTap: () async {
+                              Navigator.pop(ctx);
+                              await showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(20)),
+                                ),
+                                builder: (_) => MealInputSheet(
+                                  onSave: (entry) async {
+                                    setState(() => _loading = true);
+                                    try {
+                                      await _addMeal(entry);
+                                    } finally {
+                                      if (mounted) {
+                                        setState(() => _loading = false);
+                                      }
+                                    }
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                          ListTile(
+                            leading:
+                                const Icon(Icons.fitness_center_outlined),
+                            title: const Text('運動を記録'),
+                            onTap: () async {
+                              Navigator.pop(ctx);
+                              await showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(20)),
+                                ),
+                                builder: (_) => ExerciseInputSheet(
+                                  onSave: (entry) async {
+                                    setState(() => _loading = true);
+                                    try {
+                                      await _addExercise(entry);
+                                    } finally {
+                                      if (mounted) {
+                                        setState(() => _loading = false);
+                                      }
+                                    }
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 );
               },
@@ -971,22 +1145,27 @@ class HomeScreen extends StatelessWidget {
     required this.loading,
     required this.goals,
     required this.mealLogs,
+    required this.exerciseLogs,
     required this.onRefresh,
     required this.onDeleteMeal,
+    required this.onDeleteExercise,
   });
 
   final bool loading;
   final GoalSettings goals;
   final List<MealLogEntry> mealLogs;
+  final List<ExerciseLogEntry> exerciseLogs;
   final Future<void> Function() onRefresh;
   final Future<void> Function(String id) onDeleteMeal;
+  final Future<void> Function(String id) onDeleteExercise;
 
   int get _intake => mealLogs.fold(0, (s, m) => s + m.kcal);
+  int get _burn => exerciseLogs.fold(0, (s, e) => s + e.kcal);
   double get _proteinIntake => mealLogs.fold(0.0, (s, m) => s + m.protein);
   double get _fatIntake => mealLogs.fold(0.0, (s, m) => s + m.fat);
   double get _carbIntake => mealLogs.fold(0.0, (s, m) => s + m.carb);
   DailyCalorieSummary get _summary =>
-      DailyCalorieSummary(intake: _intake, target: goals.targetKcal);
+      DailyCalorieSummary(intake: _intake, burn: _burn, target: goals.targetKcal);
 
   String _todayLabel() {
     final now = DateTime.now();
@@ -1107,9 +1286,36 @@ class HomeScreen extends StatelessWidget {
               )
             else
               ...mealLogs.map((m) => _MealCard(
-                  entry: m,
-                  onDelete: m.id != null ? () => onDeleteMeal(m.id!) : null,
-                )),
+                    entry: m,
+                    onDelete: m.id != null ? () => onDeleteMeal(m.id!) : null,
+                  )),
+
+            const SizedBox(height: 22),
+
+            // ── 最近の運動 ──
+            Text(
+              '最近の運動',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF444444),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            if (exerciseLogs.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  '+ ボタンから運動を記録しよう',
+                  style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
+                ),
+              )
+            else
+              ...exerciseLogs.map((e) => _ExerciseCard(
+                    entry: e,
+                    onDelete:
+                        e.id != null ? () => onDeleteExercise(e.id!) : null,
+                  )),
           ],
         ),
       ),
@@ -1155,14 +1361,12 @@ class _SummaryCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // 摂取（大きく）
+              // 摂取 + 支出
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '摂取',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF888888)),
-                  ),
+                  const Text('摂取',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF888888))),
                   const SizedBox(height: 2),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -1170,37 +1374,65 @@ class _SummaryCard extends StatelessWidget {
                       Text(
                         '${summary.intake}',
                         style: const TextStyle(
-                          fontSize: 38,
+                          fontSize: 34,
                           fontWeight: FontWeight.w800,
                           color: Color(0xFF111111),
                           height: 1.0,
                         ),
                       ),
                       const Padding(
-                        padding: EdgeInsets.only(bottom: 5, left: 4),
-                        child: Text(
-                          'kcal',
-                          style: TextStyle(fontSize: 12, color: Color(0xFF888888)),
+                        padding: EdgeInsets.only(bottom: 4, left: 4),
+                        child: Text('kcal',
+                            style: TextStyle(
+                                fontSize: 11, color: Color(0xFF888888))),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text('支出 ',
+                          style:
+                              TextStyle(fontSize: 11, color: Color(0xFF888888))),
+                      Text(
+                        '${summary.burn}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFE27B4A),
+                          height: 1.0,
                         ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 2, left: 2),
+                        child: Text(' kcal',
+                            style: TextStyle(
+                                fontSize: 11, color: Color(0xFF888888))),
                       ),
                     ],
                   ),
                 ],
               ),
-              // 目標・残り
+              // 目標・収支・残り
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  _StatLine(label: '目標', value: '${summary.target}', unit: 'kcal'),
-                  const SizedBox(height: 10),
+                  _StatLine(
+                      label: '目標', value: '${summary.target}', unit: 'kcal'),
+                  const SizedBox(height: 6),
+                  _StatLine(
+                      label: '収支', value: '${summary.balance}', unit: 'kcal'),
+                  const SizedBox(height: 6),
                   _StatLine(
                     label: '残り',
                     value: isOver
                         ? '+${-summary.remaining}'
                         : '${summary.remaining}',
                     unit: 'kcal',
-                    valueColor:
-                        isOver ? const Color(0xFFE24A4A) : const Color(0xFF4A90E2),
+                    valueColor: isOver
+                        ? const Color(0xFFE24A4A)
+                        : const Color(0xFF4A90E2),
                   ),
                 ],
               ),
@@ -1455,6 +1687,128 @@ class _MealCard extends StatelessWidget {
                   style: const TextStyle(fontSize: 11, color: Color(0xFF999999)),
                 ),
               ],
+            ),
+            if (onDelete != null) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () => _confirmDelete(context),
+                icon: const Icon(Icons.delete_outline, size: 20),
+                color: const Color(0xFFCCCCCC),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── 運動ログカード ──
+class _ExerciseCard extends StatelessWidget {
+  const _ExerciseCard({required this.entry, this.onDelete});
+  final ExerciseLogEntry entry;
+  final VoidCallback? onDelete;
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('運動を削除'),
+        content: Text('「${entry.name}」を削除しますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('削除',
+                style: TextStyle(color: Color(0xFFE24A4A))),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) onDelete?.call();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final timeStr =
+        '${entry.loggedAt.hour.toString().padLeft(2, '0')}:${entry.loggedAt.minute.toString().padLeft(2, '0')}';
+    final categoryLabel =
+        entry.category == 'trainer_session' ? 'トレーナー' : '自主';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0F000000),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.name,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF222222),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(timeStr,
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFF999999))),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF3E8),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          categoryLabel,
+                          style: const TextStyle(
+                              fontSize: 10, color: Color(0xFFE27B4A)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (entry.memo.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      entry.memo,
+                      style: const TextStyle(
+                          fontSize: 11, color: Color(0xFFAAAAAA)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Text(
+              '${entry.kcal} kcal',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFFE27B4A),
+              ),
             ),
             if (onDelete != null) ...[
               const SizedBox(width: 8),
@@ -2204,6 +2558,160 @@ class _MealInputSheetState extends State<MealInputSheet> {
                       : const Text(
                           '保存する',
                           style: TextStyle(fontSize: 16, color: Colors.white),
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ----------------------------
+/// ExerciseInputSheet
+/// ----------------------------
+
+class ExerciseInputSheet extends StatefulWidget {
+  const ExerciseInputSheet({super.key, required this.onSave});
+  final Future<void> Function(ExerciseLogEntry) onSave;
+
+  @override
+  State<ExerciseInputSheet> createState() => _ExerciseInputSheetState();
+}
+
+class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _kcalCtrl = TextEditingController();
+  final _memoCtrl = TextEditingController();
+  String _category = 'self';
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _kcalCtrl.dispose();
+    _memoCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      final now = DateTime.now();
+      final dateOnly = DateTime(now.year, now.month, now.day);
+      final entry = ExerciseLogEntry(
+        name: _nameCtrl.text.trim(),
+        kcal: int.parse(_kcalCtrl.text.trim()),
+        category: _category,
+        memo: _memoCtrl.text.trim(),
+        loggedAt: now,
+        date: dateOnly,
+        createdByRole: 'customer',
+      );
+      await widget.onSave(entry);
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottom),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '運動を記録',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(
+                labelText: '運動名（例：ウォーキング、筋トレ）',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? '運動名を入力してください' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _kcalCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: '消費カロリー (kcal)',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return '入力してください';
+                final n = int.tryParse(v.trim());
+                if (n == null || n <= 0) return '0より大きい整数を入力';
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Text('種別',
+                    style:
+                        TextStyle(fontSize: 13, color: Color(0xFF666666))),
+                const SizedBox(width: 12),
+                ChoiceChip(
+                  label: const Text('自主運動'),
+                  selected: _category == 'self',
+                  onSelected: (_) => setState(() => _category = 'self'),
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('トレーナー'),
+                  selected: _category == 'trainer_session',
+                  onSelected: (_) =>
+                      setState(() => _category = 'trainer_session'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _memoCtrl,
+              decoration: const InputDecoration(
+                labelText: 'メモ（任意）',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _saving ? null : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFE27B4A),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: _saving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text(
+                          '保存する',
+                          style:
+                              TextStyle(fontSize: 16, color: Colors.white),
                         ),
                 ),
               ),
