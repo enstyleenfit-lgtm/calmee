@@ -12,6 +12,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tzdata;
 
+import 'package:fl_chart/fl_chart.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -1672,6 +1673,10 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
+            _WeightChart(weightLogs: weightLogs),
+
+            const SizedBox(height: 10),
+
             if (weightLogs.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -2190,6 +2195,146 @@ class _ExerciseCard extends StatelessWidget {
                 constraints: const BoxConstraints(),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── 体重グラフ ──
+class _WeightChart extends StatelessWidget {
+  const _WeightChart({required this.weightLogs});
+  final List<WeightLogEntry> weightLogs;
+
+  @override
+  Widget build(BuildContext context) {
+    if (weightLogs.length < 2) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Text(
+          '体重を2件以上記録すると推移グラフが表示されます',
+          style: const TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
+        ),
+      );
+    }
+
+    // 降順 → 昇順に並べ替え
+    final sorted = weightLogs.reversed.toList();
+    final weights = sorted.map((e) => e.weight).toList();
+    final minW = weights.reduce((a, b) => a < b ? a : b);
+    final maxW = weights.reduce((a, b) => a > b ? a : b);
+    final minY = minW - 1.0;
+    final maxY = maxW + 1.0;
+
+    final spots = sorted.asMap().entries.map((entry) {
+      return FlSpot(entry.key.toDouble(), entry.value.weight);
+    }).toList();
+
+    return Container(
+      height: 180,
+      padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: LineChart(
+        LineChartData(
+          minY: minY,
+          maxY: maxY,
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: (maxY - minY) / 4,
+            getDrawingHorizontalLine: (_) => FlLine(
+              color: const Color(0xFFF0F0F0),
+              strokeWidth: 1,
+            ),
+          ),
+          borderData: FlBorderData(show: false),
+          titlesData: FlTitlesData(
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 40,
+                interval: (maxY - minY) / 4,
+                getTitlesWidget: (value, meta) => Text(
+                  value.toStringAsFixed(1),
+                  style: const TextStyle(
+                      fontSize: 10, color: Color(0xFFAAAAAA)),
+                ),
+              ),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 24,
+                interval: 1,
+                getTitlesWidget: (value, meta) {
+                  final i = value.toInt();
+                  if (i < 0 || i >= sorted.length) {
+                    return const SizedBox.shrink();
+                  }
+                  final d = sorted[i].loggedAt;
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '${d.month}/${d.day}',
+                      style: const TextStyle(
+                          fontSize: 9, color: Color(0xFFAAAAAA)),
+                    ),
+                  );
+                },
+              ),
+            ),
+            topTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false)),
+            rightTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false)),
+          ),
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipItems: (touchedSpots) => touchedSpots.map((s) {
+                return LineTooltipItem(
+                  '${s.y.toStringAsFixed(1)} kg',
+                  const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              curveSmoothness: 0.3,
+              color: const Color(0xFF388E3C),
+              barWidth: 2.5,
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, bar, index) =>
+                    FlDotCirclePainter(
+                  radius: 4,
+                  color: const Color(0xFF388E3C),
+                  strokeWidth: 2,
+                  strokeColor: Colors.white,
+                ),
+              ),
+              belowBarData: BarAreaData(
+                show: true,
+                color: const Color(0xFF388E3C).withValues(alpha: 0.08),
+              ),
+            ),
           ],
         ),
       ),
