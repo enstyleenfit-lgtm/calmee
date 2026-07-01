@@ -617,6 +617,54 @@ class GoalsRepository {
 }
 
 /// ----------------------------
+/// UserProfile + ProfileRepository
+/// ----------------------------
+
+class UserProfile {
+  final String uid;
+  final String role; // "customer" | "trainer"
+  final String? displayName;
+
+  const UserProfile({
+    required this.uid,
+    required this.role,
+    this.displayName,
+  });
+
+  // ドキュメントなし or role フィールドなし → "customer" 扱い
+  static UserProfile defaultCustomer(String uid) =>
+      UserProfile(uid: uid, role: 'customer');
+
+  static UserProfile fromDoc(
+      String uid, DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data();
+    if (data == null) return UserProfile.defaultCustomer(uid);
+    return UserProfile(
+      uid: uid,
+      role: (data['role'] as String?) ?? 'customer',
+      displayName: data['displayName'] as String?,
+    );
+  }
+}
+
+class ProfileRepository {
+  ProfileRepository(this.uid);
+  final String uid;
+
+  DocumentReference<Map<String, dynamic>> get _ref =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('profile')
+          .doc('data');
+
+  Future<UserProfile> load() async {
+    final doc = await _ref.get();
+    return UserProfile.fromDoc(uid, doc);
+  }
+}
+
+/// ----------------------------
 /// Reward (A+B: 褒め進化) + (C: キラッ)
 /// ----------------------------
 
@@ -810,6 +858,7 @@ class _RootShellState extends State<RootShell> {
   List<MealLogEntry> _mealLogs = [];
   List<ExerciseLogEntry> _exerciseLogs = [];
   GoalSettings _goals = const GoalSettings();
+  UserProfile? _profile;
 
   final List<String> habitOptions = const [
     '食事：バランスを意識した',
@@ -829,6 +878,8 @@ class _RootShellState extends State<RootShell> {
     setState(() => _loading = true);
     try {
       await _ensureSignedIn();
+      final profile = await _profileRepo!.load();
+      setState(() => _profile = profile);
       await NotiTtsService.instance.init();
       await _reloadAll();
     } finally {
@@ -850,6 +901,8 @@ class _RootShellState extends State<RootShell> {
   ExerciseRepository? get _exerciseRepo =>
       _uid == null ? null : ExerciseRepository(_uid!);
   GoalsRepository? get _goalsRepo => _uid == null ? null : GoalsRepository(_uid!);
+  ProfileRepository? get _profileRepo =>
+      _uid == null ? null : ProfileRepository(_uid!);
 
   DateTime _toDateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -966,6 +1019,11 @@ class _RootShellState extends State<RootShell> {
 
   @override
   Widget build(BuildContext context) {
+    // trainer ロールは専用画面へ
+    if (_profile?.role == 'trainer') {
+      return TrainerHomeScreen(profile: _profile!);
+    }
+
     final screens = <Widget>[
       HomeScreen(
         loading: _loading,
@@ -1130,6 +1188,126 @@ class _RootShellState extends State<RootShell> {
             label: '設定',
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// ----------------------------
+/// TrainerHomeScreen（プレースホルダー）
+/// ----------------------------
+
+class TrainerHomeScreen extends StatelessWidget {
+  const TrainerHomeScreen({super.key, required this.profile});
+  final UserProfile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F7),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'トレーナーホーム',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF111111),
+            fontSize: 18,
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0F000000),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFE8F0FF),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.fitness_center,
+                          color: Color(0xFF4A90E2),
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            profile.displayName ?? 'トレーナー',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Container(
+                            margin: const EdgeInsets.only(top: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4A90E2).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: const Text(
+                              'トレーナー',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF4A90E2),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(height: 1, color: Color(0xFFF0F0F0)),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '担当顧客管理は次ステップで実装します',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF888888),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'uid: ${profile.uid}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFFBBBBBB),
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
