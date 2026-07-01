@@ -279,6 +279,45 @@ class WeightLogEntry {
 }
 
 /// ----------------------------
+/// TrainerMessage
+/// ----------------------------
+
+class TrainerMessage {
+  final String? id;
+  final String text;
+  final String trainerUid;
+  final DateTime createdAt;
+  final bool isRead;
+
+  TrainerMessage({
+    this.id,
+    required this.text,
+    required this.trainerUid,
+    required this.createdAt,
+    this.isRead = false,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'text': text,
+        'trainerUid': trainerUid,
+        'createdAt': Timestamp.fromDate(createdAt),
+        'isRead': isRead,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+  static TrainerMessage fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
+    return TrainerMessage(
+      id: doc.id,
+      text: (data['text'] as String?) ?? '',
+      trainerUid: (data['trainerUid'] as String?) ?? '',
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      isRead: (data['isRead'] as bool?) ?? false,
+    );
+  }
+}
+
+/// ----------------------------
 /// CustomerLink
 /// ----------------------------
 
@@ -657,6 +696,43 @@ class WeightRepository {
 }
 
 /// ----------------------------
+/// TrainerMessageRepository
+/// ----------------------------
+
+class TrainerMessageRepository {
+  TrainerMessageRepository(this.customerUid);
+  final String customerUid;
+
+  CollectionReference<Map<String, dynamic>> get _ref =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(customerUid)
+          .collection('trainerMessages');
+
+  Future<void> sendMessage({
+    required String text,
+    required String trainerUid,
+  }) async {
+    final now = DateTime.now();
+    await _ref.add({
+      'text': text.trim(),
+      'trainerUid': trainerUid,
+      'createdAt': Timestamp.fromDate(now),
+      'isRead': false,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<List<TrainerMessage>> loadRecent({int limit = 3}) async {
+    final snap = await _ref
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .get();
+    return snap.docs.map((d) => TrainerMessage.fromDoc(d)).toList();
+  }
+}
+
+/// ----------------------------
 /// TrainerCustomerRepository
 /// ----------------------------
 
@@ -988,6 +1064,7 @@ class _RootShellState extends State<RootShell> {
   List<WeightLogEntry> _weightLogs = [];
   GoalSettings _goals = const GoalSettings();
   UserProfile? _profile;
+  List<TrainerMessage> _trainerMessages = [];
 
   final List<String> habitOptions = const [
     '食事：バランスを意識した',
@@ -1083,6 +1160,8 @@ class _RootShellState extends State<RootShell> {
     final goals = _goalsRepo != null
         ? await _goalsRepo!.load()
         : const GoalSettings();
+    final trainerMsgs =
+        await TrainerMessageRepository(_uid!).loadRecent(limit: 1);
 
     setState(() {
       _recent = recent;
@@ -1096,6 +1175,7 @@ class _RootShellState extends State<RootShell> {
       _exerciseLogs = exercises;
       _weightLogs = weights;
       _goals = goals;
+      _trainerMessages = trainerMsgs;
     });
   }
 
@@ -1207,6 +1287,7 @@ class _RootShellState extends State<RootShell> {
             if (mounted) setState(() => _loading = false);
           }
         },
+        trainerMessages: _trainerMessages,
       ),
       HistoryScreen(
         loading: _loading,
@@ -1511,8 +1592,10 @@ class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) =>
-                                  TrainerCustomerDetailScreen(customer: customer),
+                              builder: (_) => TrainerCustomerDetailScreen(
+                                customer: customer,
+                                trainerUid: widget.profile.uid,
+                              ),
                             ),
                           ),
                         );
@@ -1623,8 +1706,9 @@ class _CustomerCard extends StatelessWidget {
 /// ----------------------------
 
 class TrainerCustomerDetailScreen extends StatefulWidget {
-  const TrainerCustomerDetailScreen({super.key, required this.customer});
+  const TrainerCustomerDetailScreen({super.key, required this.customer, required this.trainerUid});
   final CustomerLink customer;
+  final String trainerUid;
 
   @override
   State<TrainerCustomerDetailScreen> createState() =>
@@ -1636,10 +1720,12 @@ class _TrainerCustomerDetailScreenState
   late final MealRepository _mealRepo;
   late final ExerciseRepository _exerciseRepo;
   late final WeightRepository _weightRepo;
+  late final TrainerMessageRepository _msgRepo;
 
   List<MealLogEntry> _meals = [];
   List<ExerciseLogEntry> _exercises = [];
   List<WeightLogEntry> _weights = [];
+  List<TrainerMessage> _messages = [];
   bool _loading = true;
   String? _error;
 
@@ -1650,6 +1736,7 @@ class _TrainerCustomerDetailScreenState
     _mealRepo = MealRepository(uid);
     _exerciseRepo = ExerciseRepository(uid);
     _weightRepo = WeightRepository(uid);
+    _msgRepo = TrainerMessageRepository(uid);
     _reload();
   }
 
@@ -1659,11 +1746,13 @@ class _TrainerCustomerDetailScreenState
       final meals = await _mealRepo.loadToday();
       final exercises = await _exerciseRepo.loadToday();
       final weights = await _weightRepo.loadRecent(limit: 7);
+      final messages = await _msgRepo.loadRecent(limit: 3);
       if (mounted) {
         setState(() {
           _meals = meals;
           _exercises = exercises;
           _weights = weights;
+          _messages = messages;
         });
       }
     } catch (e) {
@@ -1724,6 +1813,58 @@ class _TrainerCustomerDetailScreenState
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
                       children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x0F000000),
+                                blurRadius: 12,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'メッセージを送る',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF444444),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              TrainerMessageInputField(
+                                onSend: (text) async {
+                                  await _msgRepo.sendMessage(
+                                    text: text,
+                                    trainerUid: widget.trainerUid,
+                                  );
+                                  await _reload();
+                                },
+                              ),
+                              if (_messages.isNotEmpty) ...[
+                                const SizedBox(height: 14),
+                                Text(
+                                  '直近のメッセージ',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: const Color(0xFF999999),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                ..._messages.map((m) => Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 8),
+                                      child: _TrainerMessageCard(message: m),
+                                    )),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 22),
                         _CustomerInfoCard(customer: widget.customer),
                         const SizedBox(height: 22),
                         Text(
@@ -1961,6 +2102,7 @@ class HomeScreen extends StatelessWidget {
     required this.onDeleteMeal,
     required this.onDeleteExercise,
     required this.onDeleteWeight,
+    this.trainerMessages = const [],
   });
 
   final bool loading;
@@ -1972,6 +2114,7 @@ class HomeScreen extends StatelessWidget {
   final Future<void> Function(String id) onDeleteMeal;
   final Future<void> Function(String id) onDeleteExercise;
   final Future<void> Function(String id) onDeleteWeight;
+  final List<TrainerMessage> trainerMessages;
 
   int get _intake => mealLogs.fold(0, (s, m) => s + m.kcal);
   int get _burn => exerciseLogs.fold(0, (s, e) => s + e.kcal);
@@ -2047,6 +2190,12 @@ class HomeScreen extends StatelessWidget {
             ),
 
             const SizedBox(height: 20),
+
+            // ── トレーナーメッセージ ──
+            if (trainerMessages.isNotEmpty) ...[
+              _TrainerMessageCard(message: trainerMessages.first),
+              const SizedBox(height: 14),
+            ],
 
             // ── 今日の収支カード ──
             _SummaryCard(summary: _summary),
@@ -4028,6 +4177,144 @@ class _WeightInputSheetState extends State<WeightInputSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// ----------------------------
+/// TrainerMessageInputField
+/// ----------------------------
+
+class TrainerMessageInputField extends StatefulWidget {
+  const TrainerMessageInputField({super.key, required this.onSend});
+  final Future<void> Function(String text) onSend;
+
+  @override
+  State<TrainerMessageInputField> createState() =>
+      _TrainerMessageInputFieldState();
+}
+
+class _TrainerMessageInputFieldState extends State<TrainerMessageInputField> {
+  final _ctrl = TextEditingController();
+  bool _sending = false;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty) return;
+    setState(() => _sending = true);
+    try {
+      await widget.onSend(text);
+      _ctrl.clear();
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('メッセージを送信しました')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _ctrl,
+          minLines: 1,
+          maxLines: 3,
+          maxLength: 200,
+          textInputAction: TextInputAction.newline,
+          decoration: const InputDecoration(
+            hintText: 'ひとこと送る',
+            border: OutlineInputBorder(),
+            isDense: true,
+            counterText: '',
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
+        FilledButton(
+          onPressed: (_ctrl.text.trim().isEmpty || _sending) ? null : _submit,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF4A90E2),
+          ),
+          child: _sending
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
+              : const Text('送信', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    );
+  }
+}
+
+/// ----------------------------
+/// _TrainerMessageCard
+/// ----------------------------
+
+class _TrainerMessageCard extends StatelessWidget {
+  const _TrainerMessageCard({required this.message});
+  final TrainerMessage message;
+
+  String _formatTime(DateTime dt) =>
+      '${dt.month}/${dt.day} '
+      '${dt.hour.toString().padLeft(2, '0')}:'
+      '${dt.minute.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F5FF),
+        borderRadius: BorderRadius.circular(12),
+        border: const Border(
+          left: BorderSide(color: Color(0xFF4A90E2), width: 4),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'トレーナーより',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF4A90E2),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            message.text,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFF222222),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              _formatTime(message.createdAt),
+              style: const TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
+            ),
+          ),
+        ],
       ),
     );
   }
