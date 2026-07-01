@@ -278,6 +278,31 @@ class WeightLogEntry {
 }
 
 /// ----------------------------
+/// CustomerLink
+/// ----------------------------
+
+class CustomerLink {
+  final String customerUid;
+  final String displayName;
+  final DateTime linkedAt;
+
+  CustomerLink({
+    required this.customerUid,
+    required this.displayName,
+    required this.linkedAt,
+  });
+
+  static CustomerLink fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
+    return CustomerLink(
+      customerUid: doc.id,
+      displayName: (data['displayName'] as String?) ?? '',
+      linkedAt: (data['linkedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+}
+
+/// ----------------------------
 /// Noti + TTS
 /// ----------------------------
 
@@ -627,6 +652,38 @@ class WeightRepository {
 
   Future<void> deleteWeight(String id) async {
     await _ref.doc(id).delete();
+  }
+}
+
+/// ----------------------------
+/// TrainerCustomerRepository
+/// ----------------------------
+
+class TrainerCustomerRepository {
+  TrainerCustomerRepository(this.trainerUid);
+  final String trainerUid;
+
+  CollectionReference<Map<String, dynamic>> get _ref =>
+      FirebaseFirestore.instance
+          .collection('trainers')
+          .doc(trainerUid)
+          .collection('customers');
+
+  Future<List<CustomerLink>> loadCustomers() async {
+    final snap = await _ref.orderBy('linkedAt', descending: true).get();
+    return snap.docs.map((d) => CustomerLink.fromDoc(d)).toList();
+  }
+
+  Future<void> addCustomer(String customerUid, String displayName) async {
+    await _ref.doc(customerUid).set({
+      'displayName': displayName,
+      'linkedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> removeCustomer(String customerUid) async {
+    await _ref.doc(customerUid).delete();
   }
 }
 
@@ -1319,12 +1376,72 @@ class _RootShellState extends State<RootShell> {
 }
 
 /// ----------------------------
-/// TrainerHomeScreen（プレースホルダー）
+/// TrainerHomeScreen
 /// ----------------------------
 
-class TrainerHomeScreen extends StatelessWidget {
+class TrainerHomeScreen extends StatefulWidget {
   const TrainerHomeScreen({super.key, required this.profile});
   final UserProfile profile;
+
+  @override
+  State<TrainerHomeScreen> createState() => _TrainerHomeScreenState();
+}
+
+class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
+  late final TrainerCustomerRepository _repo;
+  List<CustomerLink> _customers = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _repo = TrainerCustomerRepository(widget.profile.uid);
+    _reload();
+  }
+
+  Future<void> _reload() async {
+    if (mounted) setState(() => _loading = true);
+    try {
+      final customers = await _repo.loadCustomers();
+      if (mounted) setState(() => _customers = customers);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _addCustomer() async {
+    final result = await showDialog<({String uid, String name})>(
+      context: context,
+      builder: (_) => const AddCustomerDialog(),
+    );
+    if (result == null) return;
+    await _repo.addCustomer(result.uid, result.name);
+    await _reload();
+  }
+
+  Future<void> _confirmRemove(CustomerLink customer) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('顧客を削除'),
+        content: Text('「${customer.displayName}」を削除しますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('削除',
+                style: TextStyle(color: Color(0xFFE24A4A))),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _repo.removeCustomer(customer.customerUid);
+    await _reload();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1343,97 +1460,231 @@ class TrainerHomeScreen extends StatelessWidget {
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _addCustomer,
+        backgroundColor: const Color(0xFF222222),
+        child: const Icon(Icons.person_add_outlined, color: Colors.white),
+      ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
+        child: RefreshIndicator(
+          onRefresh: _reload,
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _customers.isEmpty
+                  ? ListView(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            children: [
+                              const Icon(Icons.group_outlined,
+                                  size: 60, color: Color(0xFFCCCCCC)),
+                              const SizedBox(height: 16),
+                              Text(
+                                '担当顧客がいません',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: const Color(0xFF888888),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '右下の＋ボタンから顧客を追加してください',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: const Color(0xFFAAAAAA),
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                      itemCount: _customers.length,
+                      itemBuilder: (_, i) {
+                        final customer = _customers[i];
+                        return _CustomerCard(
+                          customer: customer,
+                          onDelete: () => _confirmRemove(customer),
+                        );
+                      },
+                    ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CustomerCard extends StatelessWidget {
+  const _CustomerCard({required this.customer, required this.onDelete});
+  final CustomerLink customer;
+  final VoidCallback onDelete;
+
+  String _shortUid(String uid) =>
+      uid.length > 8 ? '${uid.substring(0, 8)}...' : uid;
+
+  String _formatDate(DateTime date) =>
+      '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0F000000),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
           children: [
             Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x0F000000),
-                    blurRadius: 12,
-                    offset: Offset(0, 4),
-                  ),
-                ],
+              width: 42,
+              height: 42,
+              decoration: const BoxDecoration(
+                color: Color(0xFFE8F0FF),
+                shape: BoxShape.circle,
               ),
-              padding: const EdgeInsets.all(20),
+              child: const Icon(
+                Icons.person_outline,
+                color: Color(0xFF4A90E2),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFE8F0FF),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.fitness_center,
-                          color: Color(0xFF4A90E2),
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            profile.displayName ?? 'トレーナー',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          Container(
-                            margin: const EdgeInsets.only(top: 4),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF4A90E2).withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: const Text(
-                              'トレーナー',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF4A90E2),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const Divider(height: 1, color: Color(0xFFF0F0F0)),
-                  const SizedBox(height: 16),
-                  const Text(
-                    '担当顧客管理は次ステップで実装します',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF888888),
+                  Text(
+                    customer.displayName,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF222222),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Text(
-                    'uid: ${profile.uid}',
+                    'UID: ${_shortUid(customer.customerUid)}',
                     style: const TextStyle(
                       fontSize: 11,
                       color: Color(0xFFBBBBBB),
                       fontFamily: 'monospace',
                     ),
                   ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '追加日: ${_formatDate(customer.linkedAt)}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFFAAAAAA),
+                    ),
+                  ),
                 ],
               ),
+            ),
+            IconButton(
+              onPressed: onDelete,
+              icon: const Icon(Icons.delete_outline, size: 20),
+              color: const Color(0xFFCCCCCC),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// ----------------------------
+/// AddCustomerDialog
+/// ----------------------------
+
+class AddCustomerDialog extends StatefulWidget {
+  const AddCustomerDialog({super.key});
+
+  @override
+  State<AddCustomerDialog> createState() => _AddCustomerDialogState();
+}
+
+class _AddCustomerDialogState extends State<AddCustomerDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _uidCtrl = TextEditingController();
+  final _nameCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _uidCtrl.dispose();
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.of(context).pop((
+      uid: _uidCtrl.text.trim(),
+      name: _nameCtrl.text.trim(),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('顧客を追加'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _uidCtrl,
+              decoration: const InputDecoration(
+                labelText: '顧客のUID',
+                hintText: '顧客アプリのUID（設定画面で確認）',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'UIDを入力してください' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(
+                labelText: '表示名',
+                hintText: '例：田中様',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? '表示名を入力してください' : null,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('キャンセル'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF222222),
+          ),
+          child: const Text('追加'),
+        ),
+      ],
     );
   }
 }
