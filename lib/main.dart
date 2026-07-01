@@ -462,6 +462,66 @@ class MealRepository {
       ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
     return entries;
   }
+
+  Future<void> deleteMeal(String id) async {
+    await _ref.doc(id).delete();
+  }
+}
+
+/// ----------------------------
+/// GoalSettings + GoalsRepository
+/// ----------------------------
+
+class GoalSettings {
+  final int targetKcal;
+  final double proteinTarget;
+  final double fatTarget;
+  final double carbTarget;
+
+  const GoalSettings({
+    this.targetKcal = 2000,
+    this.proteinTarget = 120.0,
+    this.fatTarget = 55.0,
+    this.carbTarget = 250.0,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'targetKcal': targetKcal,
+        'proteinTarget': proteinTarget,
+        'fatTarget': fatTarget,
+        'carbTarget': carbTarget,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+  static GoalSettings fromMap(Map<String, dynamic> m) => GoalSettings(
+        targetKcal: (m['targetKcal'] as num?)?.toInt() ?? 2000,
+        proteinTarget: (m['proteinTarget'] as num?)?.toDouble() ?? 120.0,
+        fatTarget: (m['fatTarget'] as num?)?.toDouble() ?? 55.0,
+        carbTarget: (m['carbTarget'] as num?)?.toDouble() ?? 250.0,
+      );
+}
+
+class GoalsRepository {
+  GoalsRepository(this.uid);
+  final String uid;
+
+  DocumentReference<Map<String, dynamic>> get _ref =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('settings')
+          .doc('goals');
+
+  Future<GoalSettings> load() async {
+    final doc = await _ref.get();
+    final data = doc.data();
+    if (data == null) return const GoalSettings();
+    return GoalSettings.fromMap(data);
+  }
+
+  Future<void> save(GoalSettings goals) async {
+    await _ref.set(goals.toMap(), SetOptions(merge: true));
+  }
 }
 
 /// ----------------------------
@@ -656,6 +716,7 @@ class _RootShellState extends State<RootShell> {
       TodayStatus(doneToday: false, todayEntry: null, streak: 0);
   List<PlanItem> _planItems = [];
   List<MealLogEntry> _mealLogs = [];
+  GoalSettings _goals = const GoalSettings();
 
   final List<String> habitOptions = const [
     '食事：バランスを意識した',
@@ -693,6 +754,7 @@ class _RootShellState extends State<RootShell> {
   HabitRepository get _habitRepo => HabitRepository(_uid!);
   PlanRepository get _planRepo => PlanRepository(_uid!);
   MealRepository? get _mealRepo => _uid == null ? null : MealRepository(_uid!);
+  GoalsRepository? get _goalsRepo => _uid == null ? null : GoalsRepository(_uid!);
 
   DateTime _toDateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -733,6 +795,9 @@ class _RootShellState extends State<RootShell> {
     final meals = _mealRepo != null
         ? await _mealRepo!.loadToday()
         : <MealLogEntry>[];
+    final goals = _goalsRepo != null
+        ? await _goalsRepo!.load()
+        : const GoalSettings();
 
     setState(() {
       _recent = recent;
@@ -743,6 +808,7 @@ class _RootShellState extends State<RootShell> {
       );
       _planItems = plan;
       _mealLogs = meals;
+      _goals = goals;
     });
   }
 
@@ -770,6 +836,18 @@ class _RootShellState extends State<RootShell> {
     await _reloadAll();
   }
 
+  Future<void> _deleteMeal(String id) async {
+    if (_uid == null) return;
+    await _mealRepo!.deleteMeal(id);
+    await _reloadAll();
+  }
+
+  Future<void> _updateGoals(GoalSettings goals) async {
+    if (_uid == null) return;
+    await _goalsRepo!.save(goals);
+    await _reloadAll();
+  }
+
   void _clearNotiPayload() {
     NotiTtsService.instance.lastPayload = null;
     setState(() {});
@@ -780,11 +858,20 @@ class _RootShellState extends State<RootShell> {
     final screens = <Widget>[
       HomeScreen(
         loading: _loading,
+        goals: _goals,
         mealLogs: _mealLogs,
         onRefresh: () async {
           setState(() => _loading = true);
           await _reloadAll();
           if (mounted) setState(() => _loading = false);
+        },
+        onDeleteMeal: (id) async {
+          setState(() => _loading = true);
+          try {
+            await _deleteMeal(id);
+          } finally {
+            if (mounted) setState(() => _loading = false);
+          }
         },
       ),
       HistoryScreen(
@@ -806,7 +893,10 @@ class _RootShellState extends State<RootShell> {
           }
         },
       ),
-      const SettingsScreen(),
+      SettingsScreen(
+        goals: _goals,
+        onSave: _updateGoals,
+      ),
     ];
 
     return Scaffold(
@@ -879,25 +969,24 @@ class HomeScreen extends StatelessWidget {
   const HomeScreen({
     super.key,
     required this.loading,
+    required this.goals,
     required this.mealLogs,
     required this.onRefresh,
+    required this.onDeleteMeal,
   });
 
   final bool loading;
+  final GoalSettings goals;
   final List<MealLogEntry> mealLogs;
   final Future<void> Function() onRefresh;
-
-  static const int _targetKcal = 2000;
-  static const double _proteinTarget = 120.0;
-  static const double _fatTarget = 55.0;
-  static const double _carbTarget = 250.0;
+  final Future<void> Function(String id) onDeleteMeal;
 
   int get _intake => mealLogs.fold(0, (s, m) => s + m.kcal);
   double get _proteinIntake => mealLogs.fold(0.0, (s, m) => s + m.protein);
   double get _fatIntake => mealLogs.fold(0.0, (s, m) => s + m.fat);
   double get _carbIntake => mealLogs.fold(0.0, (s, m) => s + m.carb);
   DailyCalorieSummary get _summary =>
-      DailyCalorieSummary(intake: _intake, target: _targetKcal);
+      DailyCalorieSummary(intake: _intake, target: goals.targetKcal);
 
   String _todayLabel() {
     final now = DateTime.now();
@@ -969,7 +1058,7 @@ class HomeScreen extends StatelessWidget {
                     shortLabel: 'P',
                     label: 'たんぱく質',
                     value: _proteinIntake,
-                    target: _proteinTarget,
+                    target: goals.proteinTarget,
                     color: const Color(0xFF5CB8B2),
                   ),
                 ),
@@ -979,7 +1068,7 @@ class HomeScreen extends StatelessWidget {
                     shortLabel: 'C',
                     label: '炭水化物',
                     value: _carbIntake,
-                    target: _carbTarget,
+                    target: goals.carbTarget,
                     color: const Color(0xFFE8A838),
                   ),
                 ),
@@ -989,7 +1078,7 @@ class HomeScreen extends StatelessWidget {
                     shortLabel: 'F',
                     label: '脂質',
                     value: _fatIntake,
-                    target: _fatTarget,
+                    target: goals.fatTarget,
                     color: const Color(0xFFE27B4A),
                   ),
                 ),
@@ -1017,7 +1106,10 @@ class HomeScreen extends StatelessWidget {
                 ),
               )
             else
-              ...mealLogs.map((m) => _MealCard(entry: m)),
+              ...mealLogs.map((m) => _MealCard(
+                  entry: m,
+                  onDelete: m.id != null ? () => onDeleteMeal(m.id!) : null,
+                )),
           ],
         ),
       ),
@@ -1280,8 +1372,30 @@ class _PfcCard extends StatelessWidget {
 
 // ── 食事ログカード ──
 class _MealCard extends StatelessWidget {
-  const _MealCard({required this.entry});
+  const _MealCard({required this.entry, this.onDelete});
   final MealLogEntry entry;
+  final VoidCallback? onDelete;
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('食事を削除'),
+        content: Text('「${entry.name}」を削除しますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('削除', style: TextStyle(color: Color(0xFFE24A4A))),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) onDelete?.call();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1342,6 +1456,16 @@ class _MealCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (onDelete != null) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () => _confirmDelete(context),
+                icon: const Icon(Icons.delete_outline, size: 20),
+                color: const Color(0xFFCCCCCC),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
           ],
         ),
       ),
@@ -1791,28 +1915,152 @@ class HistoryScreen extends StatelessWidget {
   }
 }
 
-class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key, required this.goals, required this.onSave});
+
+  final GoalSettings goals;
+  final Future<void> Function(GoalSettings) onSave;
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _kcalCtrl;
+  late final TextEditingController _proteinCtrl;
+  late final TextEditingController _fatCtrl;
+  late final TextEditingController _carbCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _kcalCtrl = TextEditingController(text: '${widget.goals.targetKcal}');
+    _proteinCtrl = TextEditingController(text: '${widget.goals.proteinTarget}');
+    _fatCtrl = TextEditingController(text: '${widget.goals.fatTarget}');
+    _carbCtrl = TextEditingController(text: '${widget.goals.carbTarget}');
+  }
+
+  @override
+  void didUpdateWidget(covariant SettingsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.goals != widget.goals) {
+      _kcalCtrl.text = '${widget.goals.targetKcal}';
+      _proteinCtrl.text = '${widget.goals.proteinTarget}';
+      _fatCtrl.text = '${widget.goals.fatTarget}';
+      _carbCtrl.text = '${widget.goals.carbTarget}';
+    }
+  }
+
+  @override
+  void dispose() {
+    _kcalCtrl.dispose();
+    _proteinCtrl.dispose();
+    _fatCtrl.dispose();
+    _carbCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      await widget.onSave(GoalSettings(
+        targetKcal: int.parse(_kcalCtrl.text.trim()),
+        proteinTarget: double.parse(_proteinCtrl.text.trim()),
+        fatTarget: double.parse(_fatCtrl.text.trim()),
+        carbTarget: double.parse(_carbCtrl.text.trim()),
+      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('目標を保存しました')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Widget _goalField({
+    required TextEditingController ctrl,
+    required String label,
+    required String unit,
+  }) {
+    return TextFormField(
+      controller: ctrl,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(
+        labelText: label,
+        suffixText: unit,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+      validator: (v) {
+        if (v == null || v.trim().isEmpty) return '入力してください';
+        final n = num.tryParse(v.trim());
+        if (n == null || n <= 0) return '0より大きい数値を入力';
+        return null;
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        children: [
-          Text(
-            'せってい',
-            style: theme.textTheme.titleLarge
-                ?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
-          const ListTile(
-            leading: Icon(Icons.info_outline),
-            title: Text('ここは後で拡張（例：通知、テーマ、音声）'),
-          ),
-        ],
+      child: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          children: [
+            Text(
+              'せってい',
+              style: theme.textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              '1日の目標値',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF444444),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _goalField(ctrl: _kcalCtrl, label: '目標カロリー', unit: 'kcal'),
+            const SizedBox(height: 12),
+            _goalField(ctrl: _proteinCtrl, label: '目標たんぱく質', unit: 'g'),
+            const SizedBox(height: 12),
+            _goalField(ctrl: _fatCtrl, label: '目標脂質', unit: 'g'),
+            const SizedBox(height: 12),
+            _goalField(ctrl: _carbCtrl, label: '目標炭水化物', unit: 'g'),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _saving ? null : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF222222),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: _saving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text(
+                          '保存する',
+                          style: TextStyle(fontSize: 16, color: Colors.white),
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
