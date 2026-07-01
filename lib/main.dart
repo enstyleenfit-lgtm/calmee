@@ -234,6 +234,48 @@ class ExerciseLogEntry {
   }
 }
 
+class WeightLogEntry {
+  final String? id;
+  final double weight;
+  final String memo;
+  final DateTime loggedAt;
+  final DateTime date;
+  final String createdByRole;
+
+  WeightLogEntry({
+    this.id,
+    required this.weight,
+    this.memo = '',
+    required this.loggedAt,
+    required this.date,
+    this.createdByRole = 'customer',
+  });
+
+  Map<String, dynamic> toMap() => {
+        'weight': weight,
+        'memo': memo,
+        'loggedAt': Timestamp.fromDate(loggedAt),
+        'date': Timestamp.fromDate(date),
+        'createdByRole': createdByRole,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+  static WeightLogEntry fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
+    final loggedAt =
+        (data['loggedAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+    final date = (data['date'] as Timestamp?)?.toDate() ?? DateTime.now();
+    return WeightLogEntry(
+      id: doc.id,
+      weight: (data['weight'] as num?)?.toDouble() ?? 0.0,
+      memo: (data['memo'] as String?) ?? '',
+      loggedAt: loggedAt,
+      date: date,
+      createdByRole: (data['createdByRole'] as String?) ?? 'customer',
+    );
+  }
+}
+
 /// ----------------------------
 /// Noti + TTS
 /// ----------------------------
@@ -560,6 +602,33 @@ class ExerciseRepository {
   }
 }
 
+class WeightRepository {
+  WeightRepository(this.uid);
+  final String uid;
+
+  CollectionReference<Map<String, dynamic>> get _ref =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('weightLogs');
+
+  Future<void> saveWeight(WeightLogEntry entry) async {
+    await _ref.add(entry.toMap());
+  }
+
+  Future<List<WeightLogEntry>> loadRecent({int limit = 7}) async {
+    final snap = await _ref
+        .orderBy('loggedAt', descending: true)
+        .limit(limit)
+        .get();
+    return snap.docs.map((d) => WeightLogEntry.fromDoc(d)).toList();
+  }
+
+  Future<void> deleteWeight(String id) async {
+    await _ref.doc(id).delete();
+  }
+}
+
 /// ----------------------------
 /// GoalSettings + GoalsRepository
 /// ----------------------------
@@ -857,6 +926,7 @@ class _RootShellState extends State<RootShell> {
   List<PlanItem> _planItems = [];
   List<MealLogEntry> _mealLogs = [];
   List<ExerciseLogEntry> _exerciseLogs = [];
+  List<WeightLogEntry> _weightLogs = [];
   GoalSettings _goals = const GoalSettings();
   UserProfile? _profile;
 
@@ -901,6 +971,8 @@ class _RootShellState extends State<RootShell> {
   ExerciseRepository? get _exerciseRepo =>
       _uid == null ? null : ExerciseRepository(_uid!);
   GoalsRepository? get _goalsRepo => _uid == null ? null : GoalsRepository(_uid!);
+  WeightRepository? get _weightRepo =>
+      _uid == null ? null : WeightRepository(_uid!);
   ProfileRepository? get _profileRepo =>
       _uid == null ? null : ProfileRepository(_uid!);
 
@@ -946,6 +1018,9 @@ class _RootShellState extends State<RootShell> {
     final exercises = _exerciseRepo != null
         ? await _exerciseRepo!.loadToday()
         : <ExerciseLogEntry>[];
+    final weights = _weightRepo != null
+        ? await _weightRepo!.loadRecent()
+        : <WeightLogEntry>[];
     final goals = _goalsRepo != null
         ? await _goalsRepo!.load()
         : const GoalSettings();
@@ -960,6 +1035,7 @@ class _RootShellState extends State<RootShell> {
       _planItems = plan;
       _mealLogs = meals;
       _exerciseLogs = exercises;
+      _weightLogs = weights;
       _goals = goals;
     });
   }
@@ -1006,6 +1082,18 @@ class _RootShellState extends State<RootShell> {
     await _reloadAll();
   }
 
+  Future<void> _addWeight(WeightLogEntry entry) async {
+    if (_uid == null) return;
+    await _weightRepo!.saveWeight(entry);
+    await _reloadAll();
+  }
+
+  Future<void> _deleteWeight(String id) async {
+    if (_uid == null) return;
+    await _weightRepo!.deleteWeight(id);
+    await _reloadAll();
+  }
+
   Future<void> _updateGoals(GoalSettings goals) async {
     if (_uid == null) return;
     await _goalsRepo!.save(goals);
@@ -1030,6 +1118,7 @@ class _RootShellState extends State<RootShell> {
         goals: _goals,
         mealLogs: _mealLogs,
         exerciseLogs: _exerciseLogs,
+        weightLogs: _weightLogs,
         onRefresh: () async {
           setState(() => _loading = true);
           await _reloadAll();
@@ -1047,6 +1136,14 @@ class _RootShellState extends State<RootShell> {
           setState(() => _loading = true);
           try {
             await _deleteExercise(id);
+          } finally {
+            if (mounted) setState(() => _loading = false);
+          }
+        },
+        onDeleteWeight: (id) async {
+          setState(() => _loading = true);
+          try {
+            await _deleteWeight(id);
           } finally {
             if (mounted) setState(() => _loading = false);
           }
@@ -1140,6 +1237,33 @@ class _RootShellState extends State<RootShell> {
                                     setState(() => _loading = true);
                                     try {
                                       await _addExercise(entry);
+                                    } finally {
+                                      if (mounted) {
+                                        setState(() => _loading = false);
+                                      }
+                                    }
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.monitor_weight_outlined),
+                            title: const Text('体重を記録'),
+                            onTap: () async {
+                              Navigator.pop(ctx);
+                              await showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(20)),
+                                ),
+                                builder: (_) => WeightInputSheet(
+                                  onSave: (entry) async {
+                                    setState(() => _loading = true);
+                                    try {
+                                      await _addWeight(entry);
                                     } finally {
                                       if (mounted) {
                                         setState(() => _loading = false);
@@ -1324,18 +1448,22 @@ class HomeScreen extends StatelessWidget {
     required this.goals,
     required this.mealLogs,
     required this.exerciseLogs,
+    required this.weightLogs,
     required this.onRefresh,
     required this.onDeleteMeal,
     required this.onDeleteExercise,
+    required this.onDeleteWeight,
   });
 
   final bool loading;
   final GoalSettings goals;
   final List<MealLogEntry> mealLogs;
   final List<ExerciseLogEntry> exerciseLogs;
+  final List<WeightLogEntry> weightLogs;
   final Future<void> Function() onRefresh;
   final Future<void> Function(String id) onDeleteMeal;
   final Future<void> Function(String id) onDeleteExercise;
+  final Future<void> Function(String id) onDeleteWeight;
 
   int get _intake => mealLogs.fold(0, (s, m) => s + m.kcal);
   int get _burn => exerciseLogs.fold(0, (s, e) => s + e.kcal);
@@ -1344,6 +1472,16 @@ class HomeScreen extends StatelessWidget {
   double get _carbIntake => mealLogs.fold(0.0, (s, m) => s + m.carb);
   DailyCalorieSummary get _summary =>
       DailyCalorieSummary(intake: _intake, burn: _burn, target: goals.targetKcal);
+
+  WeightLogEntry? get _todayWeight {
+    if (weightLogs.isEmpty) return null;
+    final latest = weightLogs.first;
+    final today = DateTime.now();
+    final isToday = latest.date.year == today.year &&
+        latest.date.month == today.month &&
+        latest.date.day == today.day;
+    return isToday ? latest : null;
+  }
 
   String _todayLabel() {
     final now = DateTime.now();
@@ -1493,6 +1631,60 @@ class HomeScreen extends StatelessWidget {
                     entry: e,
                     onDelete:
                         e.id != null ? () => onDeleteExercise(e.id!) : null,
+                  )),
+
+            const SizedBox(height: 22),
+
+            // ── 体重 ──
+            Row(
+              children: [
+                Text(
+                  '体重',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF444444),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _todayWeight != null
+                        ? const Color(0xFFE8F5E9)
+                        : const Color(0xFFF5F5F5),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    _todayWeight != null
+                        ? '今日 ${_todayWeight!.weight.toStringAsFixed(1)} kg'
+                        : '今日 未記録',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _todayWeight != null
+                          ? const Color(0xFF388E3C)
+                          : const Color(0xFFAAAAAA),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            if (weightLogs.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  '+ ボタンから体重を記録しよう',
+                  style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
+                ),
+              )
+            else
+              ...weightLogs.map((w) => _WeightCard(
+                    entry: w,
+                    onDelete:
+                        w.id != null ? () => onDeleteWeight(w.id!) : null,
                   )),
           ],
         ),
@@ -1986,6 +2178,116 @@ class _ExerciseCard extends StatelessWidget {
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
                 color: Color(0xFFE27B4A),
+              ),
+            ),
+            if (onDelete != null) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () => _confirmDelete(context),
+                icon: const Icon(Icons.delete_outline, size: 20),
+                color: const Color(0xFFCCCCCC),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── 体重ログカード ──
+class _WeightCard extends StatelessWidget {
+  const _WeightCard({required this.entry, this.onDelete});
+  final WeightLogEntry entry;
+  final VoidCallback? onDelete;
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('体重を削除'),
+        content: Text(
+            '${entry.weight.toStringAsFixed(1)} kg の記録を削除しますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('削除',
+                style: TextStyle(color: Color(0xFFE24A4A))),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) onDelete?.call();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final timeStr =
+        '${entry.loggedAt.hour.toString().padLeft(2, '0')}:${entry.loggedAt.minute.toString().padLeft(2, '0')}';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0F000000),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                color: Color(0xFFE8F5E9),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.monitor_weight_outlined,
+                color: Color(0xFF388E3C),
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${entry.weight.toStringAsFixed(1)} kg',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF222222),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    timeStr,
+                    style: const TextStyle(
+                        fontSize: 12, color: Color(0xFF999999)),
+                  ),
+                  if (entry.memo.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      entry.memo,
+                      style: const TextStyle(
+                          fontSize: 11, color: Color(0xFFAAAAAA)),
+                    ),
+                  ],
+                ],
               ),
             ),
             if (onDelete != null) ...[
@@ -2890,6 +3192,124 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
                           '保存する',
                           style:
                               TextStyle(fontSize: 16, color: Colors.white),
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ----------------------------
+/// WeightInputSheet
+/// ----------------------------
+
+class WeightInputSheet extends StatefulWidget {
+  const WeightInputSheet({super.key, required this.onSave});
+  final Future<void> Function(WeightLogEntry) onSave;
+
+  @override
+  State<WeightInputSheet> createState() => _WeightInputSheetState();
+}
+
+class _WeightInputSheetState extends State<WeightInputSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _weightCtrl = TextEditingController();
+  final _memoCtrl = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _weightCtrl.dispose();
+    _memoCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      final now = DateTime.now();
+      final dateOnly = DateTime(now.year, now.month, now.day);
+      final entry = WeightLogEntry(
+        weight: double.parse(_weightCtrl.text.trim()),
+        memo: _memoCtrl.text.trim(),
+        loggedAt: now,
+        date: dateOnly,
+        createdByRole: 'customer',
+      );
+      await widget.onSave(entry);
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottom),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '体重を記録',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _weightCtrl,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: '体重 (kg)',
+                suffixText: 'kg',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return '体重を入力してください';
+                final n = double.tryParse(v.trim());
+                if (n == null || n <= 0) return '0より大きい数値を入力してください';
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _memoCtrl,
+              decoration: const InputDecoration(
+                labelText: 'メモ（任意）',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _saving ? null : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF388E3C),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: _saving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text(
+                          '保存する',
+                          style: TextStyle(fontSize: 16, color: Colors.white),
                         ),
                 ),
               ),
