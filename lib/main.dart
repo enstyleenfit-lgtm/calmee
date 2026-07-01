@@ -1508,6 +1508,13 @@ class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
                         return _CustomerCard(
                           customer: customer,
                           onDelete: () => _confirmRemove(customer),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  TrainerCustomerDetailScreen(customer: customer),
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -1518,9 +1525,10 @@ class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
 }
 
 class _CustomerCard extends StatelessWidget {
-  const _CustomerCard({required this.customer, required this.onDelete});
+  const _CustomerCard({required this.customer, required this.onDelete, this.onTap});
   final CustomerLink customer;
   final VoidCallback onDelete;
+  final VoidCallback? onTap;
 
   String _shortUid(String uid) =>
       uid.length > 8 ? '${uid.substring(0, 8)}...' : uid;
@@ -1532,76 +1540,323 @@ class _CustomerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0F000000),
-              blurRadius: 12,
-              offset: Offset(0, 4),
-            ),
-          ],
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0F000000),
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE8F0FF),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.person_outline,
+                  color: Color(0xFF4A90E2),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      customer.displayName,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF222222),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'UID: ${_shortUid(customer.customerUid)}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFFBBBBBB),
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '追加日: ${_formatDate(customer.linkedAt)}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFFAAAAAA),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline, size: 20),
+                color: const Color(0xFFCCCCCC),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: const BoxDecoration(
-                color: Color(0xFFE8F0FF),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.person_outline,
-                color: Color(0xFF4A90E2),
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    customer.displayName,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF222222),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'UID: ${_shortUid(customer.customerUid)}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFFBBBBBB),
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '追加日: ${_formatDate(customer.linkedAt)}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFFAAAAAA),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline, size: 20),
-              color: const Color(0xFFCCCCCC),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-          ],
+      ),
+    );
+  }
+}
+
+/// ----------------------------
+/// TrainerCustomerDetailScreen
+/// ----------------------------
+
+class TrainerCustomerDetailScreen extends StatefulWidget {
+  const TrainerCustomerDetailScreen({super.key, required this.customer});
+  final CustomerLink customer;
+
+  @override
+  State<TrainerCustomerDetailScreen> createState() =>
+      _TrainerCustomerDetailScreenState();
+}
+
+class _TrainerCustomerDetailScreenState
+    extends State<TrainerCustomerDetailScreen> {
+  late final MealRepository _mealRepo;
+  late final ExerciseRepository _exerciseRepo;
+  late final WeightRepository _weightRepo;
+
+  List<MealLogEntry> _meals = [];
+  List<ExerciseLogEntry> _exercises = [];
+  List<WeightLogEntry> _weights = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final uid = widget.customer.customerUid;
+    _mealRepo = MealRepository(uid);
+    _exerciseRepo = ExerciseRepository(uid);
+    _weightRepo = WeightRepository(uid);
+    _reload();
+  }
+
+  Future<void> _reload() async {
+    if (mounted) setState(() { _loading = true; _error = null; });
+    try {
+      final meals = await _mealRepo.loadToday();
+      final exercises = await _exerciseRepo.loadToday();
+      final weights = await _weightRepo.loadRecent(limit: 7);
+      if (mounted) {
+        setState(() {
+          _meals = meals;
+          _exercises = exercises;
+          _weights = weights;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F7),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          color: const Color(0xFF111111),
+          onPressed: () => Navigator.pop(context),
         ),
+        title: Text(
+          widget.customer.displayName,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF111111),
+            fontSize: 18,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            color: const Color(0xFF444444),
+            onPressed: _reload,
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _reload,
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? ListView(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            '読み込みエラー\n$_error',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 13, color: Color(0xFF888888)),
+                          ),
+                        ),
+                      ],
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+                      children: [
+                        _CustomerInfoCard(customer: widget.customer),
+                        const SizedBox(height: 22),
+                        Text(
+                          '今日の食事',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF444444),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        if (_meals.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Text(
+                              '今日の食事記録はありません',
+                              style: TextStyle(
+                                  fontSize: 13, color: Color(0xFFAAAAAA)),
+                            ),
+                          )
+                        else
+                          ..._meals.map((m) => _MealCard(entry: m)),
+                        const SizedBox(height: 22),
+                        Text(
+                          '今日の運動',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF444444),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        if (_exercises.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Text(
+                              '今日の運動記録はありません',
+                              style: TextStyle(
+                                  fontSize: 13, color: Color(0xFFAAAAAA)),
+                            ),
+                          )
+                        else
+                          ..._exercises.map((e) => _ExerciseCard(entry: e)),
+                        const SizedBox(height: 22),
+                        Text(
+                          '体重推移（直近7件）',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF444444),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _WeightChart(weightLogs: _weights),
+                        const SizedBox(height: 10),
+                        if (_weights.isNotEmpty)
+                          ..._weights.map((w) => _WeightCard(entry: w)),
+                      ],
+                    ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CustomerInfoCard extends StatelessWidget {
+  const _CustomerInfoCard({required this.customer});
+  final CustomerLink customer;
+
+  String _formatDate(DateTime date) =>
+      '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: const BoxDecoration(
+              color: Color(0xFFE8F0FF),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.person_outline,
+              color: Color(0xFF4A90E2),
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  customer.displayName,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF222222),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'UID: ${customer.customerUid}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFFBBBBBB),
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '追加日: ${_formatDate(customer.linkedAt)}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFFAAAAAA),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
