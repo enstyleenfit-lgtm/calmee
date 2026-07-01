@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 // Web判定
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 // 通知 + TTS + timezone
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -3237,6 +3238,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '（取得できません）';
 
     return SafeArea(
       child: Form(
@@ -3287,6 +3289,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           style: TextStyle(fontSize: 16, color: Colors.white),
                         ),
                 ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            Text(
+              'あなたの顧客ID',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF444444),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0F000000),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      uid,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF333333),
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: uid));
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('顧客IDをコピーしました')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.copy_outlined, size: 20),
+                    color: const Color(0xFF4A90E2),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'トレーナーに共有してください',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: const Color(0xFFAAAAAA),
               ),
             ),
           ],
