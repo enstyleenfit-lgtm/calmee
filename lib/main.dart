@@ -638,6 +638,18 @@ class MealRepository {
       ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
   }
 
+  Future<List<MealLogEntry>> loadForDateRange(
+      DateTime from, DateTime to) async {
+    final f = _dateOnly(from);
+    final tEnd = _dateOnly(to).add(const Duration(days: 1));
+    final snap = await _ref
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(f))
+        .where('date', isLessThan: Timestamp.fromDate(tEnd))
+        .get();
+    return snap.docs.map((d) => MealLogEntry.fromDoc(d)).toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+  }
+
   Future<void> deleteMeal(String id) async {
     await _ref.doc(id).delete();
   }
@@ -683,6 +695,18 @@ class ExerciseRepository {
         .get();
     return snap.docs.map((doc) => ExerciseLogEntry.fromDoc(doc)).toList()
       ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
+  }
+
+  Future<List<ExerciseLogEntry>> loadForDateRange(
+      DateTime from, DateTime to) async {
+    final f = _dateOnly(from);
+    final tEnd = _dateOnly(to).add(const Duration(days: 1));
+    final snap = await _ref
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(f))
+        .where('date', isLessThan: Timestamp.fromDate(tEnd))
+        .get();
+    return snap.docs.map((d) => ExerciseLogEntry.fromDoc(d)).toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
   }
 
   Future<void> deleteExercise(String id) async {
@@ -1089,7 +1113,6 @@ class _RootShellState extends State<RootShell> {
   int _index = 0;
 
   // 共有データ
-  List<HabitEntry> _recent = [];
   TodayStatus _today =
       TodayStatus(doneToday: false, todayEntry: null, streak: 0);
   List<PlanItem> _planItems = [];
@@ -1100,6 +1123,8 @@ class _RootShellState extends State<RootShell> {
   GoalSettings _goals = const GoalSettings();
   UserProfile? _profile;
   List<TrainerMessage> _trainerMessages = [];
+  List<MealLogEntry> _weekMealLogs = [];
+  List<ExerciseLogEntry> _weekExerciseLogs = [];
 
   final List<String> habitOptions = const [
     '食事：バランスを意識した',
@@ -1212,6 +1237,13 @@ class _RootShellState extends State<RootShell> {
     final recentWeights = _weightRepo != null
         ? await _weightRepo!.loadRecent(limit: 7)
         : <WeightLogEntry>[];
+    final weekStart = _toDateOnly(today.subtract(const Duration(days: 6)));
+    final weekMeals = _mealRepo != null
+        ? await _mealRepo!.loadForDateRange(weekStart, today)
+        : <MealLogEntry>[];
+    final weekExercises = _exerciseRepo != null
+        ? await _exerciseRepo!.loadForDateRange(weekStart, today)
+        : <ExerciseLogEntry>[];
     final goals = _goalsRepo != null
         ? await _goalsRepo!.load()
         : const GoalSettings();
@@ -1219,7 +1251,6 @@ class _RootShellState extends State<RootShell> {
         await TrainerMessageRepository(_uid!).loadRecent(limit: 1);
 
     setState(() {
-      _recent = recent;
       _today = TodayStatus(
         doneToday: doneToday,
         todayEntry: doneToday ? todayEntry : null,
@@ -1232,6 +1263,8 @@ class _RootShellState extends State<RootShell> {
       _recentWeightLogs = recentWeights;
       _goals = goals;
       _trainerMessages = trainerMsgs;
+      _weekMealLogs = weekMeals;
+      _weekExerciseLogs = weekExercises;
     });
   }
 
@@ -1349,9 +1382,11 @@ class _RootShellState extends State<RootShell> {
         onNextDay: _nextDay,
         trainerMessages: _trainerMessages,
       ),
-      HistoryScreen(
-        loading: _loading,
-        recent: _recent,
+      ProgressScreen(
+        weekMealLogs: _weekMealLogs,
+        weekExerciseLogs: _weekExerciseLogs,
+        recentWeightLogs: _recentWeightLogs,
+        goals: _goals,
       ),
       RecordScreen(
         enabled: !_today.doneToday,
@@ -3653,6 +3688,272 @@ class HistoryScreen extends StatelessWidget {
               style: theme.textTheme.bodySmall),
         ],
       ),
+    );
+  }
+}
+
+/// ----------------------------
+/// ProgressScreen
+/// ----------------------------
+
+class ProgressScreen extends StatelessWidget {
+  const ProgressScreen({
+    super.key,
+    required this.weekMealLogs,
+    required this.weekExerciseLogs,
+    required this.recentWeightLogs,
+    required this.goals,
+  });
+
+  final List<MealLogEntry> weekMealLogs;
+  final List<ExerciseLogEntry> weekExerciseLogs;
+  final List<WeightLogEntry> recentWeightLogs;
+  final GoalSettings goals;
+
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final today = _dateOnly(DateTime.now());
+    final weekStart = _dateOnly(today.subtract(const Duration(days: 6)));
+    final List<DateTime> days =
+        List.generate(7, (i) => weekStart.add(Duration(days: i)));
+
+    final rows = days.map((d) {
+      final intake = weekMealLogs
+          .where((m) => _dateOnly(m.date) == d)
+          .fold(0, (s, m) => s + m.kcal);
+      final burn = weekExerciseLogs
+          .where((e) => _dateOnly(e.date) == d)
+          .fold(0, (s, e) => s + e.kcal);
+      return (date: d, intake: intake, burn: burn, balance: intake - burn);
+    }).toList();
+
+    final totalIntake = rows.fold(0, (s, r) => s + r.intake);
+    final avgIntake = totalIntake ~/ 7;
+    final achievedDays = rows
+        .where((r) => r.intake > 0 && r.balance <= goals.targetKcal)
+        .length;
+
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+        children: [
+          Text(
+            '週次進捗',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF111111),
+              fontSize: 22,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // ── 週次サマリーカード ──
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0F000000),
+                  blurRadius: 16,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _SummaryCell(
+                  label: '7日摂取合計',
+                  value: '$totalIntake kcal',
+                ),
+                _SummaryCell(
+                  label: '1日平均',
+                  value: '$avgIntake kcal',
+                ),
+                _SummaryCell(
+                  label: '目標内日数',
+                  value: '$achievedDays/7日',
+                  color: achievedDays >= 5
+                      ? const Color(0xFF388E3C)
+                      : const Color(0xFF333333),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            '日別カロリー',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF444444),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // ── 日別テーブルカード ──
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0F000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Row(
+                  children: const [
+                    SizedBox(
+                      width: 48,
+                      child: Text(
+                        '日付',
+                        style: TextStyle(
+                            fontSize: 10, color: Color(0xFF888888)),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        '摂取',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                            fontSize: 10, color: Color(0xFF888888)),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        '消費',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                            fontSize: 10, color: Color(0xFF888888)),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        '収支',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                            fontSize: 10, color: Color(0xFF888888)),
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 12),
+                ...rows.map((r) {
+                  final isToday = r.date == today;
+                  final isOver =
+                      r.balance > goals.targetKcal && r.intake > 0;
+                  final dateLabel = '${r.date.month}/${r.date.day}';
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 48,
+                          child: Text(
+                            dateLabel,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isToday
+                                  ? FontWeight.w700
+                                  : FontWeight.w400,
+                              color: isToday
+                                  ? const Color(0xFF111111)
+                                  : const Color(0xFF555555),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            '${r.intake}',
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF333333)),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            '${r.burn}',
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFFE27B4A)),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            '${r.balance}',
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: isOver
+                                  ? const Color(0xFFE24A4A)
+                                  : const Color(0xFF333333),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 22),
+          Text(
+            '体重推移',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF444444),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _WeightChart(weightLogs: recentWeightLogs),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryCell extends StatelessWidget {
+  const _SummaryCell({
+    required this.label,
+    required this.value,
+    this.color = const Color(0xFF333333),
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: Color(0xFF888888)),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 }
