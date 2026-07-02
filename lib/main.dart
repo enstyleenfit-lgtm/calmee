@@ -3642,7 +3642,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '（取得できません）';
+    String uid;
+    try {
+      uid = FirebaseAuth.instance.currentUser?.uid ?? '（取得できません）';
+    } catch (_) {
+      uid = '（取得できません）';
+    }
 
     return SafeArea(
       child: Form(
