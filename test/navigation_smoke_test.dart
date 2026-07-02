@@ -23,10 +23,14 @@ class _TestShellState extends State<_TestShell> {
         mealLogs: const [],
         exerciseLogs: const [],
         weightLogs: const [],
+        recentWeightLogs: const [],
         onRefresh: () async {},
         onDeleteMeal: (_) async {},
         onDeleteExercise: (_) async {},
         onDeleteWeight: (_) async {},
+        selectedDate: DateTime(2024, 7, 1),
+        onPrevDay: () {},
+        onNextDay: () {},
       ),
       const SizedBox(), // 進捗（スコープ外）
       const SizedBox(), // 記録（スコープ外）

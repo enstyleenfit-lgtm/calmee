@@ -627,6 +627,17 @@ class MealRepository {
     return entries;
   }
 
+  Future<List<MealLogEntry>> loadForDate(DateTime date) async {
+    final d = _dateOnly(date);
+    final nextDay = d.add(const Duration(days: 1));
+    final snap = await _ref
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(d))
+        .where('date', isLessThan: Timestamp.fromDate(nextDay))
+        .get();
+    return snap.docs.map((doc) => MealLogEntry.fromDoc(doc)).toList()
+      ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
+  }
+
   Future<void> deleteMeal(String id) async {
     await _ref.doc(id).delete();
   }
@@ -663,6 +674,17 @@ class ExerciseRepository {
       ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
   }
 
+  Future<List<ExerciseLogEntry>> loadForDate(DateTime date) async {
+    final d = _dateOnly(date);
+    final nextDay = d.add(const Duration(days: 1));
+    final snap = await _ref
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(d))
+        .where('date', isLessThan: Timestamp.fromDate(nextDay))
+        .get();
+    return snap.docs.map((doc) => ExerciseLogEntry.fromDoc(doc)).toList()
+      ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
+  }
+
   Future<void> deleteExercise(String id) async {
     await _ref.doc(id).delete();
   }
@@ -688,6 +710,16 @@ class WeightRepository {
         .limit(limit)
         .get();
     return snap.docs.map((d) => WeightLogEntry.fromDoc(d)).toList();
+  }
+
+  Future<List<WeightLogEntry>> loadForDate(DateTime date) async {
+    final d = DateTime(date.year, date.month, date.day);
+    final nextDay = d.add(const Duration(days: 1));
+    final snap = await _ref
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(d))
+        .where('date', isLessThan: Timestamp.fromDate(nextDay))
+        .get();
+    return snap.docs.map((doc) => WeightLogEntry.fromDoc(doc)).toList();
   }
 
   Future<void> deleteWeight(String id) async {
@@ -1052,6 +1084,8 @@ class _RootShellState extends State<RootShell> {
   bool _loading = true;
   String? _uid;
 
+  DateTime _selectedDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+
   int _index = 0;
 
   // 共有データ
@@ -1062,6 +1096,7 @@ class _RootShellState extends State<RootShell> {
   List<MealLogEntry> _mealLogs = [];
   List<ExerciseLogEntry> _exerciseLogs = [];
   List<WeightLogEntry> _weightLogs = [];
+  List<WeightLogEntry> _recentWeightLogs = [];
   GoalSettings _goals = const GoalSettings();
   UserProfile? _profile;
   List<TrainerMessage> _trainerMessages = [];
@@ -1114,6 +1149,23 @@ class _RootShellState extends State<RootShell> {
 
   DateTime _toDateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
+  void _prevDay() {
+    setState(() {
+      _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+    });
+    _reloadAll();
+  }
+
+  void _nextDay() {
+    final today = _toDateOnly(DateTime.now());
+    if (_selectedDate.isBefore(today)) {
+      setState(() {
+        _selectedDate = _selectedDate.add(const Duration(days: 1));
+      });
+      _reloadAll();
+    }
+  }
+
   int _calcStreakFromRecent(List<HabitEntry> recent) {
     if (recent.isEmpty) return 0;
 
@@ -1149,13 +1201,16 @@ class _RootShellState extends State<RootShell> {
     final streak = _calcStreakFromRecent(recent);
     final plan = await _planRepo.loadToday();
     final meals = _mealRepo != null
-        ? await _mealRepo!.loadToday()
+        ? await _mealRepo!.loadForDate(_selectedDate)
         : <MealLogEntry>[];
     final exercises = _exerciseRepo != null
-        ? await _exerciseRepo!.loadToday()
+        ? await _exerciseRepo!.loadForDate(_selectedDate)
         : <ExerciseLogEntry>[];
     final weights = _weightRepo != null
-        ? await _weightRepo!.loadRecent()
+        ? await _weightRepo!.loadForDate(_selectedDate)
+        : <WeightLogEntry>[];
+    final recentWeights = _weightRepo != null
+        ? await _weightRepo!.loadRecent(limit: 7)
         : <WeightLogEntry>[];
     final goals = _goalsRepo != null
         ? await _goalsRepo!.load()
@@ -1174,6 +1229,7 @@ class _RootShellState extends State<RootShell> {
       _mealLogs = meals;
       _exerciseLogs = exercises;
       _weightLogs = weights;
+      _recentWeightLogs = recentWeights;
       _goals = goals;
       _trainerMessages = trainerMsgs;
     });
@@ -1258,6 +1314,7 @@ class _RootShellState extends State<RootShell> {
         mealLogs: _mealLogs,
         exerciseLogs: _exerciseLogs,
         weightLogs: _weightLogs,
+        recentWeightLogs: _recentWeightLogs,
         onRefresh: () async {
           setState(() => _loading = true);
           await _reloadAll();
@@ -1287,6 +1344,9 @@ class _RootShellState extends State<RootShell> {
             if (mounted) setState(() => _loading = false);
           }
         },
+        selectedDate: _selectedDate,
+        onPrevDay: _prevDay,
+        onNextDay: _nextDay,
         trainerMessages: _trainerMessages,
       ),
       HistoryScreen(
@@ -1345,6 +1405,7 @@ class _RootShellState extends State<RootShell> {
                                       top: Radius.circular(20)),
                                 ),
                                 builder: (_) => MealInputSheet(
+                                  date: _selectedDate,
                                   onSave: (entry) async {
                                     setState(() => _loading = true);
                                     try {
@@ -1373,6 +1434,7 @@ class _RootShellState extends State<RootShell> {
                                       top: Radius.circular(20)),
                                 ),
                                 builder: (_) => ExerciseInputSheet(
+                                  date: _selectedDate,
                                   onSave: (entry) async {
                                     setState(() => _loading = true);
                                     try {
@@ -1400,6 +1462,7 @@ class _RootShellState extends State<RootShell> {
                                       top: Radius.circular(20)),
                                 ),
                                 builder: (_) => WeightInputSheet(
+                                  date: _selectedDate,
                                   onSave: (entry) async {
                                     setState(() => _loading = true);
                                     try {
@@ -2098,10 +2161,14 @@ class HomeScreen extends StatelessWidget {
     required this.mealLogs,
     required this.exerciseLogs,
     required this.weightLogs,
+    required this.recentWeightLogs,
     required this.onRefresh,
     required this.onDeleteMeal,
     required this.onDeleteExercise,
     required this.onDeleteWeight,
+    required this.selectedDate,
+    required this.onPrevDay,
+    required this.onNextDay,
     this.trainerMessages = const [],
   });
 
@@ -2110,10 +2177,14 @@ class HomeScreen extends StatelessWidget {
   final List<MealLogEntry> mealLogs;
   final List<ExerciseLogEntry> exerciseLogs;
   final List<WeightLogEntry> weightLogs;
+  final List<WeightLogEntry> recentWeightLogs;
   final Future<void> Function() onRefresh;
   final Future<void> Function(String id) onDeleteMeal;
   final Future<void> Function(String id) onDeleteExercise;
   final Future<void> Function(String id) onDeleteWeight;
+  final DateTime selectedDate;
+  final VoidCallback onPrevDay;
+  final VoidCallback onNextDay;
   final List<TrainerMessage> trainerMessages;
 
   int get _intake => mealLogs.fold(0, (s, m) => s + m.kcal);
@@ -2124,20 +2195,15 @@ class HomeScreen extends StatelessWidget {
   DailyCalorieSummary get _summary =>
       DailyCalorieSummary(intake: _intake, burn: _burn, target: goals.targetKcal);
 
-  WeightLogEntry? get _todayWeight {
-    if (weightLogs.isEmpty) return null;
-    final latest = weightLogs.first;
-    final today = DateTime.now();
-    final isToday = latest.date.year == today.year &&
-        latest.date.month == today.month &&
-        latest.date.day == today.day;
-    return isToday ? latest : null;
+  WeightLogEntry? get _selectedDateWeight {
+    return weightLogs.isNotEmpty ? weightLogs.first : null;
   }
 
-  String _todayLabel() {
-    final now = DateTime.now();
-    const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
-    return '${now.month}月${now.day}日（${weekdays[now.weekday - 1]}）';
+  bool get _isToday {
+    final today = DateTime.now();
+    return selectedDate.year == today.year &&
+        selectedDate.month == today.month &&
+        selectedDate.day == today.day;
   }
 
   @override
@@ -2153,25 +2219,13 @@ class HomeScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'からだ収支',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF111111),
-                        fontSize: 22,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _todayLabel(),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF888888),
-                      ),
-                    ),
-                  ],
+                Text(
+                  'からだ収支',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF111111),
+                    fontSize: 22,
+                  ),
                 ),
                 Container(
                   width: 40,
@@ -2188,8 +2242,13 @@ class HomeScreen extends StatelessWidget {
                 ),
               ],
             ),
-
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
+            _DateNavBar(
+              selectedDate: selectedDate,
+              onPrevDay: onPrevDay,
+              onNextDay: onNextDay,
+            ),
+            const SizedBox(height: 12),
 
             // ── トレーナーメッセージ ──
             if (trainerMessages.isNotEmpty) ...[
@@ -2307,19 +2366,19 @@ class HomeScreen extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                   decoration: BoxDecoration(
-                    color: _todayWeight != null
+                    color: _selectedDateWeight != null
                         ? const Color(0xFFE8F5E9)
                         : const Color(0xFFF5F5F5),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    _todayWeight != null
-                        ? '今日 ${_todayWeight!.weight.toStringAsFixed(1)} kg'
-                        : '今日 未記録',
+                    _selectedDateWeight != null
+                        ? '${_isToday ? '今日' : 'この日'} ${_selectedDateWeight!.weight.toStringAsFixed(1)} kg'
+                        : '${_isToday ? '今日' : 'この日の体重'} 未記録',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: _todayWeight != null
+                      color: _selectedDateWeight != null
                           ? const Color(0xFF388E3C)
                           : const Color(0xFFAAAAAA),
                     ),
@@ -2329,7 +2388,7 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            _WeightChart(weightLogs: weightLogs),
+            _WeightChart(weightLogs: recentWeightLogs),
 
             const SizedBox(height: 10),
 
@@ -2350,6 +2409,54 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _DateNavBar extends StatelessWidget {
+  const _DateNavBar({
+    required this.selectedDate,
+    required this.onPrevDay,
+    required this.onNextDay,
+  });
+
+  final DateTime selectedDate;
+  final VoidCallback onPrevDay;
+  final VoidCallback onNextDay;
+
+  String _label() {
+    const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
+    return '${selectedDate.month}月${selectedDate.day}日（${weekdays[selectedDate.weekday - 1]}）';
+  }
+
+  bool get _isToday {
+    final today = DateTime.now();
+    return selectedDate.year == today.year &&
+        selectedDate.month == today.month &&
+        selectedDate.day == today.day;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left),
+          onPressed: onPrevDay,
+        ),
+        Text(
+          _label(),
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+        ),
+        IconButton(
+          icon: Icon(
+            Icons.chevron_right,
+            color: _isToday ? Colors.grey.shade300 : null,
+          ),
+          onPressed: _isToday ? null : onNextDay,
+        ),
+      ],
     );
   }
 }
@@ -3771,7 +3878,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 /// ----------------------------
 
 class MealInputSheet extends StatefulWidget {
-  const MealInputSheet({super.key, required this.onSave});
+  const MealInputSheet({super.key, required this.date, required this.onSave});
+  final DateTime date;
   final Future<void> Function(MealLogEntry) onSave;
 
   @override
@@ -3802,7 +3910,7 @@ class _MealInputSheetState extends State<MealInputSheet> {
     setState(() => _saving = true);
     try {
       final now = DateTime.now();
-      final dateOnly = DateTime(now.year, now.month, now.day);
+      final dateOnly = DateTime(widget.date.year, widget.date.month, widget.date.day);
       final entry = MealLogEntry(
         name: _nameCtrl.text.trim(),
         kcal: int.parse(_kcalCtrl.text.trim()),
@@ -3920,7 +4028,8 @@ class _MealInputSheetState extends State<MealInputSheet> {
 /// ----------------------------
 
 class ExerciseInputSheet extends StatefulWidget {
-  const ExerciseInputSheet({super.key, required this.onSave});
+  const ExerciseInputSheet({super.key, required this.date, required this.onSave});
+  final DateTime date;
   final Future<void> Function(ExerciseLogEntry) onSave;
 
   @override
@@ -3948,7 +4057,7 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
     setState(() => _saving = true);
     try {
       final now = DateTime.now();
-      final dateOnly = DateTime(now.year, now.month, now.day);
+      final dateOnly = DateTime(widget.date.year, widget.date.month, widget.date.day);
       final entry = ExerciseLogEntry(
         name: _nameCtrl.text.trim(),
         kcal: int.parse(_kcalCtrl.text.trim()),
@@ -4074,7 +4183,8 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
 /// ----------------------------
 
 class WeightInputSheet extends StatefulWidget {
-  const WeightInputSheet({super.key, required this.onSave});
+  const WeightInputSheet({super.key, required this.date, required this.onSave});
+  final DateTime date;
   final Future<void> Function(WeightLogEntry) onSave;
 
   @override
@@ -4099,7 +4209,7 @@ class _WeightInputSheetState extends State<WeightInputSheet> {
     setState(() => _saving = true);
     try {
       final now = DateTime.now();
-      final dateOnly = DateTime(now.year, now.month, now.day);
+      final dateOnly = DateTime(widget.date.year, widget.date.month, widget.date.day);
       final entry = WeightLogEntry(
         weight: double.parse(_weightCtrl.text.trim()),
         memo: _memoCtrl.text.trim(),
