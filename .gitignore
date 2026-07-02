@@ -46,3 +46,6 @@ app.*.map.json
 
 # Claude Code local agent definitions (local dev only)
 .claude/
+
+# Node.js (Firestore Rules tests)
+/node_modules
