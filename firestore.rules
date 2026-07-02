@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 指定トレーナーの顧客リストに targetUid が存在するか確認
+    function isLinkedTrainer(targetUid, trainerUid) {
+      return exists(/databases/$(database)/documents/trainers/$(trainerUid)/customers/$(targetUid));
+    }
+
+    // ── users コレクション ──
+    match /users/{uid} {
+
+      // 習慣記録：本人のみ
+      match /habits/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // ストリークメタ：本人のみ
+      match /meta/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // 日別プラン：本人のみ
+      match /plans/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // 食事ログ：本人は read/write、紐づいたトレーナーは read のみ
+      match /mealLogs/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read: if request.auth != null
+                    && isLinkedTrainer(uid, request.auth.uid);
+      }
+
+      // 運動ログ：本人は read/write、紐づいたトレーナーは read のみ
+      match /exerciseLogs/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read: if request.auth != null
+                    && isLinkedTrainer(uid, request.auth.uid);
+      }
+
+      // 体重ログ：本人は read/write、紐づいたトレーナーは read のみ
+      match /weightLogs/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read: if request.auth != null
+                    && isLinkedTrainer(uid, request.auth.uid);
+      }
+
+      // トレーナーメッセージ：顧客は read のみ、紐づいたトレーナーは read + create
+      match /trainerMessages/{docId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow read, create: if request.auth != null
+                            && isLinkedTrainer(uid, request.auth.uid);
+      }
+
+      // 目標設定：本人のみ
+      match /settings/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // プロフィール（role）：本人 read のみ（write はサーバー側で管理）
+      match /profile/{docId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // ── trainers コレクション ──
+    match /trainers/{trainerUid} {
+      // 顧客リンク：そのトレーナー本人のみ read/write
+      match /customers/{customerUid} {
+        allow read, write: if request.auth != null
+                           && request.auth.uid == trainerUid;
+      }
+    }
+  }
+}
