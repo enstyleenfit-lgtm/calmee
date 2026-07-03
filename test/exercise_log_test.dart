@@ -113,7 +113,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(0), 'ランニング');
-    await tester.enterText(find.byType(TextFormField).at(1), '300');
+    // 手入力時は重量欄が at(1)、kcal が at(2)
+    await tester.enterText(find.byType(TextFormField).at(2), '300');
     await tester.tap(find.text('保存する'));
     await tester.pumpAndSettle();
 
@@ -134,7 +135,7 @@ void main() {
     await tester.tap(find.text('スクワット'));
     await tester.pump();
 
-    expect(find.text('重量 (kg)（任意）'), findsOneWidget);
+    expect(find.text('重量 kg'), findsOneWidget);
   });
 
   testWidgets('E-12: スクワット選択時に推定消費kcalに 150 が入る', (tester) async {
@@ -174,6 +175,38 @@ void main() {
     expect(kcalCtrl?.text, '180');
   });
 
+  testWidgets('E-15: 手入力の筋トレ名では重量欄が表示される', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // 候補を選ばず手入力（アームカールはリストにないので候補なし）
+    await tester.enterText(find.byType(TextFormField).at(0), 'アームカール');
+    await tester.pump();
+
+    expect(find.text('重量 kg'), findsOneWidget);
+  });
+
+  testWidgets('E-16: 有酸素候補選択後に重量欄が非表示になる', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // 先にスクワット選択 → 重量欄表示
+    await tester.enterText(find.byType(TextFormField).at(0), 'スク');
+    await tester.pump();
+    await tester.tap(find.text('スクワット'));
+    await tester.pump();
+    expect(find.text('重量 kg'), findsOneWidget);
+
+    // 次にランニング選択 → 重量欄が消える
+    await tester.enterText(find.byType(TextFormField).at(0), 'ラン');
+    await tester.pump();
+    await tester.tap(find.text('ランニング'));
+    await tester.pump();
+    expect(find.text('重量 kg'), findsNothing);
+  });
+
   testWidgets('E-14: ランニング選択後は重量入力欄が表示されない', (tester) async {
     await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
     await tester.tap(find.text('open'));
@@ -184,7 +217,7 @@ void main() {
     await tester.tap(find.text('ランニング'));
     await tester.pump();
 
-    expect(find.text('重量 (kg)（任意）'), findsNothing);
+    expect(find.text('重量 kg'), findsNothing);
   });
 
   // ── 運動削除フロー ─────────────────────────────────────────
