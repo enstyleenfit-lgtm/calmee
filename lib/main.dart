@@ -4390,27 +4390,31 @@ class ExerciseInputSheet extends StatefulWidget {
 class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
+  final _weightCtrl = TextEditingController();
   final _kcalCtrl = TextEditingController();
   final _memoCtrl = TextEditingController();
   String _category = 'self';
   bool _saving = false;
 
   List<ExerciseSuggestion> _suggestions = [];
+  ExerciseSuggestion? _pickedSuggestion; // 選択中の候補（重量補正に使用）
 
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _weightCtrl.dispose();
     _kcalCtrl.dispose();
     _memoCtrl.dispose();
     super.dispose();
   }
 
   void _pickExerciseSuggestion(ExerciseSuggestion s) {
-    // onChanged は programmatic な text 変更では発火しないため _picking フラグ不要
     _nameCtrl.text = s.name;
     _kcalCtrl.text = s.referenceKcal.toString();
+    _weightCtrl.clear();
     setState(() {
       _category = s.category;
+      _pickedSuggestion = s;
       _suggestions = [];
     });
   }
@@ -4504,6 +4508,7 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
               controller: _nameCtrl,
               onChanged: (text) => setState(() {
                 _suggestions = searchExerciseSuggestions(text);
+                _pickedSuggestion = null; // 手動入力中は重量補正を無効化
               }),
               decoration: const InputDecoration(
                 labelText: '運動名（例：ウォーキング、筋トレ）',
@@ -4514,12 +4519,30 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
                   (v == null || v.trim().isEmpty) ? '運動名を入力してください' : null,
             ),
             _buildExerciseSuggestions(),
+            if (_pickedSuggestion?.isStrengthTraining == true) ...[
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _weightCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (text) {
+                  final weight = double.tryParse(text.trim());
+                  _kcalCtrl.text =
+                      calcEstimatedKcal(_pickedSuggestion!, weight).toString();
+                },
+                decoration: const InputDecoration(
+                  labelText: '重量 (kg)（任意）',
+                  hintText: '例：60',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             TextFormField(
               controller: _kcalCtrl,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: '消費カロリー (kcal)※参考値',
+                labelText: '推定消費カロリー (kcal)',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),

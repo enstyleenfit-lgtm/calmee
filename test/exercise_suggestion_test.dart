@@ -44,5 +44,50 @@ void main() {
       expect(results, isNotEmpty);
       expect(results.first.category, 'self');
     });
+
+    test('ES-9: スクワットは isStrengthTraining が true', () {
+      final results = searchExerciseSuggestions('スクワット');
+      expect(results, isNotEmpty);
+      expect(results.first.isStrengthTraining, isTrue);
+    });
+
+    test('ES-10: ランニングは isStrengthTraining が false', () {
+      final results = searchExerciseSuggestions('ランニング');
+      expect(results, isNotEmpty);
+      expect(results.first.isStrengthTraining, isFalse);
+    });
+  });
+
+  group('calcEstimatedKcal', () {
+    final squat = searchExerciseSuggestions('スクワット').first;   // referenceKcal=150, strength
+    final running = searchExerciseSuggestions('ランニング').first; // referenceKcal=240, aerobic
+
+    test('CK-1: 重量なし（null）→ referenceKcal', () {
+      expect(calcEstimatedKcal(squat, null), 150);
+    });
+
+    test('CK-2: 20kg以下 → referenceKcal × 1.0', () {
+      expect(calcEstimatedKcal(squat, 20), 150);
+    });
+
+    test('CK-3: 40kg（21〜50）→ referenceKcal × 1.1 = 165', () {
+      expect(calcEstimatedKcal(squat, 40), 165);
+    });
+
+    test('CK-4: 60kg（51〜80）→ referenceKcal × 1.2 = 180', () {
+      expect(calcEstimatedKcal(squat, 60), 180);
+    });
+
+    test('CK-5: 90kg（81以上）→ referenceKcal × 1.3 = 195', () {
+      expect(calcEstimatedKcal(squat, 90), 195);
+    });
+
+    test('CK-6: 有酸素（ランニング）は重量 60kg でも referenceKcal のまま', () {
+      expect(calcEstimatedKcal(running, 60), 240);
+    });
+
+    test('CK-7: 有酸素（ランニング）は重量 100kg でも referenceKcal のまま', () {
+      expect(calcEstimatedKcal(running, 100), 240);
+    });
   });
 }

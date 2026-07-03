@@ -79,7 +79,7 @@ void main() {
     await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
-    expect(find.text('消費カロリー (kcal)※参考値'), findsOneWidget);
+    expect(find.text('推定消費カロリー (kcal)'), findsOneWidget);
   });
 
   testWidgets('E-4: 「保存する」ボタンが表示される', (tester) async {
@@ -120,6 +120,71 @@ void main() {
     expect(saved, isNotNull);
     expect(saved!.name, 'ランニング');
     expect(saved!.kcal, 300);
+  });
+
+  // ── 重量補正テスト ─────────────────────────────────────────
+
+  testWidgets('E-11: スクワット選択後に重量入力欄が表示される', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'スク');
+    await tester.pump();
+    await tester.tap(find.text('スクワット'));
+    await tester.pump();
+
+    expect(find.text('重量 (kg)（任意）'), findsOneWidget);
+  });
+
+  testWidgets('E-12: スクワット選択時に推定消費kcalに 150 が入る', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'スク');
+    await tester.pump();
+    await tester.tap(find.text('スクワット'));
+    await tester.pump();
+
+    // 重量フィールドが index 1、kcal が index 2
+    final kcalCtrl = tester
+        .widget<TextFormField>(find.byType(TextFormField).at(2))
+        .controller;
+    expect(kcalCtrl?.text, '150');
+  });
+
+  testWidgets('E-13: スクワットで重量 60kg 入力すると kcal が 180 に補正される', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'スク');
+    await tester.pump();
+    await tester.tap(find.text('スクワット'));
+    await tester.pump();
+
+    // 重量入力 (index 1) → kcal が 150 × 1.2 = 180 に補正
+    await tester.enterText(find.byType(TextFormField).at(1), '60');
+    await tester.pump();
+
+    final kcalCtrl = tester
+        .widget<TextFormField>(find.byType(TextFormField).at(2))
+        .controller;
+    expect(kcalCtrl?.text, '180');
+  });
+
+  testWidgets('E-14: ランニング選択後は重量入力欄が表示されない', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'ラン');
+    await tester.pump();
+    await tester.tap(find.text('ランニング'));
+    await tester.pump();
+
+    expect(find.text('重量 (kg)（任意）'), findsNothing);
   });
 
   // ── 運動削除フロー ─────────────────────────────────────────
