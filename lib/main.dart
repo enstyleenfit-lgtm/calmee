@@ -15,6 +15,8 @@ import 'package:timezone/data/latest.dart' as tzdata;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'firebase_options.dart';
+import 'data/food_suggestions.dart';
+import 'data/exercise_suggestions.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -4181,14 +4183,91 @@ class _MealInputSheetState extends State<MealInputSheet> {
   final _carbCtrl = TextEditingController();
   bool _saving = false;
 
+  List<FoodSuggestion> _suggestions = [];
+  bool _picking = false; // 候補選択中はリスナーを無効化
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl.addListener(_onNameChanged);
+  }
+
   @override
   void dispose() {
+    _nameCtrl.removeListener(_onNameChanged);
     _nameCtrl.dispose();
     _kcalCtrl.dispose();
     _proteinCtrl.dispose();
     _fatCtrl.dispose();
     _carbCtrl.dispose();
     super.dispose();
+  }
+
+  void _onNameChanged() {
+    if (_picking) return;
+    setState(() {
+      _suggestions = searchFoodSuggestions(_nameCtrl.text);
+    });
+  }
+
+  void _pickFoodSuggestion(FoodSuggestion s) {
+    _picking = true;
+    _nameCtrl.text = s.name;
+    _kcalCtrl.text = s.kcal.toString();
+    _proteinCtrl.text = s.protein.toString();
+    _fatCtrl.text = s.fat.toString();
+    _carbCtrl.text = s.carb.toString();
+    setState(() {
+      _suggestions = [];
+      _picking = false;
+    });
+  }
+
+  Widget _buildFoodSuggestions() {
+    if (_suggestions.isEmpty) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(top: 2, bottom: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFDDDDDD)),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 4, offset: Offset(0, 2))],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: _suggestions.asMap().entries.map((entry) {
+          final i = entry.key;
+          final s = entry.value;
+          return InkWell(
+            borderRadius: i == 0
+                ? const BorderRadius.vertical(top: Radius.circular(8))
+                : i == _suggestions.length - 1
+                    ? const BorderRadius.vertical(bottom: Radius.circular(8))
+                    : BorderRadius.zero,
+            onTap: () => _pickFoodSuggestion(s),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                border: i > 0
+                    ? const Border(top: BorderSide(color: Color(0xFFEEEEEE)))
+                    : null,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(s.name, style: const TextStyle(fontSize: 14)),
+                  ),
+                  Text(
+                    '${s.kcal} kcal  P${s.protein}  F${s.fat}  C${s.carb}',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF888888)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 
   Future<void> _submit() async {
@@ -4263,8 +4342,9 @@ class _MealInputSheetState extends State<MealInputSheet> {
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? '食事名を入力してください' : null,
             ),
+            _buildFoodSuggestions(),
             const SizedBox(height: 12),
-            _numField(ctrl: _kcalCtrl, label: 'カロリー (kcal)', required: true),
+            _numField(ctrl: _kcalCtrl, label: 'カロリー (kcal)※参考値', required: true),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -4330,12 +4410,87 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
   String _category = 'self';
   bool _saving = false;
 
+  List<ExerciseSuggestion> _suggestions = [];
+  bool _picking = false; // 候補選択中はリスナーを無効化
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl.addListener(_onNameChanged);
+  }
+
   @override
   void dispose() {
+    _nameCtrl.removeListener(_onNameChanged);
     _nameCtrl.dispose();
     _kcalCtrl.dispose();
     _memoCtrl.dispose();
     super.dispose();
+  }
+
+  void _onNameChanged() {
+    if (_picking) return;
+    setState(() {
+      _suggestions = searchExerciseSuggestions(_nameCtrl.text);
+    });
+  }
+
+  void _pickExerciseSuggestion(ExerciseSuggestion s) {
+    _picking = true;
+    _nameCtrl.text = s.name;
+    _kcalCtrl.text = s.referenceKcal.toString();
+    setState(() {
+      _category = s.category;
+      _suggestions = [];
+      _picking = false;
+    });
+  }
+
+  Widget _buildExerciseSuggestions() {
+    if (_suggestions.isEmpty) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(top: 2, bottom: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFDDDDDD)),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 4, offset: Offset(0, 2))],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: _suggestions.asMap().entries.map((entry) {
+          final i = entry.key;
+          final s = entry.value;
+          return InkWell(
+            borderRadius: i == 0
+                ? const BorderRadius.vertical(top: Radius.circular(8))
+                : i == _suggestions.length - 1
+                    ? const BorderRadius.vertical(bottom: Radius.circular(8))
+                    : BorderRadius.zero,
+            onTap: () => _pickExerciseSuggestion(s),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                border: i > 0
+                    ? const Border(top: BorderSide(color: Color(0xFFEEEEEE)))
+                    : null,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(s.name, style: const TextStyle(fontSize: 14)),
+                  ),
+                  Text(
+                    '参考 ${s.referenceKcal} kcal',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF888888)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 
   Future<void> _submit() async {
@@ -4386,12 +4541,13 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? '運動名を入力してください' : null,
             ),
+            _buildExerciseSuggestions(),
             const SizedBox(height: 12),
             TextFormField(
               controller: _kcalCtrl,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: '消費カロリー (kcal)',
+                labelText: '消費カロリー (kcal)※参考値',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),

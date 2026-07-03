@@ -79,7 +79,7 @@ void main() {
     await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
-    expect(find.text('カロリー (kcal)'), findsOneWidget);
+    expect(find.text('カロリー (kcal)※参考値'), findsOneWidget);
   });
 
   testWidgets('M-4: 「保存する」ボタンが表示される', (tester) async {
