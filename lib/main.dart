@@ -4184,17 +4184,9 @@ class _MealInputSheetState extends State<MealInputSheet> {
   bool _saving = false;
 
   List<FoodSuggestion> _suggestions = [];
-  bool _picking = false; // 候補選択中はリスナーを無効化
-
-  @override
-  void initState() {
-    super.initState();
-    _nameCtrl.addListener(_onNameChanged);
-  }
 
   @override
   void dispose() {
-    _nameCtrl.removeListener(_onNameChanged);
     _nameCtrl.dispose();
     _kcalCtrl.dispose();
     _proteinCtrl.dispose();
@@ -4203,24 +4195,14 @@ class _MealInputSheetState extends State<MealInputSheet> {
     super.dispose();
   }
 
-  void _onNameChanged() {
-    if (_picking) return;
-    setState(() {
-      _suggestions = searchFoodSuggestions(_nameCtrl.text);
-    });
-  }
-
   void _pickFoodSuggestion(FoodSuggestion s) {
-    _picking = true;
+    // onChanged は programmatic な text 変更では発火しないため _picking フラグ不要
     _nameCtrl.text = s.name;
     _kcalCtrl.text = s.kcal.toString();
     _proteinCtrl.text = s.protein.toString();
     _fatCtrl.text = s.fat.toString();
     _carbCtrl.text = s.carb.toString();
-    setState(() {
-      _suggestions = [];
-      _picking = false;
-    });
+    setState(() => _suggestions = []);
   }
 
   Widget _buildFoodSuggestions() {
@@ -4334,6 +4316,9 @@ class _MealInputSheetState extends State<MealInputSheet> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _nameCtrl,
+              onChanged: (text) => setState(() {
+                _suggestions = searchFoodSuggestions(text);
+              }),
               decoration: const InputDecoration(
                 labelText: '食事名（例：朝食、ランチ）',
                 border: OutlineInputBorder(),
@@ -4411,38 +4396,22 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
   bool _saving = false;
 
   List<ExerciseSuggestion> _suggestions = [];
-  bool _picking = false; // 候補選択中はリスナーを無効化
-
-  @override
-  void initState() {
-    super.initState();
-    _nameCtrl.addListener(_onNameChanged);
-  }
 
   @override
   void dispose() {
-    _nameCtrl.removeListener(_onNameChanged);
     _nameCtrl.dispose();
     _kcalCtrl.dispose();
     _memoCtrl.dispose();
     super.dispose();
   }
 
-  void _onNameChanged() {
-    if (_picking) return;
-    setState(() {
-      _suggestions = searchExerciseSuggestions(_nameCtrl.text);
-    });
-  }
-
   void _pickExerciseSuggestion(ExerciseSuggestion s) {
-    _picking = true;
+    // onChanged は programmatic な text 変更では発火しないため _picking フラグ不要
     _nameCtrl.text = s.name;
     _kcalCtrl.text = s.referenceKcal.toString();
     setState(() {
       _category = s.category;
       _suggestions = [];
-      _picking = false;
     });
   }
 
@@ -4533,6 +4502,9 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _nameCtrl,
+              onChanged: (text) => setState(() {
+                _suggestions = searchExerciseSuggestions(text);
+              }),
               decoration: const InputDecoration(
                 labelText: '運動名（例：ウォーキング、筋トレ）',
                 border: OutlineInputBorder(),
