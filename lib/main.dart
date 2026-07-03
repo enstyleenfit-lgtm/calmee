@@ -1377,7 +1377,9 @@ class _RootShellState extends State<RootShell> {
           setState(() => _loading = true);
           try {
             final newStreak = await _recordToday(habit);
+            if (!context.mounted) return;
             await RewardSparkle.play(context);
+            if (!context.mounted) return;
             await showPraiseRewardDialog(context, streak: newStreak);
             setState(() => _index = 0);
           } finally {
@@ -3581,7 +3583,7 @@ class _RecordScreenState extends State<RecordScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _selected,
+            initialValue: _selected,
             items: widget.habitOptions
                 .map((h) => DropdownMenuItem<String>(value: h, child: Text(h)))
                 .toList(),
@@ -4127,9 +4129,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(width: 8),
                   IconButton(
                     onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
                       await Clipboard.setData(ClipboardData(text: uid));
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        messenger.showSnackBar(
                           const SnackBar(content: Text('顧客IDをコピーしました')),
                         );
                       }
