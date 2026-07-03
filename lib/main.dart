@@ -1115,7 +1115,6 @@ class _RootShellState extends State<RootShell> {
   // 共有データ
   TodayStatus _today =
       TodayStatus(doneToday: false, todayEntry: null, streak: 0);
-  List<PlanItem> _planItems = [];
   List<MealLogEntry> _mealLogs = [];
   List<ExerciseLogEntry> _exerciseLogs = [];
   List<WeightLogEntry> _weightLogs = [];
@@ -1162,7 +1161,6 @@ class _RootShellState extends State<RootShell> {
   }
 
   HabitRepository get _habitRepo => HabitRepository(_uid!);
-  PlanRepository get _planRepo => PlanRepository(_uid!);
   MealRepository? get _mealRepo => _uid == null ? null : MealRepository(_uid!);
   ExerciseRepository? get _exerciseRepo =>
       _uid == null ? null : ExerciseRepository(_uid!);
@@ -1224,7 +1222,6 @@ class _RootShellState extends State<RootShell> {
 
     final doneToday = todayEntry.date.millisecondsSinceEpoch != 0;
     final streak = _calcStreakFromRecent(recent);
-    final plan = await _planRepo.loadToday();
     final meals = _mealRepo != null
         ? await _mealRepo!.loadForDate(_selectedDate)
         : <MealLogEntry>[];
@@ -1256,7 +1253,6 @@ class _RootShellState extends State<RootShell> {
         todayEntry: doneToday ? todayEntry : null,
         streak: streak,
       );
-      _planItems = plan;
       _mealLogs = meals;
       _exerciseLogs = exercises;
       _weightLogs = weights;
@@ -1276,14 +1272,6 @@ class _RootShellState extends State<RootShell> {
     final newStreak = await _habitRepo.updateStreakOnCompleteToday();
     await _reloadAll();
     return newStreak;
-  }
-
-  Future<void> _savePlan(List<PlanItem> items) async {
-    if (_uid == null) return;
-
-    await _planRepo.saveToday(items);
-    await NotiTtsService.instance.scheduleTodayPlan(items);
-    await _reloadAll();
   }
 
   Future<void> _addMeal(MealLogEntry entry) async {
@@ -1326,11 +1314,6 @@ class _RootShellState extends State<RootShell> {
     if (_uid == null) return;
     await _goalsRepo!.save(goals);
     await _reloadAll();
-  }
-
-  void _clearNotiPayload() {
-    NotiTtsService.instance.lastPayload = null;
-    setState(() {});
   }
 
   @override
@@ -4736,29 +4719,4 @@ class _TrainerMessageCard extends StatelessWidget {
   }
 }
 
-/// ----------------------------
-/// Widgets
-/// ----------------------------
-
-class _Badge extends StatelessWidget {
-  const _Badge({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Text('$label $value', style: theme.textTheme.labelMedium),
-      ),
-    );
-  }
-}
 
