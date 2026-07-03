@@ -522,7 +522,7 @@ class HabitRepository {
         final ts = data['lastDoneDate'] as Timestamp?;
         lastDone = ts?.toDate();
         if (lastDone != null) {
-          lastDone = toDateOnly(lastDone!);
+          lastDone = toDateOnly(lastDone);
         }
       }
 
@@ -968,7 +968,6 @@ class RewardSparkle extends StatefulWidget {
 
   static Future<void> play(BuildContext context) async {
     final overlay = Overlay.of(context);
-    if (overlay == null) return;
 
     final entry = OverlayEntry(builder: (_) => const _RewardSparkleLayer());
     overlay.insert(entry);
@@ -1019,7 +1018,7 @@ class _RewardSparkleLayerState extends State<_RewardSparkleLayer>
     return IgnorePointer(
       child: AnimatedBuilder(
         animation: _a,
-        builder: (_, __) {
+        builder: (_, _) {
           final t = _a.value; // 0→1
           final opacity = (1.0 - t).clamp(0.0, 1.0);
           final scale = 0.85 + (t * 0.35);
