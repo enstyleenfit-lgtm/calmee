@@ -4519,27 +4519,25 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
                   (v == null || v.trim().isEmpty) ? '運動名を入力してください' : null,
             ),
             _buildExerciseSuggestions(),
-            if (_pickedSuggestion?.isStrengthTraining != false) ...[
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _weightCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                onChanged: (text) {
-                  // 筋トレ候補選択中のみ kcal を自動補正（手入力時は補正しない）
-                  if (_pickedSuggestion?.isStrengthTraining == true) {
-                    final weight = double.tryParse(text.trim());
-                    _kcalCtrl.text =
-                        calcEstimatedKcal(_pickedSuggestion!, weight).toString();
-                  }
-                },
-                decoration: const InputDecoration(
-                  labelText: '重量 kg',
-                  hintText: '例：60',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _weightCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (text) {
+                // 筋トレ候補選択中のみ kcal を自動補正（手入力・有酸素時は補正しない）
+                if (_pickedSuggestion?.isStrengthTraining == true) {
+                  final weight = double.tryParse(text.trim());
+                  _kcalCtrl.text =
+                      calcEstimatedKcal(_pickedSuggestion!, weight).toString();
+                }
+              },
+              decoration: const InputDecoration(
+                labelText: '重量 kg',
+                hintText: '例：60',
+                border: OutlineInputBorder(),
+                isDense: true,
               ),
-            ],
+            ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _kcalCtrl,

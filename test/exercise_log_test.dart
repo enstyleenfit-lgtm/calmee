@@ -187,27 +187,27 @@ void main() {
     expect(find.text('重量 kg'), findsOneWidget);
   });
 
-  testWidgets('E-16: 有酸素候補選択後に重量欄が非表示になる', (tester) async {
+  testWidgets('E-16: 有酸素候補選択後も重量欄が表示されたまま', (tester) async {
     await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    // 先にスクワット選択 → 重量欄表示
+    // スクワット選択 → 重量欄表示
     await tester.enterText(find.byType(TextFormField).at(0), 'スク');
     await tester.pump();
     await tester.tap(find.text('スクワット'));
     await tester.pump();
     expect(find.text('重量 kg'), findsOneWidget);
 
-    // 次にランニング選択 → 重量欄が消える
+    // ランニング選択 → 重量欄は表示されたまま
     await tester.enterText(find.byType(TextFormField).at(0), 'ラン');
     await tester.pump();
     await tester.tap(find.text('ランニング'));
     await tester.pump();
-    expect(find.text('重量 kg'), findsNothing);
+    expect(find.text('重量 kg'), findsOneWidget);
   });
 
-  testWidgets('E-14: ランニング選択後は重量入力欄が表示されない', (tester) async {
+  testWidgets('E-14: ランニング選択後も重量入力欄が表示される', (tester) async {
     await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -217,7 +217,41 @@ void main() {
     await tester.tap(find.text('ランニング'));
     await tester.pump();
 
-    expect(find.text('重量 kg'), findsNothing);
+    expect(find.text('重量 kg'), findsOneWidget);
+  });
+
+  testWidgets('E-17: 画面初期表示で重量欄が表示される', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('重量 kg'), findsOneWidget);
+  });
+
+  testWidgets('E-18: ランニング選択時に重量を入力してもkcalが変わらない', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'ラン');
+    await tester.pump();
+    await tester.tap(find.text('ランニング'));
+    await tester.pump();
+
+    // ランニングの referenceKcal = 240 が入っていることを確認 (weight at(1), kcal at(2))
+    final kcalBefore = tester
+        .widget<TextFormField>(find.byType(TextFormField).at(2))
+        .controller?.text;
+    expect(kcalBefore, '240');
+
+    // 重量入力してもkcalは変わらない（有酸素は補正なし）
+    await tester.enterText(find.byType(TextFormField).at(1), '60');
+    await tester.pump();
+
+    final kcalAfter = tester
+        .widget<TextFormField>(find.byType(TextFormField).at(2))
+        .controller?.text;
+    expect(kcalAfter, '240');
   });
 
   // ── 運動削除フロー ─────────────────────────────────────────
