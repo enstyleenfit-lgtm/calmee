@@ -22,7 +22,7 @@ void main() {
     });
 
     test('ES-5: 最大4件まで返る', () {
-      // 「ス」はスクワット・ショルダープレス・レッグプレス・クロストレーナーにヒット
+      // 「ス」はスクワット・ショルダープレス・ブルガリアンスクワット等多数にヒットするが上限4件
       final results = searchExerciseSuggestions('ス');
       expect(results.length, lessThanOrEqualTo(4));
     });
@@ -55,6 +55,76 @@ void main() {
       final results = searchExerciseSuggestions('ランニング');
       expect(results, isNotEmpty);
       expect(results.first.isStrengthTraining, isFalse);
+    });
+
+    // ── 追加種目の検索テスト ──────────────────────────────────────
+
+    test('ES-11: 「ベンチ」でベンチプレスが返る', () {
+      final results = searchExerciseSuggestions('ベンチ');
+      expect(results.any((e) => e.name.contains('ベンチプレス')), isTrue);
+    });
+
+    test('ES-12: 「サイドレイズ」でサイドレイズが返る', () {
+      final results = searchExerciseSuggestions('サイドレイズ');
+      expect(results.any((e) => e.name == 'サイドレイズ'), isTrue);
+    });
+
+    test('ES-13: 「アームカール」でアームカールが返る', () {
+      final results = searchExerciseSuggestions('アームカール');
+      expect(results.any((e) => e.name == 'アームカール'), isTrue);
+    });
+
+    test('ES-14: 「ウォーキング」でウォーキングが返る', () {
+      final results = searchExerciseSuggestions('ウォーキング');
+      expect(results.any((e) => e.name == 'ウォーキング'), isTrue);
+    });
+
+    test('ES-15: 「縄跳び」で縄跳びが返る', () {
+      final results = searchExerciseSuggestions('縄跳び');
+      expect(results.any((e) => e.name == '縄跳び'), isTrue);
+    });
+
+    test('ES-16: 「懸垂」で懸垂が返る', () {
+      final results = searchExerciseSuggestions('懸垂');
+      expect(results.any((e) => e.name == '懸垂'), isTrue);
+    });
+
+    // ── 追加種目の isStrengthTraining テスト ─────────────────────
+
+    test('ES-17: ベンチプレスは isStrengthTraining が true', () {
+      final results = searchExerciseSuggestions('ベンチプレス');
+      expect(results, isNotEmpty);
+      expect(results.first.isStrengthTraining, isTrue);
+    });
+
+    test('ES-18: サイドレイズは isStrengthTraining が true', () {
+      final results = searchExerciseSuggestions('サイドレイズ');
+      expect(results, isNotEmpty);
+      expect(results.first.isStrengthTraining, isTrue);
+    });
+
+    test('ES-19: アームカールは isStrengthTraining が true', () {
+      final results = searchExerciseSuggestions('アームカール');
+      expect(results, isNotEmpty);
+      expect(results.first.isStrengthTraining, isTrue);
+    });
+
+    test('ES-20: ウォーキングは isStrengthTraining が false', () {
+      final results = searchExerciseSuggestions('ウォーキング');
+      expect(results, isNotEmpty);
+      expect(results.first.isStrengthTraining, isFalse);
+    });
+
+    test('ES-21: 縄跳びは isStrengthTraining が false', () {
+      final results = searchExerciseSuggestions('縄跳び');
+      expect(results, isNotEmpty);
+      expect(results.first.isStrengthTraining, isFalse);
+    });
+
+    test('ES-22: ラットプルダウンは isStrengthTraining が true', () {
+      final results = searchExerciseSuggestions('ラットプルダウン');
+      expect(results, isNotEmpty);
+      expect(results.first.isStrengthTraining, isTrue);
     });
   });
 
