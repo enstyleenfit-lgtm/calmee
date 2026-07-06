@@ -148,9 +148,9 @@ void main() {
     await tester.tap(find.text('スクワット'));
     await tester.pump();
 
-    // 重量フィールドが index 1、kcal が index 2
+    // 重量(1)・回数(2)・セット数(3)が追加されたため kcal は index 4
     final kcalCtrl = tester
-        .widget<TextFormField>(find.byType(TextFormField).at(2))
+        .widget<TextFormField>(find.byType(TextFormField).at(4))
         .controller;
     expect(kcalCtrl?.text, '150');
   });
@@ -165,12 +165,12 @@ void main() {
     await tester.tap(find.text('スクワット'));
     await tester.pump();
 
-    // 重量入力 (index 1) → kcal が 150 × 1.2 = 180 に補正
+    // 重量(1)入力 → calcEstimatedKcal(60kg)=180 × (10/10) × (3/3) = 180
     await tester.enterText(find.byType(TextFormField).at(1), '60');
     await tester.pump();
 
     final kcalCtrl = tester
-        .widget<TextFormField>(find.byType(TextFormField).at(2))
+        .widget<TextFormField>(find.byType(TextFormField).at(4))
         .controller;
     expect(kcalCtrl?.text, '180');
   });
@@ -244,6 +244,139 @@ void main() {
         .widget<TextFormField>(find.byType(TextFormField).at(1))
         .controller;
     expect(kcalCtrl?.text, '240');
+  });
+
+  // ── 重量・回数・セット数テスト ────────────────────────────────
+
+  testWidgets('EA-1: 初期表示では重量・回数・セット数が表示されない', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('重量 kg'), findsNothing);
+    expect(find.text('回数'),    findsNothing);
+    expect(find.text('セット数'), findsNothing);
+  });
+
+  testWidgets('EA-2: スクワット選択後に重量・回数・セット数が表示される', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'スク');
+    await tester.pump();
+    await tester.tap(find.text('スクワット'));
+    await tester.pump();
+
+    expect(find.text('重量 kg'), findsOneWidget);
+    expect(find.text('回数'),    findsOneWidget);
+    // 'セット数' はラベルとフィールドラベルの2箇所に表示される
+    expect(find.text('セット数'), findsWidgets);
+  });
+
+  testWidgets('EA-3: スクワット選択時に回数10・セット数3が初期入力される', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'スク');
+    await tester.pump();
+    await tester.tap(find.text('スクワット'));
+    await tester.pump();
+
+    // name(0), 重量(1), 回数(2), セット数(3), kcal(4), メモ(5)
+    final repsCtrl = tester.widget<TextFormField>(find.byType(TextFormField).at(2)).controller;
+    final setsCtrl = tester.widget<TextFormField>(find.byType(TextFormField).at(3)).controller;
+    expect(repsCtrl?.text, '10');
+    expect(setsCtrl?.text, '3');
+  });
+
+  testWidgets('EA-4: セット数ボタン 1〜5 が表示される', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'スク');
+    await tester.pump();
+    await tester.tap(find.text('スクワット'));
+    await tester.pump();
+
+    expect(find.widgetWithText(OutlinedButton, '1'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '3'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '5'), findsOneWidget);
+  });
+
+  testWidgets('EA-5: セット数ボタン5をタップするとセット数フィールドが5になる', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'スク');
+    await tester.pump();
+    await tester.tap(find.text('スクワット'));
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '5'));
+    await tester.pump();
+
+    final setsCtrl = tester.widget<TextFormField>(find.byType(TextFormField).at(3)).controller;
+    expect(setsCtrl?.text, '5');
+  });
+
+  testWidgets('EA-6: スクワット 重量60kg・10回・3セットで kcal が 180 になる', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'スク');
+    await tester.pump();
+    await tester.tap(find.text('スクワット'));
+    await tester.pump();
+
+    // 重量60kg: calcEstimatedKcal(150, 60kg) = 180
+    // reps=10, sets=3 → factor = (10/10)×(3/3) = 1
+    // estimatedKcal = 180
+    await tester.enterText(find.byType(TextFormField).at(1), '60');
+    await tester.pump();
+
+    final kcalCtrl = tester.widget<TextFormField>(find.byType(TextFormField).at(4)).controller;
+    expect(kcalCtrl?.text, '180');
+  });
+
+  testWidgets('EA-7: スクワット 重量60kg・10回・5セットで kcal が 180 より増える', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'スク');
+    await tester.pump();
+    await tester.tap(find.text('スクワット'));
+    await tester.pump();
+
+    // セット数5に変更してから重量入力
+    // 180 × (10/10) × (5/3) = 300
+    await tester.tap(find.widgetWithText(OutlinedButton, '5'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextFormField).at(1), '60');
+    await tester.pump();
+
+    final kcalCtrl = tester.widget<TextFormField>(find.byType(TextFormField).at(4)).controller;
+    expect(int.parse(kcalCtrl!.text), greaterThan(180));
+  });
+
+  testWidgets('EA-8: ランニング選択時は重量・回数・セット数が表示されない', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'ラン');
+    await tester.pump();
+    await tester.tap(find.text('ランニング'));
+    await tester.pump();
+
+    expect(find.text('重量 kg'), findsNothing);
+    expect(find.text('回数'),    findsNothing);
+    expect(find.text('セット数'), findsNothing);
   });
 
   // ── 運動削除フロー ─────────────────────────────────────────

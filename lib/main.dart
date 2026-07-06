@@ -4429,32 +4429,54 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _weightCtrl = TextEditingController();
+  final _repsCtrl = TextEditingController();
+  final _setsCtrl = TextEditingController();
   final _kcalCtrl = TextEditingController();
   final _memoCtrl = TextEditingController();
   String _category = 'self';
   bool _saving = false;
 
   List<ExerciseSuggestion> _suggestions = [];
-  ExerciseSuggestion? _pickedSuggestion; // 選択中の候補（重量補正に使用）
-  bool _showWeightInput = false;         // 筋トレ候補選択時のみ true
+  ExerciseSuggestion? _pickedSuggestion;
+  bool _showStrengthInputs = false;
 
+  @override
   @override
   void dispose() {
     _nameCtrl.dispose();
     _weightCtrl.dispose();
+    _repsCtrl.dispose();
+    _setsCtrl.dispose();
     _kcalCtrl.dispose();
     _memoCtrl.dispose();
     super.dispose();
+  }
+
+  void _recalcKcal() {
+    final s = _pickedSuggestion;
+    if (s == null || !s.isStrengthTraining) return;
+    final weight = double.tryParse(_weightCtrl.text.trim());
+    final reps = int.tryParse(_repsCtrl.text.trim()) ?? 10;
+    final sets = int.tryParse(_setsCtrl.text.trim()) ?? 3;
+    final base = calcEstimatedKcal(s, weight);
+    _kcalCtrl.text = (base * reps / 10 * sets / 3).round().toString();
   }
 
   void _pickExerciseSuggestion(ExerciseSuggestion s) {
     _nameCtrl.text = s.name;
     _kcalCtrl.text = s.referenceKcal.toString();
     _weightCtrl.clear();
+    if (s.isStrengthTraining) {
+      _repsCtrl.text = '10';
+      _setsCtrl.text = '3';
+    } else {
+      _repsCtrl.clear();
+      _setsCtrl.clear();
+    }
     setState(() {
       _category = s.category;
       _pickedSuggestion = s;
-      _showWeightInput = s.isStrengthTraining; // 筋トレのみ重量欄を表示
+      _showStrengthInputs = s.isStrengthTraining;
       _suggestions = [];
     });
   }
@@ -4506,6 +4528,81 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
     );
   }
 
+  Widget _buildStrengthInputs() {
+    if (!_showStrengthInputs) return const SizedBox.shrink();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _weightCtrl,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          onChanged: (_) => _recalcKcal(),
+          decoration: const InputDecoration(
+            labelText: '重量 kg',
+            hintText: '例：60',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _repsCtrl,
+          keyboardType: TextInputType.number,
+          onChanged: (_) => _recalcKcal(),
+          decoration: const InputDecoration(
+            labelText: '回数',
+            hintText: '例：10',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'セット数',
+          style: TextStyle(fontSize: 13, color: Color(0xFF666666)),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            ...List.generate(5, (i) {
+              final n = i + 1;
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: OutlinedButton(
+                  onPressed: () {
+                    _setsCtrl.text = n.toString();
+                    _recalcKcal();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text('$n', style: const TextStyle(fontSize: 13)),
+                ),
+              );
+            }),
+            const SizedBox(width: 4),
+            Expanded(
+              child: TextFormField(
+                controller: _setsCtrl,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => _recalcKcal(),
+                decoration: const InputDecoration(
+                  labelText: 'セット数',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
@@ -4549,7 +4646,7 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
               onChanged: (text) => setState(() {
                 _suggestions = searchExerciseSuggestions(text);
                 _pickedSuggestion = null;
-                _showWeightInput = false; // 手動入力中は重量欄を非表示
+                _showStrengthInputs = false;
               }),
               decoration: const InputDecoration(
                 labelText: '運動名（例：ウォーキング、筋トレ）',
@@ -4560,26 +4657,7 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
                   (v == null || v.trim().isEmpty) ? '運動名を入力してください' : null,
             ),
             _buildExerciseSuggestions(),
-            if (_showWeightInput) ...[
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _weightCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                onChanged: (text) {
-                  if (_pickedSuggestion?.isStrengthTraining == true) {
-                    final weight = double.tryParse(text.trim());
-                    _kcalCtrl.text =
-                        calcEstimatedKcal(_pickedSuggestion!, weight).toString();
-                  }
-                },
-                decoration: const InputDecoration(
-                  labelText: '重量 kg',
-                  hintText: '例：60',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-              ),
-            ],
+            _buildStrengthInputs(),
             const SizedBox(height: 12),
             TextFormField(
               controller: _kcalCtrl,
