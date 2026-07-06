@@ -53,6 +53,13 @@ service cloud.firestore {
                             && isLinkedTrainer(uid, request.auth.uid);
       }
 
+      // 共有ノート：顧客は read のみ、紐づいたトレーナーは read + write
+      match /sharedNotes/{noteId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow read, write: if request.auth != null
+                           && isLinkedTrainer(uid, request.auth.uid);
+      }
+
       // 目標設定：本人のみ
       match /settings/{docId} {
         allow read, write: if request.auth != null && request.auth.uid == uid;

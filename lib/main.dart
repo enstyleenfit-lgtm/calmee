@@ -320,6 +320,45 @@ class TrainerMessage {
 }
 
 /// ----------------------------
+/// SharedNote
+/// ----------------------------
+
+class SharedNote {
+  final String? id;
+  final String title;
+  final String body;
+  final String trainerUid;
+  final DateTime createdAt;
+
+  SharedNote({
+    this.id,
+    required this.title,
+    required this.body,
+    required this.trainerUid,
+    required this.createdAt,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'title': title,
+        'body': body,
+        'trainerUid': trainerUid,
+        'createdAt': Timestamp.fromDate(createdAt),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+  static SharedNote fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
+    return SharedNote(
+      id: doc.id,
+      title: (data['title'] as String?) ?? '',
+      body: (data['body'] as String?) ?? '',
+      trainerUid: (data['trainerUid'] as String?) ?? '',
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+}
+
+/// ----------------------------
 /// CustomerLink
 /// ----------------------------
 
@@ -791,6 +830,33 @@ class TrainerMessageRepository {
 }
 
 /// ----------------------------
+/// SharedNoteRepository
+/// ----------------------------
+
+class SharedNoteRepository {
+  SharedNoteRepository(this.customerUid);
+  final String customerUid;
+
+  CollectionReference<Map<String, dynamic>> get _ref =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(customerUid)
+          .collection('sharedNotes');
+
+  Future<void> saveNote(SharedNote note) async {
+    await _ref.add(note.toMap());
+  }
+
+  Future<List<SharedNote>> loadRecent({int limit = 20}) async {
+    final snap = await _ref
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .get();
+    return snap.docs.map((d) => SharedNote.fromDoc(d)).toList();
+  }
+}
+
+/// ----------------------------
 /// TrainerCustomerRepository
 /// ----------------------------
 
@@ -1114,8 +1180,6 @@ class _RootShellState extends State<RootShell> {
   int _index = 0;
 
   // 共有データ
-  TodayStatus _today =
-      TodayStatus(doneToday: false, todayEntry: null, streak: 0);
   List<MealLogEntry> _mealLogs = [];
   List<ExerciseLogEntry> _exerciseLogs = [];
   List<WeightLogEntry> _weightLogs = [];
@@ -1125,14 +1189,6 @@ class _RootShellState extends State<RootShell> {
   List<TrainerMessage> _trainerMessages = [];
   List<MealLogEntry> _weekMealLogs = [];
   List<ExerciseLogEntry> _weekExerciseLogs = [];
-
-  final List<String> habitOptions = const [
-    '食事：バランスを意識した',
-    'ストレッチ：身体をほぐした',
-    '睡眠：早めに寝る準備をした',
-    'メンタル：深呼吸・瞑想をした',
-    'その他：自分をいたわる行動をした',
-  ];
 
   @override
   void initState() {
@@ -1161,7 +1217,6 @@ class _RootShellState extends State<RootShell> {
     _uid = auth.currentUser!.uid;
   }
 
-  HabitRepository get _habitRepo => HabitRepository(_uid!);
   MealRepository? get _mealRepo => _uid == null ? null : MealRepository(_uid!);
   ExerciseRepository? get _exerciseRepo =>
       _uid == null ? null : ExerciseRepository(_uid!);
@@ -1190,39 +1245,10 @@ class _RootShellState extends State<RootShell> {
     }
   }
 
-  int _calcStreakFromRecent(List<HabitEntry> recent) {
-    if (recent.isEmpty) return 0;
-
-    final dates = recent.map((e) => _toDateOnly(e.date)).toSet().toList()
-      ..sort((a, b) => b.compareTo(a));
-
-    final today = _toDateOnly(DateTime.now());
-    int streak = 0;
-    DateTime cursor = today;
-
-    while (dates.contains(cursor)) {
-      streak++;
-      cursor = cursor.subtract(const Duration(days: 1));
-    }
-    return streak;
-  }
-
   Future<void> _reloadAll() async {
     if (_uid == null) return;
 
-    final recent = await _habitRepo.loadRecent(limit: 7);
     final today = _toDateOnly(DateTime.now());
-
-    final todayEntry = recent.firstWhere(
-      (e) => _toDateOnly(e.date) == today,
-      orElse: () => HabitEntry(
-        date: DateTime.fromMillisecondsSinceEpoch(0),
-        habit: '',
-      ),
-    );
-
-    final doneToday = todayEntry.date.millisecondsSinceEpoch != 0;
-    final streak = _calcStreakFromRecent(recent);
     final meals = _mealRepo != null
         ? await _mealRepo!.loadForDate(_selectedDate)
         : <MealLogEntry>[];
@@ -1249,11 +1275,6 @@ class _RootShellState extends State<RootShell> {
         await TrainerMessageRepository(_uid!).loadRecent(limit: 1);
 
     setState(() {
-      _today = TodayStatus(
-        doneToday: doneToday,
-        todayEntry: doneToday ? todayEntry : null,
-        streak: streak,
-      );
       _mealLogs = meals;
       _exerciseLogs = exercises;
       _weightLogs = weights;
@@ -1263,16 +1284,6 @@ class _RootShellState extends State<RootShell> {
       _weekMealLogs = weekMeals;
       _weekExerciseLogs = weekExercises;
     });
-  }
-
-  /// 今日記録 → Firestoreで正確streak更新 → reload → newStreak返す
-  Future<int> _recordToday(String habit) async {
-    if (_uid == null) return 0;
-
-    await _habitRepo.saveToday(habit: habit);
-    final newStreak = await _habitRepo.updateStreakOnCompleteToday();
-    await _reloadAll();
-    return newStreak;
   }
 
   Future<void> _addMeal(MealLogEntry entry) async {
@@ -1372,23 +1383,7 @@ class _RootShellState extends State<RootShell> {
         recentWeightLogs: _recentWeightLogs,
         goals: _goals,
       ),
-      RecordScreen(
-        enabled: !_today.doneToday,
-        habitOptions: habitOptions,
-        onSubmit: (habit) async {
-          setState(() => _loading = true);
-          try {
-            final newStreak = await _recordToday(habit);
-            if (!context.mounted) return;
-            await RewardSparkle.play(context);
-            if (!context.mounted) return;
-            await showPraiseRewardDialog(context, streak: newStreak);
-            setState(() => _index = 0);
-          } finally {
-            if (mounted) setState(() => _loading = false);
-          }
-        },
-      ),
+      SharedNotesScreen(uid: _uid ?? ''),
       SettingsScreen(
         goals: _goals,
         onSave: _updateGoals,
@@ -1526,9 +1521,9 @@ class _RootShellState extends State<RootShell> {
             label: '進捗',
           ),
           NavigationDestination(
-            icon: Icon(Icons.edit_outlined),
-            selectedIcon: Icon(Icons.edit),
-            label: '記録',
+            icon: Icon(Icons.folder_outlined),
+            selectedIcon: Icon(Icons.folder),
+            label: 'ノート',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
@@ -1805,11 +1800,13 @@ class _TrainerCustomerDetailScreenState
   late final ExerciseRepository _exerciseRepo;
   late final WeightRepository _weightRepo;
   late final TrainerMessageRepository _msgRepo;
+  late final SharedNoteRepository _noteRepo;
 
   List<MealLogEntry> _meals = [];
   List<ExerciseLogEntry> _exercises = [];
   List<WeightLogEntry> _weights = [];
   List<TrainerMessage> _messages = [];
+  List<SharedNote> _sharedNotes = [];
   bool _loading = true;
   String? _error;
 
@@ -1821,6 +1818,7 @@ class _TrainerCustomerDetailScreenState
     _exerciseRepo = ExerciseRepository(uid);
     _weightRepo = WeightRepository(uid);
     _msgRepo = TrainerMessageRepository(uid);
+    _noteRepo = SharedNoteRepository(uid);
     _reload();
   }
 
@@ -1831,12 +1829,14 @@ class _TrainerCustomerDetailScreenState
       final exercises = await _exerciseRepo.loadToday();
       final weights = await _weightRepo.loadRecent(limit: 7);
       final messages = await _msgRepo.loadRecent(limit: 3);
+      final notes = await _noteRepo.loadRecent();
       if (mounted) {
         setState(() {
           _meals = meals;
           _exercises = exercises;
           _weights = weights;
           _messages = messages;
+          _sharedNotes = notes;
         });
       }
     } catch (e) {
@@ -1950,6 +1950,30 @@ class _TrainerCustomerDetailScreenState
                         ),
                         const SizedBox(height: 22),
                         _CustomerInfoCard(customer: widget.customer),
+                        const SizedBox(height: 22),
+                        Text(
+                          '共有ノート',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF444444),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SharedNoteInputField(
+                          onSave: ({required String title, required String body}) async {
+                            await _noteRepo.saveNote(SharedNote(
+                              title: title,
+                              body: body,
+                              trainerUid: widget.trainerUid,
+                              createdAt: DateTime.now(),
+                            ));
+                            await _reload();
+                          },
+                        ),
+                        if (_sharedNotes.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          ..._sharedNotes.map((n) => _SharedNoteCard(note: n)),
+                        ],
                         const SizedBox(height: 22),
                         Text(
                           '今日の食事',
@@ -3614,6 +3638,299 @@ class _RecordScreenState extends State<RecordScreen> {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// ----------------------------
+/// SharedNotesScreen (顧客側「ノート」タブ)
+/// ----------------------------
+
+class SharedNotesScreen extends StatefulWidget {
+  const SharedNotesScreen({super.key, required this.uid});
+  final String uid;
+
+  @override
+  State<SharedNotesScreen> createState() => _SharedNotesScreenState();
+}
+
+class _SharedNotesScreenState extends State<SharedNotesScreen> {
+  SharedNoteRepository? _repo;
+  List<SharedNote> _notes = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.uid.isNotEmpty) {
+      _repo = SharedNoteRepository(widget.uid);
+      _load();
+    } else {
+      _loading = false;
+    }
+  }
+
+  Future<void> _load() async {
+    if (_repo == null) return;
+    if (mounted) setState(() => _loading = true);
+    try {
+      final notes = await _repo!.loadRecent();
+      if (mounted) setState(() => _notes = notes);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+          children: [
+            Text(
+              'ノート',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF111111),
+                fontSize: 22,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'トレーナーからの共有ノート',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: const Color(0xFF888888),
+              ),
+            ),
+            const SizedBox(height: 20),
+            if (_loading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (_notes.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.folder_outlined,
+                      size: 56,
+                      color: Color(0xFFCCCCCC),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'トレーナーからのノートはまだありません',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFFAAAAAA),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              )
+            else
+              ..._notes.map((note) => _SharedNoteCard(note: note)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SharedNoteCard extends StatelessWidget {
+  const _SharedNoteCard({required this.note});
+  final SharedNote note;
+
+  String _formatDate(DateTime dt) =>
+      '${dt.year}/${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0F000000),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.sticky_note_2_outlined,
+                  size: 16,
+                  color: Color(0xFF4A90E2),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    note.title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF222222),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              note.body,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF444444),
+                height: 1.6,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                _formatDate(note.createdAt),
+                style: const TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SharedNoteInputField extends StatefulWidget {
+  const SharedNoteInputField({super.key, required this.onSave});
+  final Future<void> Function({required String title, required String body}) onSave;
+
+  @override
+  State<SharedNoteInputField> createState() => _SharedNoteInputFieldState();
+}
+
+class _SharedNoteInputFieldState extends State<SharedNoteInputField> {
+  final _titleCtrl = TextEditingController();
+  final _bodyCtrl = TextEditingController();
+  bool _expanded = false;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _bodyCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final title = _titleCtrl.text.trim();
+    final body = _bodyCtrl.text.trim();
+    if (title.isEmpty || body.isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      await widget.onSave(title: title, body: body);
+      _titleCtrl.clear();
+      _bodyCtrl.clear();
+      if (mounted) {
+        setState(() => _expanded = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ノートを投稿しました')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_expanded) {
+      return OutlinedButton.icon(
+        onPressed: () => setState(() => _expanded = true),
+        icon: const Icon(Icons.add, size: 18),
+        label: const Text('ノートを追加'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF4A90E2),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _titleCtrl,
+          maxLength: 50,
+          textInputAction: TextInputAction.next,
+          decoration: const InputDecoration(
+            labelText: 'タイトル',
+            border: OutlineInputBorder(),
+            isDense: true,
+            counterText: '',
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _bodyCtrl,
+          minLines: 3,
+          maxLines: 8,
+          maxLength: 500,
+          decoration: const InputDecoration(
+            labelText: '内容',
+            border: OutlineInputBorder(),
+            isDense: true,
+            counterText: '',
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            TextButton(
+              onPressed: () => setState(() {
+                _expanded = false;
+                _titleCtrl.clear();
+                _bodyCtrl.clear();
+              }),
+              child: const Text('キャンセル'),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilledButton(
+                onPressed: (_titleCtrl.text.trim().isEmpty ||
+                        _bodyCtrl.text.trim().isEmpty ||
+                        _saving)
+                    ? null
+                    : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF4A90E2),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('投稿', style: TextStyle(color: Colors.white)),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

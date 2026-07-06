@@ -116,6 +116,44 @@ describe('users/{uid}/trainerMessages', () => {
   });
 });
 
+// ── N: sharedNotes ─────────────────────────────────────────────────
+describe('users/{uid}/sharedNotes', () => {
+  it('N-1: 本人（顧客）は read できる', async () => {
+    const db = testEnv.authenticatedContext(USER_UID).firestore();
+    await assertSucceeds(getDoc(doc(db, `users/${USER_UID}/sharedNotes/n1`)));
+  });
+
+  it('N-2: 本人（顧客）は write できない', async () => {
+    const db = testEnv.authenticatedContext(USER_UID).firestore();
+    await assertFails(setDoc(doc(db, `users/${USER_UID}/sharedNotes/n1`), { title: 'test', body: 'hi' }));
+  });
+
+  it('N-3: 紐づきトレーナーは read + write できる', async () => {
+    await linkTrainer(USER_UID, TRAINER_UID);
+    const db = testEnv.authenticatedContext(TRAINER_UID).firestore();
+    await assertSucceeds(setDoc(doc(db, `users/${USER_UID}/sharedNotes/n1`), { title: 'test', body: 'hi' }));
+    await assertSucceeds(getDoc(doc(db, `users/${USER_UID}/sharedNotes/n1`)));
+  });
+
+  it('N-4: 無関係トレーナーは read/write できない', async () => {
+    const db = testEnv.authenticatedContext(OTHER_TRAINER_UID).firestore();
+    await assertFails(getDoc(doc(db, `users/${USER_UID}/sharedNotes/n1`)));
+    await assertFails(setDoc(doc(db, `users/${USER_UID}/sharedNotes/n1`), { title: 'test', body: 'hi' }));
+  });
+
+  it('N-5: 未認証は read/write できない', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(getDoc(doc(db, `users/${USER_UID}/sharedNotes/n1`)));
+    await assertFails(setDoc(doc(db, `users/${USER_UID}/sharedNotes/n1`), { title: 'test', body: 'hi' }));
+  });
+
+  it('N-6: 他の顧客は read/write できない', async () => {
+    const db = testEnv.authenticatedContext(OTHER_UID).firestore();
+    await assertFails(getDoc(doc(db, `users/${USER_UID}/sharedNotes/n1`)));
+    await assertFails(setDoc(doc(db, `users/${USER_UID}/sharedNotes/n1`), { title: 'test', body: 'hi' }));
+  });
+});
+
 // ── T: trainers/customers ──────────────────────────────────────────
 describe('trainers/{trainerUid}/customers', () => {
   it('T-1: 本人トレーナーは read/write できる', async () => {
