@@ -26,9 +26,10 @@ void main() {
     });
 
     test('FS-6: 最大4件まで返る', () {
-      // 「100」は複数候補にヒットする
-      final results = searchFoodSuggestions('100');
+      // 「ん」は白米(ごはん)・玄米(げんまい)・鶏むね肉(ちきん)・オートミール(えんばく)等5件以上ヒットするが上限4件
+      final results = searchFoodSuggestions('ん');
       expect(results.length, lessThanOrEqualTo(4));
+      expect(results.length, equals(4));
     });
 
     test('FS-7: 白米のkcal/PFC参考値が正しい', () {
@@ -45,6 +46,33 @@ void main() {
       final results = searchFoodSuggestions('鶏むね肉');
       expect(results, isNotEmpty);
       expect(results.first.kcal, 108);
+    });
+
+    // ── かな・別名検索テスト ────────────────────────────────────────
+
+    test('FS-9: 「しろ」で白米が返る（かな検索: しろまい）', () {
+      final results = searchFoodSuggestions('しろ');
+      expect(results.any((f) => f.name == '白米'), isTrue);
+    });
+
+    test('FS-10: 「ごはん」で白米が返る（別名検索）', () {
+      final results = searchFoodSuggestions('ごはん');
+      expect(results.any((f) => f.name == '白米'), isTrue);
+    });
+
+    test('FS-11: 「とり」で鶏むね肉が返る（かな検索）', () {
+      final results = searchFoodSuggestions('とり');
+      expect(results.any((f) => f.name == '鶏むね肉'), isTrue);
+    });
+
+    test('FS-12: 「たまご」で卵が返る（かな検索）', () {
+      final results = searchFoodSuggestions('たまご');
+      expect(results.any((f) => f.name == '卵'), isTrue);
+    });
+
+    test('FS-13: 「ぷろて」でプロテインが返る（かな検索）', () {
+      final results = searchFoodSuggestions('ぷろて');
+      expect(results.any((f) => f.name == 'プロテイン'), isTrue);
     });
   });
 }

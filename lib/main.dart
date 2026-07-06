@@ -4184,6 +4184,7 @@ class _MealInputSheetState extends State<MealInputSheet> {
   bool _saving = false;
 
   List<FoodSuggestion> _suggestions = [];
+  FoodSuggestion? _pickedSuggestion;
 
   @override
   void dispose() {
@@ -4196,13 +4197,48 @@ class _MealInputSheetState extends State<MealInputSheet> {
   }
 
   void _pickFoodSuggestion(FoodSuggestion s) {
-    // onChanged は programmatic な text 変更では発火しないため _picking フラグ不要
-    _nameCtrl.text = s.name;
+    _nameCtrl.text = '${s.name} ${s.baseAmount}${s.baseUnit}';
     _kcalCtrl.text = s.kcal.toString();
     _proteinCtrl.text = s.protein.toString();
     _fatCtrl.text = s.fat.toString();
     _carbCtrl.text = s.carb.toString();
-    setState(() => _suggestions = []);
+    setState(() {
+      _suggestions = [];
+      _pickedSuggestion = s;
+    });
+  }
+
+  void _applyAmountOption(FoodSuggestion s, AmountOption opt) {
+    final factor = opt.amount / s.baseAmount;
+    _nameCtrl.text = '${s.name} ${opt.label}';
+    _kcalCtrl.text = (s.kcal * factor).round().toString();
+    _proteinCtrl.text = (s.protein * factor).toStringAsFixed(1);
+    _fatCtrl.text = (s.fat * factor).toStringAsFixed(1);
+    _carbCtrl.text = (s.carb * factor).toStringAsFixed(1);
+    setState(() {});
+  }
+
+  Widget _buildAmountOptions() {
+    final s = _pickedSuggestion;
+    if (s == null || s.amountOptions.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        children: s.amountOptions
+            .map((opt) => OutlinedButton(
+                  onPressed: () => _applyAmountOption(s, opt),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(opt.label, style: const TextStyle(fontSize: 13)),
+                ))
+            .toList(),
+      ),
+    );
   }
 
   Widget _buildFoodSuggestions() {
@@ -4240,7 +4276,7 @@ class _MealInputSheetState extends State<MealInputSheet> {
                     child: Text(s.name, style: const TextStyle(fontSize: 14)),
                   ),
                   Text(
-                    '${s.kcal} kcal  P${s.protein}  F${s.fat}  C${s.carb}',
+                    '${s.kcal} kcal/${s.baseAmount}${s.baseUnit}  P${s.protein}  F${s.fat}  C${s.carb}',
                     style: const TextStyle(fontSize: 11, color: Color(0xFF888888)),
                   ),
                 ],
@@ -4318,6 +4354,7 @@ class _MealInputSheetState extends State<MealInputSheet> {
               controller: _nameCtrl,
               onChanged: (text) => setState(() {
                 _suggestions = searchFoodSuggestions(text);
+                _pickedSuggestion = null;
               }),
               decoration: const InputDecoration(
                 labelText: '食事名（例：朝食、ランチ）',
@@ -4328,6 +4365,7 @@ class _MealInputSheetState extends State<MealInputSheet> {
                   (v == null || v.trim().isEmpty) ? '食事名を入力してください' : null,
             ),
             _buildFoodSuggestions(),
+            _buildAmountOptions(),
             const SizedBox(height: 12),
             _numField(ctrl: _kcalCtrl, label: 'カロリー (kcal)※参考値', required: true),
             const SizedBox(height: 12),

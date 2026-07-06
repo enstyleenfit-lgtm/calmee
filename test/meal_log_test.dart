@@ -143,4 +143,101 @@ void main() {
     await tester.pumpAndSettle();
     expect(deletedId, 'meal-1');
   });
+
+  // ── 量ボタンテスト ────────────────────────────────────────────
+
+  testWidgets('MA-1: 白米候補を選択すると量ボタンが表示される', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // かな検索 'しろ' → 候補に '白米' が表示される（EditableText='しろ' ≠ Text='白米'）
+    await tester.enterText(find.byType(TextFormField).at(0), 'しろ');
+    await tester.pump();
+    await tester.tap(find.text('白米'));
+    await tester.pump();
+
+    expect(find.text('100g'), findsOneWidget);
+    expect(find.text('200g'), findsOneWidget);
+  });
+
+  testWidgets('MA-2: 白米 200g ボタンをタップすると kcal が 336 になる', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'しろ');
+    await tester.pump();
+    await tester.tap(find.text('白米'));
+    await tester.pump();
+
+    await tester.tap(find.text('200g'));
+    await tester.pump();
+
+    // 量ボタンは OutlinedButton（TextFormField ではない）なのでインデックスは不変
+    // name(0), kcal(1), protein(2), fat(3), carb(4)
+    final kcalCtrl = tester
+        .widget<TextFormField>(find.byType(TextFormField).at(1))
+        .controller;
+    expect(kcalCtrl?.text, '336'); // 168 × (200/100) = 336
+  });
+
+  testWidgets('MA-3: 白米 200g ボタンをタップすると protein が 5.0 になる', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'しろ');
+    await tester.pump();
+    await tester.tap(find.text('白米'));
+    await tester.pump();
+
+    await tester.tap(find.text('200g'));
+    await tester.pump();
+
+    final proteinCtrl = tester
+        .widget<TextFormField>(find.byType(TextFormField).at(2))
+        .controller;
+    expect(proteinCtrl?.text, '5.0'); // 2.5 × (200/100) = 5.0
+  });
+
+  testWidgets('MA-4: 卵 2個 ボタンをタップすると kcal が 182 になる', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // かな検索 'たまご' → 候補に '卵' が表示される（EditableText='たまご' ≠ Text='卵'）
+    await tester.enterText(find.byType(TextFormField).at(0), 'たまご');
+    await tester.pump();
+    await tester.tap(find.text('卵'));
+    await tester.pump();
+
+    await tester.tap(find.text('2個'));
+    await tester.pump();
+
+    final kcalCtrl = tester
+        .widget<TextFormField>(find.byType(TextFormField).at(1))
+        .controller;
+    expect(kcalCtrl?.text, '182'); // 91 × (2/1) = 182
+  });
+
+  testWidgets('MA-5: 鶏むね肉 150g ボタンをタップすると kcal が 162 になる', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // かな検索 'とり' → 候補に '鶏むね肉' が表示される（EditableText='とり' ≠ Text='鶏むね肉'）
+    await tester.enterText(find.byType(TextFormField).at(0), 'とり');
+    await tester.pump();
+    await tester.tap(find.text('鶏むね肉'));
+    await tester.pump();
+
+    await tester.tap(find.text('150g'));
+    await tester.pump();
+
+    final kcalCtrl = tester
+        .widget<TextFormField>(find.byType(TextFormField).at(1))
+        .controller;
+    expect(kcalCtrl?.text, '162'); // (108 × 1.5).round() = 162
+  });
 }
