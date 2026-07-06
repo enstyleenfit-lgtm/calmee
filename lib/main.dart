@@ -1189,6 +1189,7 @@ class _RootShellState extends State<RootShell> {
   List<TrainerMessage> _trainerMessages = [];
   List<MealLogEntry> _weekMealLogs = [];
   List<ExerciseLogEntry> _weekExerciseLogs = [];
+  List<SharedNote> _sharedNotes = [];
 
   @override
   void initState() {
@@ -1273,6 +1274,7 @@ class _RootShellState extends State<RootShell> {
         : const GoalSettings();
     final trainerMsgs =
         await TrainerMessageRepository(_uid!).loadRecent(limit: 1);
+    final sharedNotes = await SharedNoteRepository(_uid!).loadRecent();
 
     setState(() {
       _mealLogs = meals;
@@ -1283,6 +1285,7 @@ class _RootShellState extends State<RootShell> {
       _trainerMessages = trainerMsgs;
       _weekMealLogs = weekMeals;
       _weekExerciseLogs = weekExercises;
+      _sharedNotes = sharedNotes;
     });
   }
 
@@ -1383,7 +1386,20 @@ class _RootShellState extends State<RootShell> {
         recentWeightLogs: _recentWeightLogs,
         goals: _goals,
       ),
-      SharedNotesScreen(uid: _uid ?? ''),
+      SharedNotesScreen(
+        loading: _loading,
+        mealLogs: _mealLogs,
+        exerciseLogs: _exerciseLogs,
+        weightLogs: _weightLogs,
+        notes: _sharedNotes,
+        goals: _goals,
+        selectedDate: _selectedDate,
+        onRefresh: () async {
+          setState(() => _loading = true);
+          await _reloadAll();
+          if (mounted) setState(() => _loading = false);
+        },
+      ),
       SettingsScreen(
         goals: _goals,
         onSave: _updateGoals,
@@ -3646,47 +3662,37 @@ class _RecordScreenState extends State<RecordScreen> {
 /// SharedNotesScreen (顧客側「ノート」タブ)
 /// ----------------------------
 
-class SharedNotesScreen extends StatefulWidget {
-  const SharedNotesScreen({super.key, required this.uid});
-  final String uid;
+class SharedNotesScreen extends StatelessWidget {
+  const SharedNotesScreen({
+    super.key,
+    required this.loading,
+    required this.mealLogs,
+    required this.exerciseLogs,
+    required this.weightLogs,
+    required this.notes,
+    required this.goals,
+    required this.onRefresh,
+    required this.selectedDate,
+  });
 
-  @override
-  State<SharedNotesScreen> createState() => _SharedNotesScreenState();
-}
+  final bool loading;
+  final List<MealLogEntry> mealLogs;
+  final List<ExerciseLogEntry> exerciseLogs;
+  final List<WeightLogEntry> weightLogs;
+  final List<SharedNote> notes;
+  final GoalSettings goals;
+  final Future<void> Function() onRefresh;
+  final DateTime selectedDate;
 
-class _SharedNotesScreenState extends State<SharedNotesScreen> {
-  SharedNoteRepository? _repo;
-  List<SharedNote> _notes = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.uid.isNotEmpty) {
-      _repo = SharedNoteRepository(widget.uid);
-      _load();
-    } else {
-      _loading = false;
-    }
-  }
-
-  Future<void> _load() async {
-    if (_repo == null) return;
-    if (mounted) setState(() => _loading = true);
-    try {
-      final notes = await _repo!.loadRecent();
-      if (mounted) setState(() => _notes = notes);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
+  int get _intake => mealLogs.fold(0, (s, m) => s + m.kcal);
+  int get _burn => exerciseLogs.fold(0, (s, e) => s + e.kcal);
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: _load,
+        onRefresh: onRefresh,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
           children: [
@@ -3698,44 +3704,97 @@ class _SharedNotesScreenState extends State<SharedNotesScreen> {
                 fontSize: 22,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'トレーナーからの共有ノート',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: const Color(0xFF888888),
-              ),
-            ),
-            const SizedBox(height: 20),
-            if (_loading)
+            const SizedBox(height: 16),
+            if (loading)
               const Center(
                 child: Padding(
                   padding: EdgeInsets.all(32),
                   child: CircularProgressIndicator(),
                 ),
               )
-            else if (_notes.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.folder_outlined,
-                      size: 56,
-                      color: Color(0xFFCCCCCC),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'トレーナーからのノートはまだありません',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFFAAAAAA),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+            else ...[
+              _TodaySummaryCard(
+                intake: _intake,
+                burn: _burn,
+                selectedDate: selectedDate,
+              ),
+              const SizedBox(height: 22),
+              Text(
+                '今日の食事',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF444444),
                 ),
-              )
-            else
-              ..._notes.map((note) => _SharedNoteCard(note: note)),
+              ),
+              const SizedBox(height: 10),
+              if (mealLogs.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    '食事記録はありません',
+                    style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
+                  ),
+                )
+              else
+                ...mealLogs.map((m) => _MealCard(entry: m)),
+              const SizedBox(height: 22),
+              Text(
+                '今日の運動',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF444444),
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (exerciseLogs.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    '運動記録はありません',
+                    style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
+                  ),
+                )
+              else
+                ...exerciseLogs.map((e) => _ExerciseCard(entry: e)),
+              const SizedBox(height: 22),
+              Text(
+                '今日の体重',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF444444),
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (weightLogs.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    '体重記録はありません',
+                    style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
+                  ),
+                )
+              else
+                ...weightLogs.map((w) => _WeightCard(entry: w)),
+              const SizedBox(height: 22),
+              Text(
+                'トレーナーノート',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF444444),
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (notes.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'トレーナーからのノートはまだありません',
+                    style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
+                  ),
+                )
+              else
+                ...notes.map((note) => _SharedNoteCard(note: note)),
+            ],
           ],
         ),
       ),
@@ -3809,6 +3868,124 @@ class _SharedNoteCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _TodaySummaryCard extends StatelessWidget {
+  const _TodaySummaryCard({
+    required this.intake,
+    required this.burn,
+    required this.selectedDate,
+  });
+
+  final int intake;
+  final int burn;
+  final DateTime selectedDate;
+
+  bool get _isToday {
+    final today = DateTime.now();
+    return selectedDate.year == today.year &&
+        selectedDate.month == today.month &&
+        selectedDate.day == today.day;
+  }
+
+  String get _dateLabel =>
+      _isToday ? '今日のまとめ' : '${selectedDate.month}/${selectedDate.day} のまとめ';
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _dateLabel,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF222222),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _SummaryItem(
+                  label: '摂取',
+                  value: intake,
+                  color: const Color(0xFF5CB8B2),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _SummaryItem(
+                  label: '消費',
+                  value: burn,
+                  color: const Color(0xFFE27B4A),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryItem extends StatelessWidget {
+  const _SummaryItem({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final int value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      decoration: BoxDecoration(
+        color: Color.fromRGBO(color.r.toInt(), color.g.toInt(), color.b.toInt(), 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$value kcal',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }
