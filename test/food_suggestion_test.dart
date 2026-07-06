@@ -74,5 +74,57 @@ void main() {
       final results = searchFoodSuggestions('ぷろて');
       expect(results.any((f) => f.name == 'プロテイン'), isTrue);
     });
+
+    // ── 追加食品の検索テスト ──────────────────────────────────────
+
+    test('FS-14: 「なっとう」で納豆が返る', () {
+      final results = searchFoodSuggestions('なっとう');
+      expect(results.any((f) => f.name == '納豆'), isTrue);
+    });
+
+    test('FS-15: 「ぶろっこ」でブロッコリーが返る', () {
+      final results = searchFoodSuggestions('ぶろっこ');
+      expect(results.any((f) => f.name == 'ブロッコリー'), isTrue);
+    });
+
+    test('FS-16: 「ばなな」でバナナが返る', () {
+      final results = searchFoodSuggestions('ばなな');
+      expect(results.any((f) => f.name == 'バナナ'), isTrue);
+    });
+
+    test('FS-17: 「さらだちきん」でサラダチキンが返る', () {
+      final results = searchFoodSuggestions('さらだちきん');
+      expect(results.any((f) => f.name == 'サラダチキン'), isTrue);
+    });
+
+    test('FS-18: 「あん」でこしあんが返る', () {
+      final results = searchFoodSuggestions('あん');
+      expect(results.any((f) => f.name == 'こしあん'), isTrue);
+    });
+
+    test('FS-19: 「はちみ」ではちみつが返る', () {
+      final results = searchFoodSuggestions('はちみ');
+      expect(results.any((f) => f.name == 'はちみつ'), isTrue);
+    });
+
+    // ── amountOptions テスト ──────────────────────────────────────
+
+    test('FS-20: 白米の amountOptions が空でない', () {
+      final results = searchFoodSuggestions('白米');
+      expect(results, isNotEmpty);
+      expect(results.first.amountOptions, isNotEmpty);
+    });
+
+    test('FS-21: ブロッコリーの amountOptions が空でない', () {
+      final results = searchFoodSuggestions('ぶろっこ');
+      expect(results, isNotEmpty);
+      expect(results.first.amountOptions, isNotEmpty);
+    });
+
+    test('FS-22: サラダチキンの amountOptions が空でない', () {
+      final results = searchFoodSuggestions('さらだちきん');
+      expect(results, isNotEmpty);
+      expect(results.first.amountOptions, isNotEmpty);
+    });
   });
 }
