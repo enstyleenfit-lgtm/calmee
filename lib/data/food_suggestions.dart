@@ -969,15 +969,22 @@ const List<FoodSuggestion> _kFoodSuggestions = [
   ),
 ];
 
-/// キーワードで食事候補を検索する（部分一致・大文字小文字無視、最大4件）
+/// キーワードで食事候補を検索する（最大4件）
 ///
-/// [searchTerms] を対象に検索するため、漢字・かな・別名すべてで検索可能。
+/// startsWith一致を優先し、1文字入力でも意図した候補が先頭に表示される。
+/// その後 contains一致で補完する。
 List<FoodSuggestion> searchFoodSuggestions(String query) {
   final q = query.trim();
   if (q.isEmpty) return const [];
   final lower = q.toLowerCase();
-  return _kFoodSuggestions
-      .where((f) => f.searchTerms.any((t) => t.toLowerCase().contains(lower)))
-      .take(4)
-      .toList();
+  final starts = <FoodSuggestion>[];
+  final others = <FoodSuggestion>[];
+  for (final f in _kFoodSuggestions) {
+    if (f.searchTerms.any((t) => t.toLowerCase().startsWith(lower))) {
+      starts.add(f);
+    } else if (f.searchTerms.any((t) => t.toLowerCase().contains(lower))) {
+      others.add(f);
+    }
+  }
+  return [...starts, ...others].take(4).toList();
 }

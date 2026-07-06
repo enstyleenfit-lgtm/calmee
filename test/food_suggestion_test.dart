@@ -126,5 +126,27 @@ void main() {
       expect(results, isNotEmpty);
       expect(results.first.amountOptions, isNotEmpty);
     });
+
+    // ── 1文字検索テスト ───────────────────────────────────────────
+
+    test('FS-23: 「と」で鶏むね肉が返る（1文字ひらがな検索）', () {
+      final results = searchFoodSuggestions('と');
+      expect(results.any((f) => f.name == '鶏むね肉'), isTrue);
+    });
+
+    test('FS-24: 「た」で卵が返る（1文字ひらがな検索）', () {
+      final results = searchFoodSuggestions('た');
+      expect(results.any((f) => f.name == '卵'), isTrue);
+    });
+
+    test('FS-25: 「ぷ」でプロテインが返る（1文字ひらがな検索）', () {
+      final results = searchFoodSuggestions('ぷ');
+      expect(results.any((f) => f.name == 'プロテイン'), isTrue);
+    });
+
+    test('FS-26: 「な」で納豆が返る（startsWith優先: さかなより先）', () {
+      final results = searchFoodSuggestions('な');
+      expect(results.any((f) => f.name == '納豆'), isTrue);
+    });
   });
 }

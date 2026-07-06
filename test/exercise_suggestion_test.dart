@@ -126,6 +126,28 @@ void main() {
       expect(results, isNotEmpty);
       expect(results.first.isStrengthTraining, isTrue);
     });
+
+    // ── 1文字ひらがな検索テスト ──────────────────────────────────
+
+    test('ES-23: 「す」でスクワットが返る（1文字ひらがな検索）', () {
+      final results = searchExerciseSuggestions('す');
+      expect(results.any((e) => e.name == 'スクワット'), isTrue);
+    });
+
+    test('ES-24: 「べ」でベンチプレスが返る（1文字ひらがな検索）', () {
+      final results = searchExerciseSuggestions('べ');
+      expect(results.any((e) => e.name == 'ベンチプレス'), isTrue);
+    });
+
+    test('ES-25: 「で」でデッドリフトが返る（1文字ひらがな検索）', () {
+      final results = searchExerciseSuggestions('で');
+      expect(results.any((e) => e.name == 'デッドリフト'), isTrue);
+    });
+
+    test('ES-26: 「さ」でサイドレイズが返る（1文字ひらがな検索）', () {
+      final results = searchExerciseSuggestions('さ');
+      expect(results.any((e) => e.name == 'サイドレイズ'), isTrue);
+    });
   });
 
   group('calcEstimatedKcal', () {
