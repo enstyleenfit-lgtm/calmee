@@ -96,4 +96,41 @@ void main() {
     expect(find.text('追加'), findsOneWidget);
     expect(find.text('キャンセル'), findsOneWidget);
   });
+
+  testWidgets('AC-9: ヒントテキストに「貼り付け、または入力してください」が含まれる', (tester) async {
+    await openDialog(tester);
+    expect(find.text('顧客IDを貼り付け、または入力してください'), findsOneWidget);
+  });
+
+  testWidgets('AC-10: ペーストボタン（クリップボード専用ボタン）は表示されない', (tester) async {
+    // Ctrl+V / 右クリック貼り付け前提のため、専用ペーストボタンは不要
+    await openDialog(tester);
+    expect(find.byIcon(Icons.content_paste), findsNothing);
+    expect(find.byIcon(Icons.content_paste_outlined), findsNothing);
+  });
+
+  testWidgets('AC-11: 手入力したUIDで正常に追加できる（UID文字列が返る）', (tester) async {
+    String? result;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (ctx) => ElevatedButton(
+            onPressed: () async {
+              result = await showDialog<String>(
+                context: ctx,
+                builder: (_) => const AddCustomerDialog(),
+              );
+            },
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), 'manual-uid-xyz');
+    await tester.tap(find.text('追加'));
+    await tester.pumpAndSettle();
+    expect(result, 'manual-uid-xyz');
+  });
 }

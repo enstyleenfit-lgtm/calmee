@@ -2649,9 +2649,10 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
         key: _formKey,
         child: TextFormField(
           controller: _uidCtrl,
+          autofocus: true,
           decoration: const InputDecoration(
             labelText: '顧客のUID',
-            hintText: '顧客アプリの設定画面で確認できます',
+            hintText: '顧客IDを貼り付け、または入力してください',
             border: OutlineInputBorder(),
             isDense: true,
           ),
