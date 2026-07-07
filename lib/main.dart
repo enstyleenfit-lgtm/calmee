@@ -857,6 +857,225 @@ class SharedNoteRepository {
 }
 
 /// ----------------------------
+/// Karte models
+/// ----------------------------
+
+class KarteBasicInfo {
+  const KarteBasicInfo({
+    this.age,
+    this.gender = '',
+    this.height,
+    this.currentWeight,
+    this.targetWeight,
+    this.bodyFatPct,
+    this.lifestyleRhythm = '',
+  });
+  final int? age;
+  final String gender;
+  final double? height;
+  final double? currentWeight;
+  final double? targetWeight;
+  final double? bodyFatPct;
+  final String lifestyleRhythm;
+
+  Map<String, dynamic> toMap() => {
+        'age': age,
+        'gender': gender,
+        'height': height,
+        'currentWeight': currentWeight,
+        'targetWeight': targetWeight,
+        'bodyFatPct': bodyFatPct,
+        'lifestyleRhythm': lifestyleRhythm,
+      };
+
+  static KarteBasicInfo fromMap(Map<String, dynamic> m) => KarteBasicInfo(
+        age: m['age'] as int?,
+        gender: (m['gender'] as String?) ?? '',
+        height: (m['height'] as num?)?.toDouble(),
+        currentWeight: (m['currentWeight'] as num?)?.toDouble(),
+        targetWeight: (m['targetWeight'] as num?)?.toDouble(),
+        bodyFatPct: (m['bodyFatPct'] as num?)?.toDouble(),
+        lifestyleRhythm: (m['lifestyleRhythm'] as String?) ?? '',
+      );
+}
+
+class KarteHearing {
+  const KarteHearing({
+    this.referralSource = '',
+    this.motivation = '',
+    this.concerns = '',
+    this.dietHistory = '',
+    this.exerciseHistory = '',
+    this.dietChallenges = '',
+    this.medicalNotes = '',
+  });
+  final String referralSource;
+  final String motivation;
+  final String concerns;
+  final String dietHistory;
+  final String exerciseHistory;
+  final String dietChallenges;
+  final String medicalNotes;
+
+  Map<String, dynamic> toMap() => {
+        'referralSource': referralSource,
+        'motivation': motivation,
+        'concerns': concerns,
+        'dietHistory': dietHistory,
+        'exerciseHistory': exerciseHistory,
+        'dietChallenges': dietChallenges,
+        'medicalNotes': medicalNotes,
+      };
+
+  static KarteHearing fromMap(Map<String, dynamic> m) => KarteHearing(
+        referralSource: (m['referralSource'] as String?) ?? '',
+        motivation: (m['motivation'] as String?) ?? '',
+        concerns: (m['concerns'] as String?) ?? '',
+        dietHistory: (m['dietHistory'] as String?) ?? '',
+        exerciseHistory: (m['exerciseHistory'] as String?) ?? '',
+        dietChallenges: (m['dietChallenges'] as String?) ?? '',
+        medicalNotes: (m['medicalNotes'] as String?) ?? '',
+      );
+}
+
+class KarteGoals {
+  const KarteGoals({
+    this.finalGoal = '',
+    this.threeMonthGoal = '',
+    this.oneMonthGoal = '',
+    this.eventSchedule = '',
+    this.goalReason = '',
+    this.avoidState = '',
+  });
+  final String finalGoal;
+  final String threeMonthGoal;
+  final String oneMonthGoal;
+  final String eventSchedule;
+  final String goalReason;
+  final String avoidState;
+
+  Map<String, dynamic> toMap() => {
+        'finalGoal': finalGoal,
+        'threeMonthGoal': threeMonthGoal,
+        'oneMonthGoal': oneMonthGoal,
+        'eventSchedule': eventSchedule,
+        'goalReason': goalReason,
+        'avoidState': avoidState,
+      };
+
+  static KarteGoals fromMap(Map<String, dynamic> m) => KarteGoals(
+        finalGoal: (m['finalGoal'] as String?) ?? '',
+        threeMonthGoal: (m['threeMonthGoal'] as String?) ?? '',
+        oneMonthGoal: (m['oneMonthGoal'] as String?) ?? '',
+        eventSchedule: (m['eventSchedule'] as String?) ?? '',
+        goalReason: (m['goalReason'] as String?) ?? '',
+        avoidState: (m['avoidState'] as String?) ?? '',
+      );
+}
+
+class KarteProfile {
+  const KarteProfile({
+    this.basicInfo = const KarteBasicInfo(),
+    this.hearing = const KarteHearing(),
+    this.goals = const KarteGoals(),
+  });
+  final KarteBasicInfo basicInfo;
+  final KarteHearing hearing;
+  final KarteGoals goals;
+
+  Map<String, dynamic> toMap() => {
+        'basicInfo': basicInfo.toMap(),
+        'hearing': hearing.toMap(),
+        'goals': goals.toMap(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+  static KarteProfile fromMap(Map<String, dynamic> m) => KarteProfile(
+        basicInfo: KarteBasicInfo.fromMap(
+            (m['basicInfo'] as Map<String, dynamic>?) ?? {}),
+        hearing: KarteHearing.fromMap(
+            (m['hearing'] as Map<String, dynamic>?) ?? {}),
+        goals: KarteGoals.fromMap(
+            (m['goals'] as Map<String, dynamic>?) ?? {}),
+      );
+}
+
+class KartePrivate {
+  const KartePrivate({
+    this.currentChallenges = '',
+    this.cautions = '',
+    this.nextCheckItems = '',
+    this.motivationTrend = '',
+    this.coachingStyle = '',
+  });
+  final String currentChallenges;
+  final String cautions;
+  final String nextCheckItems;
+  final String motivationTrend;
+  final String coachingStyle;
+
+  Map<String, dynamic> toMap() => {
+        'currentChallenges': currentChallenges,
+        'cautions': cautions,
+        'nextCheckItems': nextCheckItems,
+        'motivationTrend': motivationTrend,
+        'coachingStyle': coachingStyle,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+  static KartePrivate fromMap(Map<String, dynamic> m) => KartePrivate(
+        currentChallenges: (m['currentChallenges'] as String?) ?? '',
+        cautions: (m['cautions'] as String?) ?? '',
+        nextCheckItems: (m['nextCheckItems'] as String?) ?? '',
+        motivationTrend: (m['motivationTrend'] as String?) ?? '',
+        coachingStyle: (m['coachingStyle'] as String?) ?? '',
+      );
+}
+
+/// ----------------------------
+/// KarteRepository
+/// ----------------------------
+
+class KarteRepository {
+  KarteRepository(this.customerUid);
+  final String customerUid;
+
+  DocumentReference<Map<String, dynamic>> get _profileRef =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(customerUid)
+          .collection('karteProfile')
+          .doc('data');
+
+  DocumentReference<Map<String, dynamic>> get _privateRef =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(customerUid)
+          .collection('kartePrivate')
+          .doc('data');
+
+  Future<KarteProfile> loadProfile() async {
+    final snap = await _profileRef.get();
+    if (!snap.exists || snap.data() == null) return const KarteProfile();
+    return KarteProfile.fromMap(snap.data()!);
+  }
+
+  Future<void> saveProfile(KarteProfile profile) async {
+    await _profileRef.set(profile.toMap());
+  }
+
+  Future<KartePrivate> loadPrivate() async {
+    final snap = await _privateRef.get();
+    if (!snap.exists || snap.data() == null) return const KartePrivate();
+    return KartePrivate.fromMap(snap.data()!);
+  }
+
+  Future<void> savePrivate(KartePrivate private) async {
+    await _privateRef.set(private.toMap());
+  }
+}
+
+/// ----------------------------
 /// TrainerCustomerRepository
 /// ----------------------------
 
@@ -1884,6 +2103,21 @@ class _TrainerCustomerDetailScreenState
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.description_outlined),
+            color: const Color(0xFF444444),
+            tooltip: 'カルテ',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CustomerKarteScreen(
+                  customerUid: widget.customer.customerUid,
+                  customerName: widget.customer.displayName,
+                  trainerUid: widget.trainerUid,
+                ),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             color: const Color(0xFF444444),
@@ -4108,6 +4342,819 @@ class _SharedNoteInputFieldState extends State<SharedNoteInputField> {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// ----------------------------
+/// CustomerKarteScreen
+/// ----------------------------
+
+class CustomerKarteScreen extends StatefulWidget {
+  const CustomerKarteScreen({
+    super.key,
+    required this.customerUid,
+    required this.customerName,
+    required this.trainerUid,
+  });
+  final String customerUid;
+  final String customerName;
+  final String trainerUid;
+
+  @override
+  State<CustomerKarteScreen> createState() => _CustomerKarteScreenState();
+}
+
+class _CustomerKarteScreenState extends State<CustomerKarteScreen>
+    with SingleTickerProviderStateMixin {
+  late final KarteRepository _repo;
+  late final TabController _tabController;
+  KarteProfile _profile = const KarteProfile();
+  KartePrivate _private = const KartePrivate();
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+    _repo = KarteRepository(widget.customerUid);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    if (mounted) setState(() { _loading = true; _error = null; });
+    try {
+      final profile = await _repo.loadProfile();
+      final private = await _repo.loadPrivate();
+      if (mounted) {
+        setState(() {
+          _profile = profile;
+          _private = private;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _saveProfile(KarteProfile profile) async {
+    await _repo.saveProfile(profile);
+    if (mounted) {
+      setState(() => _profile = profile);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('保存しました'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Color(0xFF5CB8B2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _savePrivate(KartePrivate private) async {
+    await _repo.savePrivate(private);
+    if (mounted) {
+      setState(() => _private = private);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('保存しました'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Color(0xFF5CB8B2),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F7),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          color: const Color(0xFF111111),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          '${widget.customerName} のカルテ',
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF111111),
+            fontSize: 17,
+          ),
+        ),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: const Color(0xFF5CB8B2),
+          unselectedLabelColor: const Color(0xFF888888),
+          indicatorColor: const Color(0xFF5CB8B2),
+          labelStyle:
+              const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          tabs: const [
+            Tab(text: '基本情報'),
+            Tab(text: 'ヒアリング'),
+            Tab(text: 'ゴール'),
+            Tab(text: 'メモ'),
+          ],
+        ),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      '読み込みエラー\n$_error',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          fontSize: 13, color: Color(0xFF888888)),
+                    ),
+                  ),
+                )
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    KarteBasicInfoTab(
+                      info: _profile.basicInfo,
+                      onSave: (info) => _saveProfile(KarteProfile(
+                        basicInfo: info,
+                        hearing: _profile.hearing,
+                        goals: _profile.goals,
+                      )),
+                    ),
+                    KarteHearingTab(
+                      hearing: _profile.hearing,
+                      onSave: (hearing) => _saveProfile(KarteProfile(
+                        basicInfo: _profile.basicInfo,
+                        hearing: hearing,
+                        goals: _profile.goals,
+                      )),
+                    ),
+                    KarteGoalsTab(
+                      goals: _profile.goals,
+                      onSave: (goals) => _saveProfile(KarteProfile(
+                        basicInfo: _profile.basicInfo,
+                        hearing: _profile.hearing,
+                        goals: goals,
+                      )),
+                    ),
+                    KarteTrainerMemoTab(
+                      memo: _private,
+                      onSave: _savePrivate,
+                    ),
+                  ],
+                ),
+    );
+  }
+}
+
+// ── Karte ヘルパーウィジェット ──────────────────────────────────────
+
+class _KarteField extends StatelessWidget {
+  const _KarteField({
+    required this.label,
+    required this.controller,
+    this.hint = '',
+    this.keyboardType,
+    this.maxLines = 1,
+  });
+  final String label;
+  final TextEditingController controller;
+  final String hint;
+  final TextInputType? keyboardType;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF666666),
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: controller,
+            keyboardType:
+                maxLines > 1 ? TextInputType.multiline : keyboardType,
+            maxLines: maxLines,
+            textInputAction: maxLines > 1
+                ? TextInputAction.newline
+                : TextInputAction.next,
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle:
+                  const TextStyle(color: Color(0xFFCCCCCC), fontSize: 14),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide:
+                    const BorderSide(color: Color(0xFF5CB8B2), width: 1.5),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _KarteSectionHeader extends StatelessWidget {
+  const _KarteSectionHeader(this.title);
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, top: 4),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF5CB8B2),
+          letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+}
+
+class _GenderSelector extends StatelessWidget {
+  const _GenderSelector({required this.value, required this.onChanged});
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '性別',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF666666),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            children: [
+              _chip('male', '男性'),
+              _chip('female', '女性'),
+              _chip('other', 'その他'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(String v, String label) {
+    final selected = value == v;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onChanged(v),
+      selectedColor: const Color(0xFFD7EFEE),
+      labelStyle: TextStyle(
+        color:
+            selected ? const Color(0xFF5CB8B2) : const Color(0xFF666666),
+        fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
+        fontSize: 13,
+      ),
+      backgroundColor: const Color(0xFFF5F5F7),
+      side: BorderSide(
+        color: selected
+            ? const Color(0xFF5CB8B2)
+            : const Color(0xFFE0E0E0),
+      ),
+    );
+  }
+}
+
+class _KarteSaveButton extends StatelessWidget {
+  const _KarteSaveButton(
+      {required this.saving, required this.onPressed});
+  final bool saving;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: saving ? null : onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF5CB8B2),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
+        ),
+        child: saving
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
+              )
+            : const Text('保存する',
+                style: TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w700)),
+      ),
+    );
+  }
+}
+
+// ── KarteBasicInfoTab ──────────────────────────────────────────────
+
+class KarteBasicInfoTab extends StatefulWidget {
+  const KarteBasicInfoTab(
+      {super.key, required this.info, required this.onSave});
+  final KarteBasicInfo info;
+  final Future<void> Function(KarteBasicInfo) onSave;
+
+  @override
+  State<KarteBasicInfoTab> createState() => _KarteBasicInfoTabState();
+}
+
+class _KarteBasicInfoTabState extends State<KarteBasicInfoTab> {
+  late final TextEditingController _ageCtrl;
+  late final TextEditingController _heightCtrl;
+  late final TextEditingController _currentWeightCtrl;
+  late final TextEditingController _targetWeightCtrl;
+  late final TextEditingController _bodyFatCtrl;
+  late final TextEditingController _lifestyleCtrl;
+  String _gender = '';
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final i = widget.info;
+    _ageCtrl = TextEditingController(text: i.age?.toString() ?? '');
+    _heightCtrl = TextEditingController(text: i.height?.toString() ?? '');
+    _currentWeightCtrl =
+        TextEditingController(text: i.currentWeight?.toString() ?? '');
+    _targetWeightCtrl =
+        TextEditingController(text: i.targetWeight?.toString() ?? '');
+    _bodyFatCtrl =
+        TextEditingController(text: i.bodyFatPct?.toString() ?? '');
+    _lifestyleCtrl = TextEditingController(text: i.lifestyleRhythm);
+    _gender = i.gender;
+  }
+
+  @override
+  void dispose() {
+    _ageCtrl.dispose();
+    _heightCtrl.dispose();
+    _currentWeightCtrl.dispose();
+    _targetWeightCtrl.dispose();
+    _bodyFatCtrl.dispose();
+    _lifestyleCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await widget.onSave(KarteBasicInfo(
+        age: int.tryParse(_ageCtrl.text),
+        gender: _gender,
+        height: double.tryParse(_heightCtrl.text),
+        currentWeight: double.tryParse(_currentWeightCtrl.text),
+        targetWeight: double.tryParse(_targetWeightCtrl.text),
+        bodyFatPct: double.tryParse(_bodyFatCtrl.text),
+        lifestyleRhythm: _lifestyleCtrl.text.trim(),
+      ));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _KarteSectionHeader('基本スペック'),
+          _KarteField(
+              label: '年齢',
+              controller: _ageCtrl,
+              keyboardType: TextInputType.number,
+              hint: '例：25'),
+          _GenderSelector(
+              value: _gender,
+              onChanged: (v) => setState(() => _gender = v)),
+          _KarteField(
+              label: '身長 (cm)',
+              controller: _heightCtrl,
+              keyboardType: TextInputType.number,
+              hint: '例：165.0'),
+          _KarteField(
+              label: '現在体重 (kg)',
+              controller: _currentWeightCtrl,
+              keyboardType: TextInputType.number,
+              hint: '例：60.0'),
+          _KarteField(
+              label: '目標体重 (kg)',
+              controller: _targetWeightCtrl,
+              keyboardType: TextInputType.number,
+              hint: '例：55.0'),
+          _KarteField(
+              label: '体脂肪率 (%)',
+              controller: _bodyFatCtrl,
+              keyboardType: TextInputType.number,
+              hint: '例：25.0'),
+          const _KarteSectionHeader('生活習慣'),
+          _KarteField(
+              label: '生活リズム',
+              controller: _lifestyleCtrl,
+              maxLines: 3,
+              hint: '例：平日9-18時勤務、週末は活動的'),
+          const SizedBox(height: 8),
+          _KarteSaveButton(saving: _saving, onPressed: _save),
+        ],
+      ),
+    );
+  }
+}
+
+// ── KarteHearingTab ────────────────────────────────────────────────
+
+class KarteHearingTab extends StatefulWidget {
+  const KarteHearingTab(
+      {super.key, required this.hearing, required this.onSave});
+  final KarteHearing hearing;
+  final Future<void> Function(KarteHearing) onSave;
+
+  @override
+  State<KarteHearingTab> createState() => _KarteHearingTabState();
+}
+
+class _KarteHearingTabState extends State<KarteHearingTab> {
+  late final TextEditingController _referralCtrl;
+  late final TextEditingController _motivationCtrl;
+  late final TextEditingController _concernsCtrl;
+  late final TextEditingController _dietHistoryCtrl;
+  late final TextEditingController _exerciseHistoryCtrl;
+  late final TextEditingController _dietChallengesCtrl;
+  late final TextEditingController _medicalNotesCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final h = widget.hearing;
+    _referralCtrl = TextEditingController(text: h.referralSource);
+    _motivationCtrl = TextEditingController(text: h.motivation);
+    _concernsCtrl = TextEditingController(text: h.concerns);
+    _dietHistoryCtrl = TextEditingController(text: h.dietHistory);
+    _exerciseHistoryCtrl = TextEditingController(text: h.exerciseHistory);
+    _dietChallengesCtrl = TextEditingController(text: h.dietChallenges);
+    _medicalNotesCtrl = TextEditingController(text: h.medicalNotes);
+  }
+
+  @override
+  void dispose() {
+    _referralCtrl.dispose();
+    _motivationCtrl.dispose();
+    _concernsCtrl.dispose();
+    _dietHistoryCtrl.dispose();
+    _exerciseHistoryCtrl.dispose();
+    _dietChallengesCtrl.dispose();
+    _medicalNotesCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await widget.onSave(KarteHearing(
+        referralSource: _referralCtrl.text.trim(),
+        motivation: _motivationCtrl.text.trim(),
+        concerns: _concernsCtrl.text.trim(),
+        dietHistory: _dietHistoryCtrl.text.trim(),
+        exerciseHistory: _exerciseHistoryCtrl.text.trim(),
+        dietChallenges: _dietChallengesCtrl.text.trim(),
+        medicalNotes: _medicalNotesCtrl.text.trim(),
+      ));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _KarteSectionHeader('きっかけ・動機'),
+          _KarteField(
+              label: 'どこから問い合わせたか',
+              controller: _referralCtrl,
+              hint: '例：Instagram広告、友人の紹介'),
+          _KarteField(
+              label: 'なぜ始めたいのか',
+              controller: _motivationCtrl,
+              maxLines: 3,
+              hint: '例：結婚式が3ヶ月後に控えているため'),
+          _KarteField(
+              label: '何に悩んでいるのか',
+              controller: _concernsCtrl,
+              maxLines: 3,
+              hint: '例：食欲が抑えられない、運動が続かない'),
+          const _KarteSectionHeader('過去の経験'),
+          _KarteField(
+              label: '過去のダイエット歴',
+              controller: _dietHistoryCtrl,
+              maxLines: 3,
+              hint: '例：2年前にライザップ、-8kg→リバウンド'),
+          _KarteField(
+              label: '運動経験',
+              controller: _exerciseHistoryCtrl,
+              maxLines: 3,
+              hint: '例：学生時代はサッカー部、ここ5年は運動なし'),
+          const _KarteSectionHeader('食事・健康'),
+          _KarteField(
+              label: '食事の課題',
+              controller: _dietChallengesCtrl,
+              maxLines: 3,
+              hint: '例：外食が多い、夜遅く食べる癖がある'),
+          _KarteField(
+              label: '既往歴・注意事項',
+              controller: _medicalNotesCtrl,
+              maxLines: 3,
+              hint: '例：高血圧、膝に古傷あり'),
+          const SizedBox(height: 8),
+          _KarteSaveButton(saving: _saving, onPressed: _save),
+        ],
+      ),
+    );
+  }
+}
+
+// ── KarteGoalsTab ──────────────────────────────────────────────────
+
+class KarteGoalsTab extends StatefulWidget {
+  const KarteGoalsTab(
+      {super.key, required this.goals, required this.onSave});
+  final KarteGoals goals;
+  final Future<void> Function(KarteGoals) onSave;
+
+  @override
+  State<KarteGoalsTab> createState() => _KarteGoalsTabState();
+}
+
+class _KarteGoalsTabState extends State<KarteGoalsTab> {
+  late final TextEditingController _finalGoalCtrl;
+  late final TextEditingController _threeMonthCtrl;
+  late final TextEditingController _oneMonthCtrl;
+  late final TextEditingController _eventCtrl;
+  late final TextEditingController _reasonCtrl;
+  late final TextEditingController _avoidCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final g = widget.goals;
+    _finalGoalCtrl = TextEditingController(text: g.finalGoal);
+    _threeMonthCtrl = TextEditingController(text: g.threeMonthGoal);
+    _oneMonthCtrl = TextEditingController(text: g.oneMonthGoal);
+    _eventCtrl = TextEditingController(text: g.eventSchedule);
+    _reasonCtrl = TextEditingController(text: g.goalReason);
+    _avoidCtrl = TextEditingController(text: g.avoidState);
+  }
+
+  @override
+  void dispose() {
+    _finalGoalCtrl.dispose();
+    _threeMonthCtrl.dispose();
+    _oneMonthCtrl.dispose();
+    _eventCtrl.dispose();
+    _reasonCtrl.dispose();
+    _avoidCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await widget.onSave(KarteGoals(
+        finalGoal: _finalGoalCtrl.text.trim(),
+        threeMonthGoal: _threeMonthCtrl.text.trim(),
+        oneMonthGoal: _oneMonthCtrl.text.trim(),
+        eventSchedule: _eventCtrl.text.trim(),
+        goalReason: _reasonCtrl.text.trim(),
+        avoidState: _avoidCtrl.text.trim(),
+      ));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _KarteSectionHeader('目標'),
+          _KarteField(
+              label: '最終目標',
+              controller: _finalGoalCtrl,
+              maxLines: 2,
+              hint: '例：ウェディングドレスを着られる体型になる'),
+          _KarteField(
+              label: '3ヶ月目標',
+              controller: _threeMonthCtrl,
+              maxLines: 2,
+              hint: '例：体重 -5kg、体脂肪率 -3%'),
+          _KarteField(
+              label: '1ヶ月目標',
+              controller: _oneMonthCtrl,
+              maxLines: 2,
+              hint: '例：体重 -1.5kg、食事記録を毎日つける'),
+          _KarteField(
+              label: '大会/イベント予定',
+              controller: _eventCtrl,
+              hint: '例：2026年9月 結婚式'),
+          const _KarteSectionHeader('背景・制約'),
+          _KarteField(
+              label: '目標になった理由',
+              controller: _reasonCtrl,
+              maxLines: 3,
+              hint: '例：毎年夏に着られる服が減っていて自信を失っていた'),
+          _KarteField(
+              label: '絶対に避けたい状態',
+              controller: _avoidCtrl,
+              maxLines: 2,
+              hint: '例：急激な減量による筋肉減少、食事制限によるストレス'),
+          const SizedBox(height: 8),
+          _KarteSaveButton(saving: _saving, onPressed: _save),
+        ],
+      ),
+    );
+  }
+}
+
+// ── KarteTrainerMemoTab ────────────────────────────────────────────
+
+class KarteTrainerMemoTab extends StatefulWidget {
+  const KarteTrainerMemoTab(
+      {super.key, required this.memo, required this.onSave});
+  final KartePrivate memo;
+  final Future<void> Function(KartePrivate) onSave;
+
+  @override
+  State<KarteTrainerMemoTab> createState() => _KarteTrainerMemoTabState();
+}
+
+class _KarteTrainerMemoTabState extends State<KarteTrainerMemoTab> {
+  late final TextEditingController _challengesCtrl;
+  late final TextEditingController _cautionsCtrl;
+  late final TextEditingController _nextCheckCtrl;
+  late final TextEditingController _motivationCtrl;
+  late final TextEditingController _coachingCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final m = widget.memo;
+    _challengesCtrl = TextEditingController(text: m.currentChallenges);
+    _cautionsCtrl = TextEditingController(text: m.cautions);
+    _nextCheckCtrl = TextEditingController(text: m.nextCheckItems);
+    _motivationCtrl = TextEditingController(text: m.motivationTrend);
+    _coachingCtrl = TextEditingController(text: m.coachingStyle);
+  }
+
+  @override
+  void dispose() {
+    _challengesCtrl.dispose();
+    _cautionsCtrl.dispose();
+    _nextCheckCtrl.dispose();
+    _motivationCtrl.dispose();
+    _coachingCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await widget.onSave(KartePrivate(
+        currentChallenges: _challengesCtrl.text.trim(),
+        cautions: _cautionsCtrl.text.trim(),
+        nextCheckItems: _nextCheckCtrl.text.trim(),
+        motivationTrend: _motivationCtrl.text.trim(),
+        coachingStyle: _coachingCtrl.text.trim(),
+      ));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3E0),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFFFCC80)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.lock_outline,
+                    size: 14, color: Color(0xFFE67E22)),
+                SizedBox(width: 6),
+                Text(
+                  'このタブはトレーナーのみ閲覧できます',
+                  style: TextStyle(
+                      fontSize: 12, color: Color(0xFFE67E22)),
+                ),
+              ],
+            ),
+          ),
+          const _KarteSectionHeader('現状把握'),
+          _KarteField(
+              label: '現在の課題',
+              controller: _challengesCtrl,
+              maxLines: 3,
+              hint: '例：夜の食欲コントロールが難しい、筋トレのフォームが崩れやすい'),
+          _KarteField(
+              label: '注意点',
+              controller: _cautionsCtrl,
+              maxLines: 3,
+              hint: '例：左膝に痛みが出やすい、急かすと続かなくなる'),
+          _KarteField(
+              label: '次回確認すること',
+              controller: _nextCheckCtrl,
+              maxLines: 3,
+              hint: '例：先週の食事記録の振り返り、スクワットのフォーム確認'),
+          const _KarteSectionHeader('コミュニケーション'),
+          _KarteField(
+              label: 'モチベーション傾向',
+              controller: _motivationCtrl,
+              maxLines: 3,
+              hint: '例：数字で結果が出ると頑張れる、記録を褒めると嬉しそう'),
+          _KarteField(
+              label: '声かけ方',
+              controller: _coachingCtrl,
+              maxLines: 3,
+              hint: '例：厳しい言い方より共感ベースで話す、具体的なアドバイスを好む'),
+          const SizedBox(height: 8),
+          _KarteSaveButton(saving: _saving, onPressed: _save),
+        ],
+      ),
     );
   }
 }

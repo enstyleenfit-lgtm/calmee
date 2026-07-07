@@ -60,6 +60,19 @@ service cloud.firestore {
                            && isLinkedTrainer(uid, request.auth.uid);
       }
 
+      // 顧客カルテ（顧客に見せてもよい情報）：顧客 read、担当トレーナー read + write
+      match /karteProfile/{docId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow read, write: if request.auth != null
+                           && isLinkedTrainer(uid, request.auth.uid);
+      }
+
+      // 顧客カルテ（トレーナー専用）：担当トレーナーのみ read + write
+      match /kartePrivate/{docId} {
+        allow read, write: if request.auth != null
+                           && isLinkedTrainer(uid, request.auth.uid);
+      }
+
       // 目標設定：本人のみ
       match /settings/{docId} {
         allow read, write: if request.auth != null && request.auth.uid == uid;

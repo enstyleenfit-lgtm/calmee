@@ -154,6 +154,53 @@ describe('users/{uid}/sharedNotes', () => {
   });
 });
 
+// ── K: karteProfile ───────────────────────────────────────────────
+describe('users/{uid}/karteProfile', () => {
+  it('K-1: 担当トレーナーは karteProfile を read/write できる', async () => {
+    await linkTrainer(USER_UID, TRAINER_UID);
+    const db = testEnv.authenticatedContext(TRAINER_UID).firestore();
+    await assertSucceeds(setDoc(doc(db, `users/${USER_UID}/karteProfile/data`), { basicInfo: {} }));
+    await assertSucceeds(getDoc(doc(db, `users/${USER_UID}/karteProfile/data`)));
+  });
+
+  it('K-2: 顧客は karteProfile を read できる', async () => {
+    const db = testEnv.authenticatedContext(USER_UID).firestore();
+    await assertSucceeds(getDoc(doc(db, `users/${USER_UID}/karteProfile/data`)));
+  });
+
+  it('K-3: 顧客は karteProfile を write できない', async () => {
+    const db = testEnv.authenticatedContext(USER_UID).firestore();
+    await assertFails(setDoc(doc(db, `users/${USER_UID}/karteProfile/data`), { basicInfo: {} }));
+  });
+
+  it('K-4: 無関係トレーナーは karteProfile を read/write できない', async () => {
+    const db = testEnv.authenticatedContext(OTHER_TRAINER_UID).firestore();
+    await assertFails(getDoc(doc(db, `users/${USER_UID}/karteProfile/data`)));
+    await assertFails(setDoc(doc(db, `users/${USER_UID}/karteProfile/data`), { basicInfo: {} }));
+  });
+});
+
+// ── K: kartePrivate ───────────────────────────────────────────────
+describe('users/{uid}/kartePrivate', () => {
+  it('K-5: 担当トレーナーは kartePrivate を read/write できる', async () => {
+    await linkTrainer(USER_UID, TRAINER_UID);
+    const db = testEnv.authenticatedContext(TRAINER_UID).firestore();
+    await assertSucceeds(setDoc(doc(db, `users/${USER_UID}/kartePrivate/data`), { currentChallenges: 'test' }));
+    await assertSucceeds(getDoc(doc(db, `users/${USER_UID}/kartePrivate/data`)));
+  });
+
+  it('K-6: 顧客は kartePrivate を read できない', async () => {
+    const db = testEnv.authenticatedContext(USER_UID).firestore();
+    await assertFails(getDoc(doc(db, `users/${USER_UID}/kartePrivate/data`)));
+  });
+
+  it('K-7: 無関係トレーナーは kartePrivate を read/write できない', async () => {
+    const db = testEnv.authenticatedContext(OTHER_TRAINER_UID).firestore();
+    await assertFails(getDoc(doc(db, `users/${USER_UID}/kartePrivate/data`)));
+    await assertFails(setDoc(doc(db, `users/${USER_UID}/kartePrivate/data`), { currentChallenges: 'test' }));
+  });
+});
+
 // ── T: trainers/customers ──────────────────────────────────────────
 describe('trainers/{trainerUid}/customers', () => {
   it('T-1: 本人トレーナーは read/write できる', async () => {
