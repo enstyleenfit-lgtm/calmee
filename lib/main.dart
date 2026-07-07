@@ -2091,12 +2091,14 @@ class _TrainerCustomerDetailScreenState
   late final WeightRepository _weightRepo;
   late final TrainerMessageRepository _msgRepo;
   late final SharedNoteRepository _noteRepo;
+  late final KarteRepository _karteRepo;
 
   List<MealLogEntry> _meals = [];
   List<ExerciseLogEntry> _exercises = [];
   List<WeightLogEntry> _weights = [];
   List<TrainerMessage> _messages = [];
   List<SharedNote> _sharedNotes = [];
+  KarteGoals _karteGoals = const KarteGoals();
   bool _loading = true;
   String? _error;
 
@@ -2109,6 +2111,7 @@ class _TrainerCustomerDetailScreenState
     _weightRepo = WeightRepository(uid);
     _msgRepo = TrainerMessageRepository(uid);
     _noteRepo = SharedNoteRepository(uid);
+    _karteRepo = KarteRepository(uid);
     _reload();
   }
 
@@ -2120,6 +2123,7 @@ class _TrainerCustomerDetailScreenState
       final weights = await _weightRepo.loadRecent(limit: 7);
       final messages = await _msgRepo.loadRecent(limit: 3);
       final notes = await _noteRepo.loadRecent();
+      final karteProfile = await _karteRepo.loadProfile();
       if (mounted) {
         setState(() {
           _meals = meals;
@@ -2127,6 +2131,7 @@ class _TrainerCustomerDetailScreenState
           _weights = weights;
           _messages = messages;
           _sharedNotes = notes;
+          _karteGoals = karteProfile.goals;
         });
       }
     } catch (e) {
@@ -2256,6 +2261,20 @@ class _TrainerCustomerDetailScreenState
                         const SizedBox(height: 22),
                         _CustomerInfoCard(customer: widget.customer),
                         const SizedBox(height: 22),
+                        CustomerGoalCard(
+                          goals: _karteGoals,
+                          onOpenKarte: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CustomerKarteScreen(
+                                customerUid: widget.customer.customerUid,
+                                customerName: widget.customer.displayName,
+                                trainerUid: widget.trainerUid,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 22),
                         Text(
                           '共有ノート',
                           style: theme.textTheme.titleSmall?.copyWith(
@@ -2335,6 +2354,140 @@ class _TrainerCustomerDetailScreenState
                       ],
                     ),
         ),
+      ),
+    );
+  }
+}
+
+class CustomerGoalCard extends StatelessWidget {
+  const CustomerGoalCard({
+    super.key,
+    required this.goals,
+    required this.onOpenKarte,
+  });
+  final KarteGoals goals;
+  final VoidCallback onOpenKarte;
+
+  bool get _hasAnyGoal =>
+      goals.finalGoal.isNotEmpty ||
+      goals.threeMonthGoal.isNotEmpty ||
+      goals.oneMonthGoal.isNotEmpty ||
+      goals.goalReason.isNotEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.flag_outlined,
+                  size: 18, color: Color(0xFF5CB8B2)),
+              const SizedBox(width: 6),
+              Text(
+                '目標',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF444444),
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: onOpenKarte,
+                style: TextButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'カルテを開く',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          if (!_hasAnyGoal) ...[
+            const SizedBox(height: 14),
+            const Center(
+              child: Text(
+                '目標はまだ設定されていません',
+                style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Center(
+              child: OutlinedButton(
+                onPressed: onOpenKarte,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF5CB8B2),
+                  side: const BorderSide(color: Color(0xFF5CB8B2)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text('カルテで設定する'),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            if (goals.finalGoal.isNotEmpty)
+              _GoalRow(label: '最終目標', value: goals.finalGoal),
+            if (goals.threeMonthGoal.isNotEmpty)
+              _GoalRow(label: '3ヶ月目標', value: goals.threeMonthGoal),
+            if (goals.oneMonthGoal.isNotEmpty)
+              _GoalRow(label: '1ヶ月目標', value: goals.oneMonthGoal),
+            if (goals.goalReason.isNotEmpty)
+              _GoalRow(label: '目標の理由', value: goals.goalReason),
+            if (goals.eventSchedule.isNotEmpty)
+              _GoalRow(label: 'イベント予定', value: goals.eventSchedule),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _GoalRow extends StatelessWidget {
+  const _GoalRow({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF999999),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF222222)),
+          ),
+        ],
       ),
     );
   }
