@@ -1178,17 +1178,14 @@ class UserProfile {
     this.displayName,
   });
 
-  // ドキュメントなし or role フィールドなし → "customer" 扱い
-  static UserProfile defaultCustomer(String uid) =>
-      UserProfile(uid: uid, role: 'customer');
-
+  // ドキュメントなし or role フィールドなし → 未選択扱い（空文字）
   static UserProfile fromDoc(
       String uid, DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data();
-    if (data == null) return UserProfile.defaultCustomer(uid);
+    if (data == null) return UserProfile(uid: uid, role: '');
     return UserProfile(
       uid: uid,
-      role: (data['role'] as String?) ?? 'customer',
+      role: (data['role'] as String?) ?? '',
       displayName: data['displayName'] as String?,
     );
   }
@@ -1208,6 +1205,10 @@ class ProfileRepository {
   Future<UserProfile> load() async {
     final doc = await _ref.get();
     return UserProfile.fromDoc(uid, doc);
+  }
+
+  Future<void> saveRole(String role) async {
+    await _ref.set({'role': role}, SetOptions(merge: true));
   }
 }
 
@@ -1550,11 +1551,47 @@ class _RootShellState extends State<RootShell> {
     await _reloadAll();
   }
 
+  Future<void> _setRole(String role) async {
+    if (_uid == null) return;
+    setState(() => _loading = true);
+    try {
+      await _profileRepo!.saveRole(role);
+      if (mounted) {
+        setState(() {
+          _profile = UserProfile(
+            uid: _uid!,
+            role: role,
+            displayName: _profile?.displayName,
+          );
+        });
+      }
+      if (role == 'customer') await _reloadAll();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 初期ロード中（profile未取得）
+    if (_loading && _profile == null) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF5F5F7),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // ロール未選択
+    if (_profile == null || _profile!.role.isEmpty) {
+      return RoleSelectorScreen(onSelect: _setRole);
+    }
+
     // trainer ロールは専用画面へ
-    if (_profile?.role == 'trainer') {
-      return TrainerHomeScreen(profile: _profile!);
+    if (_profile!.role == 'trainer') {
+      return TrainerHomeScreen(
+        profile: _profile!,
+        onSwitchToCustomer: () => _setRole('customer'),
+      );
     }
 
     final screens = <Widget>[
@@ -1622,6 +1659,8 @@ class _RootShellState extends State<RootShell> {
       SettingsScreen(
         goals: _goals,
         onSave: _updateGoals,
+        role: _profile?.role ?? 'customer',
+        onRoleChange: _setRole,
       ),
     ];
 
@@ -1776,8 +1815,9 @@ class _RootShellState extends State<RootShell> {
 /// ----------------------------
 
 class TrainerHomeScreen extends StatefulWidget {
-  const TrainerHomeScreen({super.key, required this.profile});
+  const TrainerHomeScreen({super.key, required this.profile, this.onSwitchToCustomer});
   final UserProfile profile;
+  final VoidCallback? onSwitchToCustomer;
 
   @override
   State<TrainerHomeScreen> createState() => _TrainerHomeScreenState();
@@ -1855,6 +1895,21 @@ class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
             fontSize: 18,
           ),
         ),
+        actions: [
+          if (widget.onSwitchToCustomer != null)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Color(0xFF444444)),
+              onSelected: (v) {
+                if (v == 'switch') widget.onSwitchToCustomer!();
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'switch',
+                  child: Text('お客さんモードに切り替える'),
+                ),
+              ],
+            ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addCustomer,
@@ -5159,6 +5214,132 @@ class _KarteTrainerMemoTabState extends State<KarteTrainerMemoTab> {
   }
 }
 
+/// ----------------------------
+/// RoleSelectorScreen
+/// ----------------------------
+
+class RoleSelectorScreen extends StatelessWidget {
+  const RoleSelectorScreen({super.key, required this.onSelect});
+  final Future<void> Function(String role) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F7),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Spacer(),
+              const Text(
+                'からだ収支へようこそ',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF111111),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '利用方法を選択してください',
+                style: TextStyle(fontSize: 15, color: Color(0xFF888888)),
+              ),
+              const SizedBox(height: 48),
+              _RoleCard(
+                icon: Icons.person_outline,
+                title: 'お客さんとして使う',
+                description: '食事・運動・体重を記録します',
+                onTap: () => onSelect('customer'),
+              ),
+              const SizedBox(height: 16),
+              _RoleCard(
+                icon: Icons.fitness_center_outlined,
+                title: 'トレーナーとして使う',
+                description: '担当顧客の記録・ノート・カルテを確認します',
+                onTap: () => onSelect('trainer'),
+              ),
+              const Spacer(flex: 2),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoleCard extends StatelessWidget {
+  const _RoleCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String title;
+  final String description;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0F000000),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F6F5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: const Color(0xFF5CB8B2), size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF111111),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: const TextStyle(
+                        fontSize: 13, color: Color(0xFF888888)),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Color(0xFFCCCCCC)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class HistoryScreen extends StatelessWidget {
   const HistoryScreen({super.key, required this.loading, required this.recent});
 
@@ -5486,10 +5667,18 @@ class _SummaryCell extends StatelessWidget {
 }
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, required this.goals, required this.onSave});
+  const SettingsScreen({
+    super.key,
+    required this.goals,
+    required this.onSave,
+    this.role = 'customer',
+    this.onRoleChange,
+  });
 
   final GoalSettings goals;
   final Future<void> Function(GoalSettings) onSave;
+  final String role;
+  final Future<void> Function(String)? onRoleChange;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -5530,6 +5719,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _fatCtrl.dispose();
     _carbCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _confirmRoleChange() async {
+    if (widget.onRoleChange == null) return;
+    final newRole = widget.role == 'trainer' ? 'customer' : 'trainer';
+    final newLabel = newRole == 'trainer' ? 'トレーナーモード' : 'お客さんモード';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('利用モードを切り替える'),
+        content: Text('$newLabel に切り替えますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF222222)),
+            child: const Text('切り替える'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await widget.onRoleChange!(newRole);
   }
 
   Future<void> _submit() async {
@@ -5633,6 +5848,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           style: TextStyle(fontSize: 16, color: Colors.white),
                         ),
                 ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            Text(
+              '利用モード',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF444444),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0F000000),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.role == 'trainer'
+                              ? 'トレーナーモード'
+                              : 'お客さんモード',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF111111),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.role == 'trainer'
+                              ? '担当顧客の記録・ノート・カルテを確認します'
+                              : '食事・運動・体重を記録します',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF888888),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: widget.onRoleChange != null
+                        ? _confirmRoleChange
+                        : null,
+                    child: const Text('切り替える'),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 32),

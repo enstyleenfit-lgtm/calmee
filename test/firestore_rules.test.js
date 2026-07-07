@@ -223,9 +223,14 @@ describe('users/{uid}/profile', () => {
     await assertSucceeds(getDoc(doc(db, `users/${USER_UID}/profile/p1`)));
   });
 
-  it('X-2: 本人は write できない', async () => {
+  it('X-2: 本人は write できる（ロール自己選択）', async () => {
     const db = testEnv.authenticatedContext(USER_UID).firestore();
-    await assertFails(setDoc(doc(db, `users/${USER_UID}/profile/p1`), { role: 'customer' }));
+    await assertSucceeds(setDoc(doc(db, `users/${USER_UID}/profile/data`), { role: 'customer' }));
+  });
+
+  it('X-3: 他ユーザーは write できない', async () => {
+    const db = testEnv.authenticatedContext(OTHER_UID).firestore();
+    await assertFails(setDoc(doc(db, `users/${USER_UID}/profile/data`), { role: 'trainer' }));
   });
 });
 
