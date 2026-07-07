@@ -1076,6 +1076,11 @@ class KarteRepository {
 }
 
 /// ----------------------------
+/// CustomerNotFoundException
+class CustomerNotFoundException implements Exception {
+  const CustomerNotFoundException();
+}
+
 /// TrainerCustomerRepository
 /// ----------------------------
 
@@ -1094,7 +1099,25 @@ class TrainerCustomerRepository {
     return snap.docs.map((d) => CustomerLink.fromDoc(d)).toList();
   }
 
-  Future<void> addCustomer(String customerUid, String displayName) async {
+  Future<void> addCustomer(String customerUid) async {
+    // 重複チェック：既にリンク済みなら何もしない
+    final existing = await _ref.doc(customerUid).get();
+    if (existing.exists) return;
+
+    // 顧客の profile を読んで存在確認と displayName 取得
+    final profileSnap = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(customerUid)
+        .collection('profile')
+        .doc('data')
+        .get();
+    if (!profileSnap.exists) throw const CustomerNotFoundException();
+
+    final raw = profileSnap.data()?['displayName'];
+    final displayName = (raw is String && raw.isNotEmpty)
+        ? raw
+        : customerUid.substring(0, customerUid.length.clamp(0, 8));
+
     await _ref.doc(customerUid).set({
       'displayName': displayName,
       'linkedAt': FieldValue.serverTimestamp(),
@@ -1846,13 +1869,29 @@ class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
   }
 
   Future<void> _addCustomer() async {
-    final result = await showDialog<({String uid, String name})>(
+    final uid = await showDialog<String>(
       context: context,
       builder: (_) => const AddCustomerDialog(),
     );
-    if (result == null) return;
-    await _repo.addCustomer(result.uid, result.name);
-    await _reload();
+    if (uid == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _repo.addCustomer(uid);
+      await _reload();
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('顧客を追加しました')),
+        );
+      }
+    } on CustomerNotFoundException {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('顧客IDが見つかりません')),
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('顧客を追加できませんでした')),
+      );
+    }
   }
 
   Future<void> _confirmRemove(CustomerLink customer) async {
@@ -2583,21 +2622,16 @@ class AddCustomerDialog extends StatefulWidget {
 class _AddCustomerDialogState extends State<AddCustomerDialog> {
   final _formKey = GlobalKey<FormState>();
   final _uidCtrl = TextEditingController();
-  final _nameCtrl = TextEditingController();
 
   @override
   void dispose() {
     _uidCtrl.dispose();
-    _nameCtrl.dispose();
     super.dispose();
   }
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-    Navigator.of(context).pop((
-      uid: _uidCtrl.text.trim(),
-      name: _nameCtrl.text.trim(),
-    ));
+    Navigator.of(context).pop(_uidCtrl.text.trim());
   }
 
   @override
@@ -2606,33 +2640,16 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
       title: const Text('顧客を追加'),
       content: Form(
         key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: _uidCtrl,
-              decoration: const InputDecoration(
-                labelText: '顧客のUID',
-                hintText: '顧客アプリのUID（設定画面で確認）',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'UIDを入力してください' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _nameCtrl,
-              decoration: const InputDecoration(
-                labelText: '表示名',
-                hintText: '例：田中様',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? '表示名を入力してください' : null,
-            ),
-          ],
+        child: TextFormField(
+          controller: _uidCtrl,
+          decoration: const InputDecoration(
+            labelText: '顧客のUID',
+            hintText: '顧客アプリの設定画面で確認できます',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+          validator: (v) =>
+              (v == null || v.trim().isEmpty) ? 'UIDを入力してください' : null,
         ),
       ),
       actions: [

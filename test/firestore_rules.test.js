@@ -232,6 +232,16 @@ describe('users/{uid}/profile', () => {
     const db = testEnv.authenticatedContext(OTHER_UID).firestore();
     await assertFails(setDoc(doc(db, `users/${USER_UID}/profile/data`), { role: 'trainer' }));
   });
+
+  it('X-4: 認証済みの別ユーザーも profile を read できる（トレーナーが顧客を検索）', async () => {
+    const db = testEnv.authenticatedContext(OTHER_UID).firestore();
+    await assertSucceeds(getDoc(doc(db, `users/${USER_UID}/profile/data`)));
+  });
+
+  it('X-5: 未認証は profile を read できない', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(getDoc(doc(db, `users/${USER_UID}/profile/data`)));
+  });
 });
 
 // ── E: exerciseLogs ────────────────────────────────────────────────

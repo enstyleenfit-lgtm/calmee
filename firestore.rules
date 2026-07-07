@@ -78,9 +78,10 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
 
-      // プロフィール：本人 read + write（ロール自己選択）
+      // プロフィール：write は本人のみ、read は認証済みユーザー全員（トレーナーが顧客を検索できるように）
       match /profile/{docId} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == uid;
       }
     }
 

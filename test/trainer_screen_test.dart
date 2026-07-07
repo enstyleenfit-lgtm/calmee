@@ -15,7 +15,7 @@ class _TestTrainerShell extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('トレーナーホーム')),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => showDialog<({String uid, String name})>(
+        onPressed: () => showDialog<String>(
           context: context,
           builder: (_) => const AddCustomerDialog(),
         ),
@@ -91,12 +91,12 @@ void main() {
     expect(find.text('顧客を追加'), findsOneWidget);
   });
 
-  testWidgets('T-4: ダイアログに UID フィールドと表示名フィールドが表示される', (tester) async {
+  testWidgets('T-4: ダイアログに UID フィールドが表示される（表示名入力は不要）', (tester) async {
     await tester.pumpWidget(buildShell());
     await tester.tap(find.byIcon(Icons.person_add_outlined));
     await tester.pumpAndSettle();
     expect(find.text('顧客のUID'), findsOneWidget);
-    expect(find.text('表示名'), findsOneWidget);
+    expect(find.text('表示名'), findsNothing);
   });
 
   testWidgets('T-5: 空で追加するとバリデーションエラーが表示される', (tester) async {
@@ -108,14 +108,14 @@ void main() {
     expect(find.text('UIDを入力してください'), findsOneWidget);
   });
 
-  testWidgets('T-6: UID と表示名を入力して追加すると値が返る', (tester) async {
-    ({String uid, String name})? result;
+  testWidgets('T-6: UID を入力して追加すると UID の文字列が返る', (tester) async {
+    String? result;
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: Builder(
           builder: (context) => ElevatedButton(
             onPressed: () async {
-              result = await showDialog<({String uid, String name})>(
+              result = await showDialog<String>(
                 context: context,
                 builder: (_) => const AddCustomerDialog(),
               );
@@ -128,13 +128,11 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'uid-alice-001');
-    await tester.enterText(find.byType(TextFormField).at(1), '田中様');
+    await tester.enterText(find.byType(TextFormField), 'uid-alice-001');
     await tester.tap(find.text('追加'));
     await tester.pumpAndSettle();
 
-    expect(result?.uid, 'uid-alice-001');
-    expect(result?.name, '田中様');
+    expect(result, 'uid-alice-001');
   });
 
   // ── 顧客詳細遷移 ──────────────────────────────────────────
