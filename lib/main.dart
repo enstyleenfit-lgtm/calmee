@@ -5747,6 +5747,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (confirmed == true) await widget.onRoleChange!(newRole);
   }
 
+  Future<void> _confirmReturnToTop() async {
+    if (widget.onRoleChange == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('トップ画面に戻りますか？'),
+        content: const Text(
+          '現在の利用モードを未選択に戻します。記録データは削除されません。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFE24A4A)),
+            child: const Text('戻る'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await widget.onRoleChange!('');
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
@@ -5970,6 +5996,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 color: const Color(0xFFAAAAAA),
               ),
             ),
+            const SizedBox(height: 40),
+            OutlinedButton(
+              onPressed: widget.onRoleChange != null
+                  ? _confirmReturnToTop
+                  : null,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFE24A4A),
+                side: const BorderSide(color: Color(0xFFE24A4A)),
+                minimumSize: const Size.fromHeight(48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Column(
+                children: [
+                  Text(
+                    'デモ用：トップ画面に戻る',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    '利用モード選択画面に戻ります',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
