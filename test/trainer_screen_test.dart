@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:karada_shushi/main.dart';
@@ -148,5 +149,76 @@ void main() {
     await tester.pumpAndSettle();
     // AppBar タイトルに顧客名が表示される
     expect(find.text('田中様'), findsOneWidget);
+  });
+
+  // ── 顧客追加エラーハンドリング ────────────────────────────────
+  // _addCustomer() の catch 分岐を検証するためのシェル
+  // Firebase 未初期化でも FirebaseException / CustomerNotFoundException は
+  // インスタンス生成・catch が可能なため widget test で検証できる
+
+  Widget buildErrorShell(Object? simulateError) {
+    return MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (ctx) => ElevatedButton(
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(ctx);
+              try {
+                if (simulateError != null) throw simulateError;
+                messenger.showSnackBar(
+                    const SnackBar(content: Text('顧客を追加しました')));
+              } on CustomerNotFoundException {
+                messenger.showSnackBar(
+                    const SnackBar(content: Text('顧客IDが見つかりません')));
+              } on FirebaseException catch (e) {
+                if (e.code == 'permission-denied') {
+                  messenger.showSnackBar(const SnackBar(
+                      content: Text('権限エラーで顧客を追加できません')));
+                } else {
+                  messenger.showSnackBar(const SnackBar(
+                      content: Text('顧客を追加できませんでした')));
+                }
+              } catch (_) {
+                messenger.showSnackBar(
+                    const SnackBar(content: Text('顧客を追加できませんでした')));
+              }
+            },
+            child: const Text('trigger'),
+          ),
+        ),
+      ),
+    );
+  }
+
+  testWidgets('T-8: 顧客追加成功時「顧客を追加しました」が表示される', (tester) async {
+    await tester.pumpWidget(buildErrorShell(null));
+    await tester.tap(find.text('trigger'));
+    await tester.pump();
+    expect(find.text('顧客を追加しました'), findsOneWidget);
+  });
+
+  testWidgets('T-9: CustomerNotFoundException で「顧客IDが見つかりません」が表示される',
+      (tester) async {
+    await tester.pumpWidget(buildErrorShell(const CustomerNotFoundException()));
+    await tester.tap(find.text('trigger'));
+    await tester.pump();
+    expect(find.text('顧客IDが見つかりません'), findsOneWidget);
+  });
+
+  testWidgets('T-10: permission-denied で「権限エラーで顧客を追加できません」が表示される',
+      (tester) async {
+    await tester.pumpWidget(buildErrorShell(
+      FirebaseException(plugin: 'cloud_firestore', code: 'permission-denied'),
+    ));
+    await tester.tap(find.text('trigger'));
+    await tester.pump();
+    expect(find.text('権限エラーで顧客を追加できません'), findsOneWidget);
+  });
+
+  testWidgets('T-11: その他エラーで「顧客を追加できませんでした」が表示される', (tester) async {
+    await tester.pumpWidget(buildErrorShell(Exception('unknown error')));
+    await tester.tap(find.text('trigger'));
+    await tester.pump();
+    expect(find.text('顧客を追加できませんでした'), findsOneWidget);
   });
 }

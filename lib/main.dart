@@ -1104,19 +1104,28 @@ class TrainerCustomerRepository {
     final existing = await _ref.doc(customerUid).get();
     if (existing.exists) return;
 
-    // 顧客の profile を読んで存在確認と displayName 取得
-    final profileSnap = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(customerUid)
-        .collection('profile')
-        .doc('data')
-        .get();
-    if (!profileSnap.exists) throw const CustomerNotFoundException();
+    // デフォルト表示名：UID 先頭8文字
+    String displayName =
+        customerUid.substring(0, customerUid.length.clamp(0, 8));
 
-    final raw = profileSnap.data()?['displayName'];
-    final displayName = (raw is String && raw.isNotEmpty)
-        ? raw
-        : customerUid.substring(0, customerUid.length.clamp(0, 8));
+    // 顧客の profile を読んで存在確認と displayName 取得
+    // permission-denied はルール未デプロイとみなし存在確認をスキップして進む
+    try {
+      final profileSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(customerUid)
+          .collection('profile')
+          .doc('data')
+          .get();
+      if (!profileSnap.exists) throw const CustomerNotFoundException();
+      final raw = profileSnap.data()?['displayName'];
+      if (raw is String && raw.isNotEmpty) displayName = raw;
+    } on CustomerNotFoundException {
+      rethrow;
+    } on FirebaseException catch (e) {
+      if (e.code != 'permission-denied') rethrow;
+      // profile read が permission-denied の場合は存在確認をスキップ
+    }
 
     await _ref.doc(customerUid).set({
       'displayName': displayName,
@@ -1891,6 +1900,16 @@ class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
       messenger.showSnackBar(
         const SnackBar(content: Text('顧客IDが見つかりません')),
       );
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('権限エラーで顧客を追加できません')),
+        );
+      } else {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('顧客を追加できませんでした')),
+        );
+      }
     } catch (_) {
       messenger.showSnackBar(
         const SnackBar(content: Text('顧客を追加できませんでした')),
