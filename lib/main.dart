@@ -1433,6 +1433,7 @@ class _RootShellState extends State<RootShell> {
   List<MealLogEntry> _weekMealLogs = [];
   List<ExerciseLogEntry> _weekExerciseLogs = [];
   List<SharedNote> _sharedNotes = [];
+  KarteGoals _karteGoals = const KarteGoals();
 
   @override
   void initState() {
@@ -1518,6 +1519,7 @@ class _RootShellState extends State<RootShell> {
     final trainerMsgs =
         await TrainerMessageRepository(_uid!).loadRecent(limit: 1);
     final sharedNotes = await SharedNoteRepository(_uid!).loadRecent();
+    final karteProfile = await KarteRepository(_uid!).loadProfile();
 
     setState(() {
       _mealLogs = meals;
@@ -1529,6 +1531,7 @@ class _RootShellState extends State<RootShell> {
       _weekMealLogs = weekMeals;
       _weekExerciseLogs = weekExercises;
       _sharedNotes = sharedNotes;
+      _karteGoals = karteProfile.goals;
     });
   }
 
@@ -1672,6 +1675,7 @@ class _RootShellState extends State<RootShell> {
         weightLogs: _weightLogs,
         notes: _sharedNotes,
         goals: _goals,
+        karteGoals: _karteGoals,
         selectedDate: _selectedDate,
         onRefresh: () async {
           setState(() => _loading = true);
@@ -2402,10 +2406,10 @@ class CustomerGoalCard extends StatelessWidget {
   const CustomerGoalCard({
     super.key,
     required this.goals,
-    required this.onOpenKarte,
+    this.onOpenKarte,
   });
   final KarteGoals goals;
-  final VoidCallback onOpenKarte;
+  final VoidCallback? onOpenKarte;
 
   bool get _hasAnyGoal =>
       goals.finalGoal.isNotEmpty ||
@@ -2445,19 +2449,20 @@ class CustomerGoalCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              TextButton(
-                onPressed: onOpenKarte,
-                style: TextButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              if (onOpenKarte != null)
+                TextButton(
+                  onPressed: onOpenKarte,
+                  style: TextButton.styleFrom(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'カルテを開く',
+                    style: TextStyle(fontSize: 12),
+                  ),
                 ),
-                child: const Text(
-                  'カルテを開く',
-                  style: TextStyle(fontSize: 12),
-                ),
-              ),
             ],
           ),
           if (!_hasAnyGoal) ...[
@@ -2468,20 +2473,22 @@ class CustomerGoalCard extends StatelessWidget {
                 style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
               ),
             ),
-            const SizedBox(height: 10),
-            Center(
-              child: OutlinedButton(
-                onPressed: onOpenKarte,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF5CB8B2),
-                  side: const BorderSide(color: Color(0xFF5CB8B2)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+            if (onOpenKarte != null) ...[
+              const SizedBox(height: 10),
+              Center(
+                child: OutlinedButton(
+                  onPressed: onOpenKarte,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF5CB8B2),
+                    side: const BorderSide(color: Color(0xFF5CB8B2)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
+                  child: const Text('カルテで設定する'),
                 ),
-                child: const Text('カルテで設定する'),
               ),
-            ),
+            ],
           ] else ...[
             const SizedBox(height: 12),
             if (goals.finalGoal.isNotEmpty)
@@ -4132,6 +4139,7 @@ class SharedNotesScreen extends StatelessWidget {
     required this.goals,
     required this.onRefresh,
     required this.selectedDate,
+    this.karteGoals = const KarteGoals(),
   });
 
   final bool loading;
@@ -4142,6 +4150,7 @@ class SharedNotesScreen extends StatelessWidget {
   final GoalSettings goals;
   final Future<void> Function() onRefresh;
   final DateTime selectedDate;
+  final KarteGoals karteGoals;
 
   int get _intake => mealLogs.fold(0, (s, m) => s + m.kcal);
   int get _burn => exerciseLogs.fold(0, (s, e) => s + e.kcal);
@@ -4177,6 +4186,8 @@ class SharedNotesScreen extends StatelessWidget {
                 burn: _burn,
                 selectedDate: selectedDate,
               ),
+              const SizedBox(height: 22),
+              CustomerGoalCard(goals: karteGoals),
               const SizedBox(height: 22),
               Text(
                 '今日の食事',

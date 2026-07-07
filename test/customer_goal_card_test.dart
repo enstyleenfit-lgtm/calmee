@@ -6,12 +6,13 @@ void main() {
   Widget buildCard({
     KarteGoals goals = const KarteGoals(),
     VoidCallback? onOpenKarte,
+    bool provideCallback = true,
   }) {
     return MaterialApp(
       home: Scaffold(
         body: CustomerGoalCard(
           goals: goals,
-          onOpenKarte: onOpenKarte ?? () {},
+          onOpenKarte: provideCallback ? (onOpenKarte ?? () {}) : null,
         ),
       ),
     );
@@ -68,10 +69,22 @@ void main() {
     expect(find.text('カルテで設定する'), findsOneWidget);
   });
 
-  testWidgets('GC-8: 「カルテを開く」ボタンが常に表示される', (tester) async {
-    await tester.pumpWidget(buildCard());
+  testWidgets('GC-8: onOpenKarte がある場合に「カルテを開く」ボタンが表示される', (tester) async {
+    await tester.pumpWidget(buildCard(provideCallback: true));
     await tester.pump();
     expect(find.text('カルテを開く'), findsOneWidget);
+  });
+
+  testWidgets('GC-8b: onOpenKarte が null の場合「カルテを開く」ボタンが表示されない', (tester) async {
+    await tester.pumpWidget(buildCard(provideCallback: false));
+    await tester.pump();
+    expect(find.text('カルテを開く'), findsNothing);
+  });
+
+  testWidgets('GC-8c: onOpenKarte が null の場合「カルテで設定する」ボタンが表示されない', (tester) async {
+    await tester.pumpWidget(buildCard(provideCallback: false));
+    await tester.pump();
+    expect(find.text('カルテで設定する'), findsNothing);
   });
 
   testWidgets('GC-9: 「カルテを開く」タップで onOpenKarte が呼ばれる', (tester) async {

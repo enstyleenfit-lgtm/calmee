@@ -112,12 +112,22 @@ void main() {
     );
     await tester.pumpWidget(buildScreen(notes: [note]));
     await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('今週のトレーニング計画'),
+      200.0,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('今週のトレーニング計画'), findsOneWidget);
   });
 
   testWidgets('SN-10: ノートがない場合に空メッセージが表示される', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('トレーナーからのノートはまだありません'),
+      200.0,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('トレーナーからのノートはまだありません'), findsOneWidget);
   });
 }
