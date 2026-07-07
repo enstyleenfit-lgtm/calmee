@@ -286,6 +286,53 @@ describe('users/{uid}/weightLogs', () => {
   });
 });
 
+// ── MP: monthlyPlans ───────────────────────────────────────────────
+describe('users/{uid}/monthlyPlans', () => {
+  it('MP-1: 顧客本人は read できる', async () => {
+    const db = testEnv.authenticatedContext(USER_UID).firestore();
+    await assertSucceeds(getDoc(doc(db, `users/${USER_UID}/monthlyPlans/202507`)));
+  });
+
+  it('MP-2: 顧客本人は write できない', async () => {
+    const db = testEnv.authenticatedContext(USER_UID).firestore();
+    await assertFails(setDoc(doc(db, `users/${USER_UID}/monthlyPlans/202507`), { monthGoal: 'test' }));
+  });
+
+  it('MP-3: 担当トレーナーは read/write できる', async () => {
+    await linkTrainer(USER_UID, TRAINER_UID);
+    const db = testEnv.authenticatedContext(TRAINER_UID).firestore();
+    await assertSucceeds(setDoc(doc(db, `users/${USER_UID}/monthlyPlans/202507`), { monthGoal: 'test' }));
+    await assertSucceeds(getDoc(doc(db, `users/${USER_UID}/monthlyPlans/202507`)));
+  });
+
+  it('MP-4: 無関係トレーナーは read/write できない', async () => {
+    const db = testEnv.authenticatedContext(OTHER_TRAINER_UID).firestore();
+    await assertFails(getDoc(doc(db, `users/${USER_UID}/monthlyPlans/202507`)));
+    await assertFails(setDoc(doc(db, `users/${USER_UID}/monthlyPlans/202507`), { monthGoal: 'test' }));
+  });
+});
+
+// ── MP: monthlyPlansPrivate ────────────────────────────────────────
+describe('users/{uid}/monthlyPlansPrivate', () => {
+  it('MP-5: 担当トレーナーは read/write できる', async () => {
+    await linkTrainer(USER_UID, TRAINER_UID);
+    const db = testEnv.authenticatedContext(TRAINER_UID).firestore();
+    await assertSucceeds(setDoc(doc(db, `users/${USER_UID}/monthlyPlansPrivate/202507`), { trainerMemo: 'memo' }));
+    await assertSucceeds(getDoc(doc(db, `users/${USER_UID}/monthlyPlansPrivate/202507`)));
+  });
+
+  it('MP-6: 顧客本人は read できない', async () => {
+    const db = testEnv.authenticatedContext(USER_UID).firestore();
+    await assertFails(getDoc(doc(db, `users/${USER_UID}/monthlyPlansPrivate/202507`)));
+  });
+
+  it('MP-7: 無関係トレーナーは read/write できない', async () => {
+    const db = testEnv.authenticatedContext(OTHER_TRAINER_UID).firestore();
+    await assertFails(getDoc(doc(db, `users/${USER_UID}/monthlyPlansPrivate/202507`)));
+    await assertFails(setDoc(doc(db, `users/${USER_UID}/monthlyPlansPrivate/202507`), { trainerMemo: 'memo' }));
+  });
+});
+
 // ── S: settings ────────────────────────────────────────────────────
 describe('users/{uid}/settings', () => {
   it('S-1: 本人は read/write できる', async () => {

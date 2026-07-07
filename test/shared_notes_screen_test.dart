@@ -93,12 +93,22 @@ void main() {
     );
     await tester.pumpWidget(buildScreen(weightLogs: [weight]));
     await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('65.5 kg'),
+      200.0,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('65.5 kg'), findsOneWidget);
   });
 
   testWidgets('SN-8: 体重がない場合に空メッセージが表示される', (tester) async {
     await tester.pumpWidget(buildScreen());
     await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('体重記録はありません'),
+      200.0,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('体重記録はありません'), findsOneWidget);
   });
 

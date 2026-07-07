@@ -1140,6 +1140,107 @@ class TrainerCustomerRepository {
 }
 
 /// ----------------------------
+/// MonthlyPlan models + repository
+/// ----------------------------
+
+class MonthlyPlan {
+  const MonthlyPlan({
+    this.monthGoal = '',
+    this.dietPolicy = '',
+    this.exercisePolicy = '',
+    this.bodyPolicy = '',
+    this.caution = '',
+  });
+  final String monthGoal;
+  final String dietPolicy;
+  final String exercisePolicy;
+  final String bodyPolicy;
+  final String caution;
+
+  bool get isEmpty =>
+      monthGoal.isEmpty &&
+      dietPolicy.isEmpty &&
+      exercisePolicy.isEmpty &&
+      bodyPolicy.isEmpty &&
+      caution.isEmpty;
+
+  Map<String, dynamic> toMap() => {
+        'monthGoal': monthGoal,
+        'dietPolicy': dietPolicy,
+        'exercisePolicy': exercisePolicy,
+        'bodyPolicy': bodyPolicy,
+        'caution': caution,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+  static MonthlyPlan fromMap(Map<String, dynamic> m) => MonthlyPlan(
+        monthGoal: (m['monthGoal'] as String?) ?? '',
+        dietPolicy: (m['dietPolicy'] as String?) ?? '',
+        exercisePolicy: (m['exercisePolicy'] as String?) ?? '',
+        bodyPolicy: (m['bodyPolicy'] as String?) ?? '',
+        caution: (m['caution'] as String?) ?? '',
+      );
+}
+
+class MonthlyPlanMemo {
+  const MonthlyPlanMemo({this.trainerMemo = ''});
+  final String trainerMemo;
+
+  bool get isEmpty => trainerMemo.isEmpty;
+
+  Map<String, dynamic> toMap() => {
+        'trainerMemo': trainerMemo,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+  static MonthlyPlanMemo fromMap(Map<String, dynamic> m) => MonthlyPlanMemo(
+        trainerMemo: (m['trainerMemo'] as String?) ?? '',
+      );
+}
+
+class MonthlyPlanRepository {
+  MonthlyPlanRepository(this.customerUid);
+  final String customerUid;
+
+  String _docId(DateTime month) =>
+      '${month.year}${month.month.toString().padLeft(2, '0')}';
+
+  DocumentReference<Map<String, dynamic>> _planRef(DateTime month) =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(customerUid)
+          .collection('monthlyPlans')
+          .doc(_docId(month));
+
+  DocumentReference<Map<String, dynamic>> _memoRef(DateTime month) =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(customerUid)
+          .collection('monthlyPlansPrivate')
+          .doc(_docId(month));
+
+  Future<MonthlyPlan> loadPlan(DateTime month) async {
+    final snap = await _planRef(month).get();
+    if (!snap.exists || snap.data() == null) return const MonthlyPlan();
+    return MonthlyPlan.fromMap(snap.data()!);
+  }
+
+  Future<MonthlyPlanMemo> loadMemo(DateTime month) async {
+    final snap = await _memoRef(month).get();
+    if (!snap.exists || snap.data() == null) return const MonthlyPlanMemo();
+    return MonthlyPlanMemo.fromMap(snap.data()!);
+  }
+
+  Future<void> savePlan(DateTime month, MonthlyPlan plan) async {
+    await _planRef(month).set(plan.toMap());
+  }
+
+  Future<void> saveMemo(DateTime month, MonthlyPlanMemo memo) async {
+    await _memoRef(month).set(memo.toMap());
+  }
+}
+
+/// ----------------------------
 /// GoalSettings + GoalsRepository
 /// ----------------------------
 
@@ -1443,6 +1544,7 @@ class _RootShellState extends State<RootShell> {
   List<ExerciseLogEntry> _weekExerciseLogs = [];
   List<SharedNote> _sharedNotes = [];
   KarteGoals _karteGoals = const KarteGoals();
+  MonthlyPlan _monthlyPlan = const MonthlyPlan();
 
   @override
   void initState() {
@@ -1529,6 +1631,8 @@ class _RootShellState extends State<RootShell> {
         await TrainerMessageRepository(_uid!).loadRecent(limit: 1);
     final sharedNotes = await SharedNoteRepository(_uid!).loadRecent();
     final karteProfile = await KarteRepository(_uid!).loadProfile();
+    final monthlyPlan =
+        await MonthlyPlanRepository(_uid!).loadPlan(DateTime.now());
 
     setState(() {
       _mealLogs = meals;
@@ -1541,6 +1645,7 @@ class _RootShellState extends State<RootShell> {
       _weekExerciseLogs = weekExercises;
       _sharedNotes = sharedNotes;
       _karteGoals = karteProfile.goals;
+      _monthlyPlan = monthlyPlan;
     });
   }
 
@@ -1685,6 +1790,7 @@ class _RootShellState extends State<RootShell> {
         notes: _sharedNotes,
         goals: _goals,
         karteGoals: _karteGoals,
+        monthlyPlan: _monthlyPlan,
         selectedDate: _selectedDate,
         onRefresh: () async {
           setState(() => _loading = true);
@@ -2154,6 +2260,7 @@ class _TrainerCustomerDetailScreenState
   late final TrainerMessageRepository _msgRepo;
   late final SharedNoteRepository _noteRepo;
   late final KarteRepository _karteRepo;
+  late final MonthlyPlanRepository _monthlyPlanRepo;
 
   List<MealLogEntry> _meals = [];
   List<ExerciseLogEntry> _exercises = [];
@@ -2161,6 +2268,8 @@ class _TrainerCustomerDetailScreenState
   List<TrainerMessage> _messages = [];
   List<SharedNote> _sharedNotes = [];
   KarteGoals _karteGoals = const KarteGoals();
+  MonthlyPlan _monthlyPlan = const MonthlyPlan();
+  MonthlyPlanMemo _monthlyPlanMemo = const MonthlyPlanMemo();
   bool _loading = true;
   String? _error;
 
@@ -2174,6 +2283,7 @@ class _TrainerCustomerDetailScreenState
     _msgRepo = TrainerMessageRepository(uid);
     _noteRepo = SharedNoteRepository(uid);
     _karteRepo = KarteRepository(uid);
+    _monthlyPlanRepo = MonthlyPlanRepository(uid);
     _reload();
   }
 
@@ -2186,6 +2296,9 @@ class _TrainerCustomerDetailScreenState
       final messages = await _msgRepo.loadRecent(limit: 3);
       final notes = await _noteRepo.loadRecent();
       final karteProfile = await _karteRepo.loadProfile();
+      final now = DateTime.now();
+      final monthlyPlan = await _monthlyPlanRepo.loadPlan(now);
+      final monthlyPlanMemo = await _monthlyPlanRepo.loadMemo(now);
       if (mounted) {
         setState(() {
           _meals = meals;
@@ -2194,12 +2307,41 @@ class _TrainerCustomerDetailScreenState
           _messages = messages;
           _sharedNotes = notes;
           _karteGoals = karteProfile.goals;
+          _monthlyPlan = monthlyPlan;
+          _monthlyPlanMemo = monthlyPlanMemo;
         });
       }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _openMonthlyPlanDialog() async {
+    final result = await showDialog<({MonthlyPlan plan, MonthlyPlanMemo memo})>(
+      context: context,
+      builder: (_) => _MonthlyPlanEditDialog(
+        plan: _monthlyPlan,
+        memo: _monthlyPlanMemo,
+      ),
+    );
+    if (result == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final now = DateTime.now();
+      await _monthlyPlanRepo.savePlan(now, result.plan);
+      await _monthlyPlanRepo.saveMemo(now, result.memo);
+      await _reload();
+      if (mounted) {
+        messenger.showSnackBar(
+            const SnackBar(content: Text('今月の計画を保存しました')));
+      }
+    } catch (_) {
+      if (mounted) {
+        messenger.showSnackBar(
+            const SnackBar(content: Text('今月の計画を保存できませんでした')));
+      }
     }
   }
 
@@ -2335,6 +2477,12 @@ class _TrainerCustomerDetailScreenState
                               ),
                             ),
                           ),
+                        ),
+                        const SizedBox(height: 22),
+                        TrainerMonthlyPlanCard(
+                          plan: _monthlyPlan,
+                          memo: _monthlyPlanMemo,
+                          onEdit: _openMonthlyPlanDialog,
                         ),
                         const SizedBox(height: 22),
                         Text(
@@ -2628,6 +2776,284 @@ class _CustomerInfoCard extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ----------------------------
+/// TrainerMonthlyPlanCard / _MonthlyPlanEditDialog / _CustomerMonthlyPlanCard
+/// ----------------------------
+
+class TrainerMonthlyPlanCard extends StatelessWidget {
+  const TrainerMonthlyPlanCard({
+    super.key,
+    required this.plan,
+    required this.memo,
+    required this.onEdit,
+  });
+  final MonthlyPlan plan;
+  final MonthlyPlanMemo memo;
+  final VoidCallback onEdit;
+
+  bool get _hasContent =>
+      !plan.isEmpty || !memo.isEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.calendar_month_outlined,
+                  size: 18, color: Color(0xFF5CB8B2)),
+              const SizedBox(width: 6),
+              Text(
+                '今月の計画',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF444444),
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: onEdit,
+                style: TextButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  _hasContent ? '編集' : '計画を入力',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          if (!_hasContent) ...[
+            const SizedBox(height: 14),
+            const Center(
+              child: Text(
+                'まだ計画が入力されていません',
+                style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            if (plan.monthGoal.isNotEmpty)
+              _GoalRow(label: '今月の目標', value: plan.monthGoal),
+            if (plan.dietPolicy.isNotEmpty)
+              _GoalRow(label: '食事方針', value: plan.dietPolicy),
+            if (plan.exercisePolicy.isNotEmpty)
+              _GoalRow(label: '運動方針', value: plan.exercisePolicy),
+            if (plan.bodyPolicy.isNotEmpty)
+              _GoalRow(label: '体重/体型の方針', value: plan.bodyPolicy),
+            if (plan.caution.isNotEmpty)
+              _GoalRow(label: '注意点', value: plan.caution),
+            if (memo.trainerMemo.isNotEmpty)
+              _GoalRow(label: 'トレーナーメモ', value: memo.trainerMemo),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthlyPlanEditDialog extends StatefulWidget {
+  const _MonthlyPlanEditDialog({required this.plan, required this.memo});
+  final MonthlyPlan plan;
+  final MonthlyPlanMemo memo;
+
+  @override
+  State<_MonthlyPlanEditDialog> createState() => _MonthlyPlanEditDialogState();
+}
+
+class _MonthlyPlanEditDialogState extends State<_MonthlyPlanEditDialog> {
+  late final TextEditingController _monthGoalCtrl;
+  late final TextEditingController _dietPolicyCtrl;
+  late final TextEditingController _exercisePolicyCtrl;
+  late final TextEditingController _bodyPolicyCtrl;
+  late final TextEditingController _cautionCtrl;
+  late final TextEditingController _trainerMemoCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _monthGoalCtrl = TextEditingController(text: widget.plan.monthGoal);
+    _dietPolicyCtrl = TextEditingController(text: widget.plan.dietPolicy);
+    _exercisePolicyCtrl =
+        TextEditingController(text: widget.plan.exercisePolicy);
+    _bodyPolicyCtrl = TextEditingController(text: widget.plan.bodyPolicy);
+    _cautionCtrl = TextEditingController(text: widget.plan.caution);
+    _trainerMemoCtrl = TextEditingController(text: widget.memo.trainerMemo);
+  }
+
+  @override
+  void dispose() {
+    _monthGoalCtrl.dispose();
+    _dietPolicyCtrl.dispose();
+    _exercisePolicyCtrl.dispose();
+    _bodyPolicyCtrl.dispose();
+    _cautionCtrl.dispose();
+    _trainerMemoCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final plan = MonthlyPlan(
+      monthGoal: _monthGoalCtrl.text.trim(),
+      dietPolicy: _dietPolicyCtrl.text.trim(),
+      exercisePolicy: _exercisePolicyCtrl.text.trim(),
+      bodyPolicy: _bodyPolicyCtrl.text.trim(),
+      caution: _cautionCtrl.text.trim(),
+    );
+    final memo =
+        MonthlyPlanMemo(trainerMemo: _trainerMemoCtrl.text.trim());
+    Navigator.pop(context, (plan: plan, memo: memo));
+  }
+
+  Widget _field(String label, TextEditingController ctrl, {int maxLines = 2}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF666666)),
+          ),
+          const SizedBox(height: 4),
+          TextField(
+            controller: ctrl,
+            maxLines: maxLines,
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('今月の計画'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _field('今月の目標', _monthGoalCtrl),
+              _field('食事方針', _dietPolicyCtrl),
+              _field('運動方針', _exercisePolicyCtrl),
+              _field('体重/体型の方針', _bodyPolicyCtrl),
+              _field('注意点', _cautionCtrl),
+              _field('トレーナーメモ', _trainerMemoCtrl),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('キャンセル'),
+        ),
+        TextButton(
+          onPressed: _submit,
+          child: const Text('保存'),
+        ),
+      ],
+    );
+  }
+}
+
+class _CustomerMonthlyPlanCard extends StatelessWidget {
+  const _CustomerMonthlyPlanCard({required this.plan});
+  final MonthlyPlan plan;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.calendar_month_outlined,
+                  size: 18, color: Color(0xFF5CB8B2)),
+              const SizedBox(width: 6),
+              Text(
+                '今月の計画',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF444444),
+                ),
+              ),
+            ],
+          ),
+          if (plan.isEmpty) ...[
+            const SizedBox(height: 14),
+            const Center(
+              child: Text(
+                '今月の計画はまだ設定されていません',
+                style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            if (plan.monthGoal.isNotEmpty)
+              _GoalRow(label: '今月の目標', value: plan.monthGoal),
+            if (plan.dietPolicy.isNotEmpty)
+              _GoalRow(label: '食事方針', value: plan.dietPolicy),
+            if (plan.exercisePolicy.isNotEmpty)
+              _GoalRow(label: '運動方針', value: plan.exercisePolicy),
+            if (plan.bodyPolicy.isNotEmpty)
+              _GoalRow(label: '体重/体型の方針', value: plan.bodyPolicy),
+            if (plan.caution.isNotEmpty)
+              _GoalRow(label: '注意点', value: plan.caution),
+          ],
         ],
       ),
     );
@@ -4160,6 +4586,7 @@ class SharedNotesScreen extends StatelessWidget {
     required this.onRefresh,
     required this.selectedDate,
     this.karteGoals = const KarteGoals(),
+    this.monthlyPlan = const MonthlyPlan(),
   });
 
   final bool loading;
@@ -4171,6 +4598,7 @@ class SharedNotesScreen extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final DateTime selectedDate;
   final KarteGoals karteGoals;
+  final MonthlyPlan monthlyPlan;
 
   int get _intake => mealLogs.fold(0, (s, m) => s + m.kcal);
   int get _burn => exerciseLogs.fold(0, (s, e) => s + e.kcal);
@@ -4208,6 +4636,8 @@ class SharedNotesScreen extends StatelessWidget {
               ),
               const SizedBox(height: 22),
               CustomerGoalCard(goals: karteGoals),
+              const SizedBox(height: 22),
+              _CustomerMonthlyPlanCard(plan: monthlyPlan),
               const SizedBox(height: 22),
               Text(
                 '今日の食事',
