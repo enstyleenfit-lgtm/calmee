@@ -45,32 +45,32 @@ void main() {
     );
   }
 
-  testWidgets('F-1: メッセージがある場合「トレーナーより」ラベルが表示される', (tester) async {
+  // トレーナーメッセージカードはUX改善のため非表示にした。
+  // データ構造・Firestore・送信機能は保持。
+
+  testWidgets('F-1: メッセージがあっても「トレーナーより」ラベルは表示されない', (tester) async {
     await tester.pumpWidget(buildHome(messages: [msg1]));
     await tester.pump();
-    expect(find.text('トレーナーより'), findsOneWidget);
+    expect(find.text('トレーナーより'), findsNothing);
   });
 
-  testWidgets('F-2: メッセージ本文が表示される', (tester) async {
+  testWidgets('F-2: メッセージがあってもメッセージ本文は表示されない', (tester) async {
     await tester.pumpWidget(buildHome(messages: [msg1]));
     await tester.pump();
-    expect(find.text('よく頑張りました！'), findsOneWidget);
+    expect(find.text('よく頑張りました！'), findsNothing);
   });
 
-  testWidgets('F-3: メッセージがない場合「トレーナーより」ラベルが表示されない', (tester) async {
+  testWidgets('F-3: メッセージがない場合も「トレーナーより」ラベルが表示されない', (tester) async {
     await tester.pumpWidget(buildHome());
     await tester.pump();
     expect(find.text('トレーナーより'), findsNothing);
   });
 
-  testWidgets('F-4: 複数メッセージがある場合は先頭の1件だけ表示される', (tester) async {
+  testWidgets('F-4: 複数メッセージがあってもいずれも表示されない', (tester) async {
     await tester.pumpWidget(buildHome(messages: [msg1, msg2]));
     await tester.pump();
-    // msg1（先頭）の本文は表示される
-    expect(find.text('よく頑張りました！'), findsOneWidget);
-    // msg2 の本文は表示されない
+    expect(find.text('よく頑張りました！'), findsNothing);
     expect(find.text('明日も頑張りましょう'), findsNothing);
-    // 「トレーナーより」は1件のみ
-    expect(find.text('トレーナーより'), findsOneWidget);
+    expect(find.text('トレーナーより'), findsNothing);
   });
 }

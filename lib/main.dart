@@ -12,6 +12,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tzdata;
+import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'firebase_options.dart';
@@ -4723,50 +4724,19 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // ── トレーナーメッセージ ──
-            if (trainerMessages.isNotEmpty) ...[
-              _TrainerMessageCard(message: trainerMessages.first),
-              const SizedBox(height: 14),
-            ],
-
             // ── 今日の収支カード ──
             _SummaryCard(summary: _summary),
 
             const SizedBox(height: 14),
 
             // ── PFC カード ──
-            Row(
-              children: [
-                Expanded(
-                  child: _PfcCard(
-                    shortLabel: 'P',
-                    label: 'たんぱく質',
-                    value: _proteinIntake,
-                    target: goals.proteinTarget,
-                    color: const Color(0xFF5CB8B2),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _PfcCard(
-                    shortLabel: 'C',
-                    label: '炭水化物',
-                    value: _carbIntake,
-                    target: goals.carbTarget,
-                    color: const Color(0xFFE8A838),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _PfcCard(
-                    shortLabel: 'F',
-                    label: '脂質',
-                    value: _fatIntake,
-                    target: goals.fatTarget,
-                    color: const Color(0xFFE27B4A),
-                  ),
-                ),
-              ],
+            _PfcDonutCard(
+              proteinIntake: _proteinIntake,
+              carbIntake: _carbIntake,
+              fatIntake: _fatIntake,
+              proteinTarget: goals.proteinTarget,
+              carbTarget: goals.carbTarget,
+              fatTarget: goals.fatTarget,
             ),
 
             const SizedBox(height: 22),
@@ -4941,8 +4911,11 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final isOver = summary.remaining < 0;
+    final fgColor =
+        isOver ? const Color(0xFFE24A4A) : const Color(0xFF4A90E2);
+    final centerLabel =
+        isOver ? '+${-summary.remaining}' : '${summary.remaining}';
 
     return Container(
       decoration: BoxDecoration(
@@ -4960,123 +4933,100 @@ class _SummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.bar_chart_rounded,
+              Icon(Icons.bar_chart_rounded,
                   size: 16, color: Color(0xFF5CB8B2)),
-              const SizedBox(width: 5),
+              SizedBox(width: 5),
               Text(
                 '今日のからだ収支',
-                style: theme.textTheme.titleSmall?.copyWith(
+                style: TextStyle(
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF444444),
+                  color: Color(0xFF444444),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // 摂取 + 支出
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('摂取',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF888888))),
-                  const SizedBox(height: 2),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '${summary.intake}',
-                        style: const TextStyle(
-                          fontSize: 34,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF111111),
-                          height: 1.0,
+              SizedBox(
+                width: 100,
+                height: 100,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CustomPaint(
+                      size: const Size(100, 100),
+                      painter: _DonutPainter(
+                        progress: summary.progress,
+                        fgColor: fgColor,
+                      ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          '残り',
+                          style: TextStyle(
+                              fontSize: 9, color: Color(0xFF888888)),
                         ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 4, left: 4),
-                        child: Text('kcal',
-                            style: TextStyle(
-                                fontSize: 11, color: Color(0xFF888888))),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      const Text('支出 ',
-                          style:
-                              TextStyle(fontSize: 11, color: Color(0xFF888888))),
-                      Text(
-                        '${summary.burn}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFFE27B4A),
-                          height: 1.0,
+                        Text(
+                          centerLabel,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: fgColor,
+                            height: 1.1,
+                          ),
                         ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 2, left: 2),
-                        child: Text(' kcal',
-                            style: TextStyle(
-                                fontSize: 11, color: Color(0xFF888888))),
-                      ),
-                    ],
-                  ),
-                ],
+                        const Text(
+                          'kcal',
+                          style: TextStyle(
+                              fontSize: 9, color: Color(0xFF888888)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              // 目標・収支・残り
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  _StatLine(
-                      label: '目標', value: '${summary.target}', unit: 'kcal'),
-                  const SizedBox(height: 6),
-                  _StatLine(
-                      label: '収支', value: '${summary.balance}', unit: 'kcal'),
-                  const SizedBox(height: 6),
-                  _StatLine(
-                    label: '残り',
-                    value: isOver
-                        ? '+${-summary.remaining}'
-                        : '${summary.remaining}',
-                    unit: 'kcal',
-                    valueColor: isOver
-                        ? const Color(0xFFE24A4A)
-                        : const Color(0xFF4A90E2),
-                  ),
-                ],
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SummaryStatRow(
+                      label: '摂取',
+                      value: summary.intake,
+                      color: const Color(0xFF4A90E2),
+                    ),
+                    const SizedBox(height: 6),
+                    _SummaryStatRow(
+                      label: '支出',
+                      value: summary.burn,
+                      color: const Color(0xFFE27B4A),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 6),
+                      child: Divider(height: 1, color: Color(0xFFEEEEEE)),
+                    ),
+                    _SummaryStatRow(
+                      label: '目標',
+                      value: summary.target,
+                      color: const Color(0xFF888888),
+                    ),
+                    const SizedBox(height: 6),
+                    _SummaryStatRow(
+                      label: '残り',
+                      value: summary.remaining.abs(),
+                      color: fgColor,
+                      isOver: isOver,
+                    ),
+                  ],
+                ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: summary.progress,
-              minHeight: 8,
-              backgroundColor: const Color(0xFFF0F0F0),
-              valueColor: AlwaysStoppedAnimation(
-                summary.progress >= 1.0
-                    ? const Color(0xFFE24A4A)
-                    : const Color(0xFF4A90E2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              '${(summary.progress * 100).toStringAsFixed(0)}%',
-              style: const TextStyle(fontSize: 11, color: Color(0xFF888888)),
-            ),
           ),
         ],
       ),
@@ -5084,43 +5034,87 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _StatLine extends StatelessWidget {
-  const _StatLine({
+class _DonutPainter extends CustomPainter {
+  const _DonutPainter({
+    required this.progress,
+    required this.fgColor,
+  });
+  final double progress;
+  final Color fgColor;
+
+  static const double _stroke = 14.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (math.min(size.width, size.height) - _stroke) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = const Color(0xFFF0F0F0)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = _stroke,
+    );
+
+    final clamped = progress.clamp(0.0, 1.0);
+    if (clamped > 0) {
+      canvas.drawArc(
+        rect,
+        -math.pi / 2,
+        2 * math.pi * clamped,
+        false,
+        Paint()
+          ..color = fgColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = _stroke
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DonutPainter old) =>
+      old.progress != progress || old.fgColor != fgColor;
+}
+
+class _SummaryStatRow extends StatelessWidget {
+  const _SummaryStatRow({
     required this.label,
     required this.value,
-    required this.unit,
-    this.valueColor = const Color(0xFF333333),
+    required this.color,
+    this.isOver = false,
   });
   final String label;
-  final String value;
-  final String unit;
-  final Color valueColor;
+  final int value;
+  final Color color;
+  final bool isOver;
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(
-          '$label ',
-          style: const TextStyle(fontSize: 11, color: Color(0xFF888888)),
+        SizedBox(
+          width: 30,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF888888)),
+          ),
         ),
         Text(
-          value,
+          isOver ? '+$value' : '$value',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
-            color: valueColor,
+            color: color,
             height: 1.0,
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 2, left: 2),
-          child: Text(
-            ' $unit',
-            style: const TextStyle(fontSize: 11, color: Color(0xFF888888)),
-          ),
+        const Text(
+          ' kcal',
+          style: TextStyle(fontSize: 10, color: Color(0xFF888888)),
         ),
       ],
     );
@@ -5128,96 +5122,285 @@ class _StatLine extends StatelessWidget {
 }
 
 // ── PFC カード ──
-class _PfcCard extends StatelessWidget {
-  const _PfcCard({
-    required this.shortLabel,
-    required this.label,
+class _PfcDonutCard extends StatelessWidget {
+  const _PfcDonutCard({
+    required this.proteinIntake,
+    required this.carbIntake,
+    required this.fatIntake,
+    required this.proteinTarget,
+    required this.carbTarget,
+    required this.fatTarget,
+  });
+
+  final double proteinIntake;
+  final double carbIntake;
+  final double fatIntake;
+  final double proteinTarget;
+  final double carbTarget;
+  final double fatTarget;
+
+  static const Color _pColor = Color(0xFF5CB8B2);
+  static const Color _cColor = Color(0xFFE8A838);
+  static const Color _fColor = Color(0xFFE27B4A);
+
+  @override
+  Widget build(BuildContext context) {
+    final totalG = proteinIntake + carbIntake + fatIntake;
+    final pKcal = proteinIntake * 4;
+    final cKcal = carbIntake * 4;
+    final fKcal = fatIntake * 9;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 16,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.pie_chart_outline,
+                  size: 16, color: Color(0xFF5CB8B2)),
+              SizedBox(width: 5),
+              Text(
+                'PFC バランス',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF444444),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              SizedBox(
+                width: 88,
+                height: 88,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CustomPaint(
+                      size: const Size(88, 88),
+                      painter: _PfcDonutPainter(
+                        pKcal: pKcal,
+                        cKcal: cKcal,
+                        fKcal: fKcal,
+                      ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${totalG.toStringAsFixed(0)}g',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF222222),
+                            height: 1.1,
+                          ),
+                        ),
+                        const Text(
+                          '合計',
+                          style: TextStyle(
+                              fontSize: 9, color: Color(0xFF888888)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  children: [
+                    _PfcLegendRow(
+                      letter: 'P',
+                      name: 'たんぱく質',
+                      value: proteinIntake,
+                      target: proteinTarget,
+                      color: _pColor,
+                    ),
+                    const SizedBox(height: 10),
+                    _PfcLegendRow(
+                      letter: 'C',
+                      name: '炭水化物',
+                      value: carbIntake,
+                      target: carbTarget,
+                      color: _cColor,
+                    ),
+                    const SizedBox(height: 10),
+                    _PfcLegendRow(
+                      letter: 'F',
+                      name: '脂質',
+                      value: fatIntake,
+                      target: fatTarget,
+                      color: _fColor,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PfcLegendRow extends StatelessWidget {
+  const _PfcLegendRow({
+    required this.letter,
+    required this.name,
     required this.value,
     required this.target,
     required this.color,
   });
-  final String shortLabel;
-  final String label;
+  final String letter;
+  final String name;
   final double value;
   final double target;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final progress = (value / target).clamp(0.0, 1.0);
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    shortLabel,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: color,
-                    ),
-                  ),
-                ),
+    final progress =
+        target > 0 ? (value / target).clamp(0.0, 1.0) : 0.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
               ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  label,
-                  style: const TextStyle(fontSize: 10, color: Color(0xFF888888)),
-                  overflow: TextOverflow.ellipsis,
-                ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              letter,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: color,
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${value.toStringAsFixed(1)}g',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF222222),
             ),
-          ),
-          Text(
-            '/ ${target.toStringAsFixed(0)}g',
-            style: const TextStyle(fontSize: 10, color: Color(0xFFAAAAAA)),
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 4,
-              backgroundColor: const Color(0xFFF0F0F0),
-              valueColor: AlwaysStoppedAnimation(color),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                name,
+                style: const TextStyle(
+                    fontSize: 10, color: Color(0xFF666666)),
+              ),
             ),
+            Text(
+              '${value.toStringAsFixed(0)}/${target.toStringAsFixed(0)}g',
+              style: const TextStyle(
+                fontSize: 10,
+                color: Color(0xFF444444),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 4,
+            backgroundColor: const Color(0xFFF0F0F0),
+            valueColor: AlwaysStoppedAnimation(color),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
+}
+
+class _PfcDonutPainter extends CustomPainter {
+  const _PfcDonutPainter({
+    required this.pKcal,
+    required this.cKcal,
+    required this.fKcal,
+  });
+  final double pKcal;
+  final double cKcal;
+  final double fKcal;
+
+  static const double _stroke = 13.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final total = pKcal + cKcal + fKcal;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (math.min(size.width, size.height) - _stroke) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = const Color(0xFFF0F0F0)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = _stroke,
+    );
+
+    if (total <= 0) return;
+
+    double start = -math.pi / 2;
+    final pSweep = 2 * math.pi * (pKcal / total);
+    if (pSweep > 0) {
+      canvas.drawArc(
+        rect, start, pSweep, false,
+        Paint()
+          ..color = const Color(0xFF5CB8B2)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = _stroke,
+      );
+      start += pSweep;
+    }
+    final cSweep = 2 * math.pi * (cKcal / total);
+    if (cSweep > 0) {
+      canvas.drawArc(
+        rect, start, cSweep, false,
+        Paint()
+          ..color = const Color(0xFFE8A838)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = _stroke,
+      );
+      start += cSweep;
+    }
+    final fSweep = 2 * math.pi * (fKcal / total);
+    if (fSweep > 0) {
+      canvas.drawArc(
+        rect, start, fSweep, false,
+        Paint()
+          ..color = const Color(0xFFE27B4A)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = _stroke,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PfcDonutPainter old) =>
+      old.pKcal != pKcal ||
+      old.cKcal != cKcal ||
+      old.fKcal != fKcal;
 }
 
 // ── 食事ログカード ──

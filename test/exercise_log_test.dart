@@ -541,14 +541,16 @@ void main() {
 
   // ── 運動削除フロー ─────────────────────────────────────────
 
+  // E-8〜E-10: 運動セクションが食事セクションより下に描画されるため、
+  // デフォルト 600px では削除アイコンが画面外になる。縦幅を拡張して対応。
   testWidgets('E-8: 運動カードに削除アイコンが表示される（id あり）', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     await tester.pumpWidget(buildHomeWithExercise(onDeleteExercise: (_) async {}));
     await tester.pump();
     expect(find.byIcon(Icons.delete_outline), findsOneWidget);
   });
-
-  // E-9/E-10: 運動セクションが食事セクションより下に描画されるため、
-  // デフォルト 600px では削除アイコンが画面外になる。縦幅を拡張して対応。
   testWidgets('E-9: 削除アイコンをタップすると確認ダイアログが表示される', (tester) async {
     await tester.binding.setSurfaceSize(const Size(800, 1200));
     addTearDown(() => tester.binding.setSurfaceSize(null));

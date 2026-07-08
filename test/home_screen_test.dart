@@ -70,6 +70,8 @@ void main() {
 
   testWidgets('H-5: 運動が空のとき空状態メッセージが表示される', (tester) async {
     await tester.pumpWidget(buildHome());
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pump();
     expect(find.text('+ ボタンから運動を記録しよう'), findsOneWidget);
   });
 }
