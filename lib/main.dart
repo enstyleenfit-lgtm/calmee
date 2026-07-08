@@ -2736,9 +2736,8 @@ class _TrainerCustomerDetailScreenState
                           onEdit: _openMonthlyPlanDialog,
                         ),
                         const SizedBox(height: 22),
-                        WeeklyCheckinCard(checkin: _checkin),
-                        const SizedBox(height: 22),
-                        BodyCheckCard(bodyCheck: _bodyCheck),
+                        WeeklyStatusCard(
+                            checkin: _checkin, bodyCheck: _bodyCheck),
                         const SizedBox(height: 22),
                         TrainerFeedbackInputCard(
                           messages: _messages,
@@ -7049,6 +7048,191 @@ class BodyCheckCard extends StatelessWidget {
             if (bodyCheck.concernArea.isNotEmpty)
               _GoalRow(label: '気になる部位', value: bodyCheck.concernArea),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// ----------------------------
+/// WeeklyStatusCard (public – trainer combined view)
+/// ----------------------------
+
+class WeeklyStatusCard extends StatelessWidget {
+  const WeeklyStatusCard(
+      {super.key, required this.checkin, required this.bodyCheck});
+  final WeeklyCheckin checkin;
+  final BodyCheck bodyCheck;
+
+  List<Widget> _buildDetails() {
+    final rows = <Widget>[];
+    if (bodyCheck.waist != null) {
+      rows.add(_GoalRow(label: 'ウエスト', value: '${bodyCheck.waist} cm'));
+    }
+    if (checkin.bodyNote.isNotEmpty) {
+      rows.add(_GoalRow(label: '体調メモ', value: checkin.bodyNote));
+    }
+    if (checkin.consultation.isNotEmpty) {
+      rows.add(_GoalRow(label: '相談事項', value: checkin.consultation));
+    }
+    if (bodyCheck.lookNote.isNotEmpty) {
+      rows.add(_GoalRow(label: '見た目変化', value: bodyCheck.lookNote));
+    }
+    if (bodyCheck.concernArea.isNotEmpty) {
+      rows.add(_GoalRow(label: '気になる部位', value: bodyCheck.concernArea));
+    }
+    return rows;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final checkinEmpty = checkin.isEmpty;
+    final bodyCheckEmpty = bodyCheck.isEmpty;
+    final bothEmpty = checkinEmpty && bodyCheckEmpty;
+    final details = _buildDetails();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x0F000000), blurRadius: 12, offset: Offset(0, 4)),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.bar_chart_outlined,
+                  size: 18, color: Color(0xFF5CB8B2)),
+              const SizedBox(width: 6),
+              Text(
+                '今週の状態',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF444444),
+                ),
+              ),
+              const Spacer(),
+              _InputBadge(label: 'チェックイン', filled: !checkinEmpty),
+              const SizedBox(width: 6),
+              _InputBadge(label: '体型', filled: !bodyCheckEmpty),
+            ],
+          ),
+          if (bothEmpty) ...[
+            const SizedBox(height: 14),
+            const Text('チェックイン未入力',
+                style: TextStyle(fontSize: 12, color: Color(0xFFAAAAAA))),
+            const SizedBox(height: 4),
+            const Text('体型チェック未記録',
+                style: TextStyle(fontSize: 12, color: Color(0xFFAAAAAA))),
+          ] else ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _StatusChip(
+                    label: '達成度',
+                    score: checkin.achievement,
+                    available: !checkinEmpty),
+                _StatusChip(
+                    label: '疲労',
+                    score: checkin.fatigue,
+                    available: !checkinEmpty),
+                _StatusChip(
+                    label: '睡眠',
+                    score: checkin.sleep,
+                    available: !checkinEmpty),
+                _StatusChip(
+                    label: 'むくみ',
+                    score: bodyCheck.edema,
+                    available: !bodyCheckEmpty),
+                _StatusChip(
+                    label: '腹部つまみ感',
+                    score: bodyCheck.pinchFeel,
+                    available: !bodyCheckEmpty),
+              ],
+            ),
+            if (details.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F0)),
+              const SizedBox(height: 10),
+              ...details,
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _InputBadge extends StatelessWidget {
+  const _InputBadge({required this.label, required this.filled});
+  final String label;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: filled ? const Color(0x1F5CB8B2) : const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: filled ? const Color(0xFF5CB8B2) : const Color(0xFFDDDDDD),
+        ),
+      ),
+      child: Text(
+        filled ? '$label ✓' : '$label 未',
+        style: TextStyle(
+          fontSize: 10,
+          color: filled ? const Color(0xFF5CB8B2) : const Color(0xFFAAAAAA),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip(
+      {required this.label, required this.score, required this.available});
+  final String label;
+  final int score;
+  final bool available;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasScore = available && score > 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF888888),
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          Text(
+            hasScore ? '$score' : '-',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color:
+                  hasScore ? const Color(0xFF222222) : const Color(0xFFCCCCCC),
+            ),
+          ),
         ],
       ),
     );
