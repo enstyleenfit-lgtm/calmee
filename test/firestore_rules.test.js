@@ -411,6 +411,50 @@ describe('users/{uid}/bodyChecks', () => {
   });
 });
 
+// ── SLR: sessionTrainingLogs ───────────────────────────────────────
+describe('users/{uid}/sessionTrainingLogs', () => {
+  const docPath = `users/${USER_UID}/sessionTrainingLogs/20260708`;
+  const data = {
+    dateId: '20260708',
+    trainerUid: TRAINER_UID,
+    exercises: [{ name: 'ベンチプレス', weightKg: 60, reps: 10, sets: 3, memo: '' }],
+  };
+
+  it('SLR-1: 担当トレーナーは read できる', async () => {
+    await linkTrainer(USER_UID, TRAINER_UID);
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), docPath), data);
+    });
+    const db = testEnv.authenticatedContext(TRAINER_UID).firestore();
+    await assertSucceeds(getDoc(doc(db, docPath)));
+  });
+
+  it('SLR-2: 担当トレーナーは write できる', async () => {
+    await linkTrainer(USER_UID, TRAINER_UID);
+    const db = testEnv.authenticatedContext(TRAINER_UID).firestore();
+    await assertSucceeds(setDoc(doc(db, docPath), data));
+  });
+
+  it('SLR-3: 顧客本人は read できる', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), docPath), data);
+    });
+    const db = testEnv.authenticatedContext(USER_UID).firestore();
+    await assertSucceeds(getDoc(doc(db, docPath)));
+  });
+
+  it('SLR-4: 顧客本人は write できない', async () => {
+    const db = testEnv.authenticatedContext(USER_UID).firestore();
+    await assertFails(setDoc(doc(db, docPath), data));
+  });
+
+  it('SLR-5: 無関係ユーザーは read/write できない', async () => {
+    const db = testEnv.authenticatedContext(OTHER_UID).firestore();
+    await assertFails(getDoc(doc(db, docPath)));
+    await assertFails(setDoc(doc(db, docPath), data));
+  });
+});
+
 // ── S: settings ────────────────────────────────────────────────────
 describe('users/{uid}/settings', () => {
   it('S-1: 本人は read/write できる', async () => {

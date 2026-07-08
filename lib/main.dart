@@ -1403,6 +1403,96 @@ class BodyCheckRepository {
 }
 
 /// ----------------------------
+/// SessionExercise + SessionTrainingLog + SessionTrainingLogRepository
+/// ----------------------------
+
+class SessionExercise {
+  const SessionExercise({
+    required this.name,
+    this.weightKg,
+    this.reps,
+    this.sets,
+    this.memo = '',
+  });
+  final String name;
+  final double? weightKg;
+  final int? reps;
+  final int? sets;
+  final String memo;
+
+  Map<String, dynamic> toMap() => {
+        'name': name,
+        'weightKg': weightKg,
+        'reps': reps,
+        'sets': sets,
+        'memo': memo,
+      };
+
+  static SessionExercise fromMap(Map<String, dynamic> m) => SessionExercise(
+        name: (m['name'] as String?) ?? '',
+        weightKg: (m['weightKg'] as num?)?.toDouble(),
+        reps: (m['reps'] as int?),
+        sets: (m['sets'] as int?),
+        memo: (m['memo'] as String?) ?? '',
+      );
+}
+
+class SessionTrainingLog {
+  const SessionTrainingLog({this.exercises = const [], this.trainerUid = ''});
+  final List<SessionExercise> exercises;
+  final String trainerUid;
+  bool get isEmpty => exercises.isEmpty;
+
+  static SessionTrainingLog fromMap(Map<String, dynamic> m) =>
+      SessionTrainingLog(
+        trainerUid: (m['trainerUid'] as String?) ?? '',
+        exercises: ((m['exercises'] as List<dynamic>?) ?? [])
+            .map((e) => SessionExercise.fromMap(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+class SessionTrainingLogRepository {
+  SessionTrainingLogRepository(this.customerUid);
+  final String customerUid;
+
+  static String dateId(DateTime date) =>
+      '${date.year}${date.month.toString().padLeft(2, '0')}${date.day.toString().padLeft(2, '0')}';
+
+  CollectionReference<Map<String, dynamic>> get _col =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(customerUid)
+          .collection('sessionTrainingLogs');
+
+  Future<SessionTrainingLog> loadToday() async {
+    final snap = await _col.doc(dateId(DateTime.now())).get();
+    if (!snap.exists || snap.data() == null) return const SessionTrainingLog();
+    return SessionTrainingLog.fromMap(snap.data()!);
+  }
+
+  Future<SessionTrainingLog> loadLatest() async {
+    final snap =
+        await _col.orderBy('updatedAt', descending: true).limit(1).get();
+    if (snap.docs.isEmpty) return const SessionTrainingLog();
+    return SessionTrainingLog.fromMap(snap.docs.first.data());
+  }
+
+  Future<void> saveToday(
+      List<SessionExercise> exercises, {
+      required String trainerUid,
+  }) async {
+    final id = dateId(DateTime.now());
+    await _col.doc(id).set({
+      'dateId': id,
+      'trainerUid': trainerUid,
+      'exercises': exercises.map((e) => e.toMap()).toList(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+}
+
+/// ----------------------------
 /// GoalSettings + GoalsRepository
 /// ----------------------------
 
@@ -1709,6 +1799,7 @@ class _RootShellState extends State<RootShell> {
   MonthlyPlan _monthlyPlan = const MonthlyPlan();
   WeeklyCheckin _checkin = const WeeklyCheckin();
   BodyCheck _bodyCheck = const BodyCheck();
+  SessionTrainingLog _sessionTrainingLog = const SessionTrainingLog();
 
   @override
   void initState() {
@@ -1799,6 +1890,8 @@ class _RootShellState extends State<RootShell> {
         await MonthlyPlanRepository(_uid!).loadPlan(DateTime.now());
     final checkin = await WeeklyCheckinRepository(_uid!).loadCurrent();
     final bodyCheck = await BodyCheckRepository(_uid!).loadToday();
+    final sessionLog =
+        await SessionTrainingLogRepository(_uid!).loadLatest();
 
     setState(() {
       _mealLogs = meals;
@@ -1814,6 +1907,7 @@ class _RootShellState extends State<RootShell> {
       _monthlyPlan = monthlyPlan;
       _checkin = checkin;
       _bodyCheck = bodyCheck;
+      _sessionTrainingLog = sessionLog;
     });
   }
 
@@ -1977,6 +2071,7 @@ class _RootShellState extends State<RootShell> {
         monthlyPlan: _monthlyPlan,
         selectedDate: _selectedDate,
         trainerMessages: _trainerMessages,
+        sessionTrainingLog: _sessionTrainingLog,
         onRefresh: () async {
           setState(() => _loading = true);
           await _reloadAll();
@@ -2448,6 +2543,7 @@ class _TrainerCustomerDetailScreenState
   late final MonthlyPlanRepository _monthlyPlanRepo;
   late final WeeklyCheckinRepository _checkinRepo;
   late final BodyCheckRepository _bodyCheckRepo;
+  late final SessionTrainingLogRepository _sessionRepo;
 
   List<MealLogEntry> _meals = [];
   List<ExerciseLogEntry> _exercises = [];
@@ -2459,6 +2555,7 @@ class _TrainerCustomerDetailScreenState
   MonthlyPlanMemo _monthlyPlanMemo = const MonthlyPlanMemo();
   WeeklyCheckin _checkin = const WeeklyCheckin();
   BodyCheck _bodyCheck = const BodyCheck();
+  SessionTrainingLog _sessionLog = const SessionTrainingLog();
   bool _loading = true;
   String? _error;
 
@@ -2475,6 +2572,7 @@ class _TrainerCustomerDetailScreenState
     _monthlyPlanRepo = MonthlyPlanRepository(uid);
     _checkinRepo = WeeklyCheckinRepository(uid);
     _bodyCheckRepo = BodyCheckRepository(uid);
+    _sessionRepo = SessionTrainingLogRepository(uid);
     _reload();
   }
 
@@ -2492,6 +2590,7 @@ class _TrainerCustomerDetailScreenState
       final monthlyPlanMemo = await _monthlyPlanRepo.loadMemo(now);
       final checkin = await _checkinRepo.loadCurrent();
       final bodyCheck = await _bodyCheckRepo.loadLatest();
+      final sessionLog = await _sessionRepo.loadToday();
       if (mounted) {
         setState(() {
           _meals = meals;
@@ -2504,6 +2603,7 @@ class _TrainerCustomerDetailScreenState
           _monthlyPlanMemo = monthlyPlanMemo;
           _checkin = checkin;
           _bodyCheck = bodyCheck;
+          _sessionLog = sessionLog;
         });
       }
     } catch (e) {
@@ -2656,6 +2756,17 @@ class _TrainerCustomerDetailScreenState
                           ),
                         ),
                         const SizedBox(height: 14),
+                        SessionTrainingLogCard(
+                          log: _sessionLog,
+                          onSave: (exercises) async {
+                            await _sessionRepo.saveToday(
+                              exercises,
+                              trainerUid: widget.trainerUid,
+                            );
+                            await _reload();
+                          },
+                        ),
+                        const SizedBox(height: 22),
                         Text(
                           '今日の食事',
                           style: theme.textTheme.titleSmall?.copyWith(
@@ -4764,6 +4875,7 @@ class SharedNotesScreen extends StatelessWidget {
     this.karteGoals = const KarteGoals(),
     this.monthlyPlan = const MonthlyPlan(),
     this.trainerMessages = const [],
+    this.sessionTrainingLog = const SessionTrainingLog(),
   });
 
   final bool loading;
@@ -4777,6 +4889,7 @@ class SharedNotesScreen extends StatelessWidget {
   final KarteGoals karteGoals;
   final MonthlyPlan monthlyPlan;
   final List<TrainerMessage> trainerMessages;
+  final SessionTrainingLog sessionTrainingLog;
 
   int get _intake => mealLogs.fold(0, (s, m) => s + m.kcal);
   int get _burn => exerciseLogs.fold(0, (s, e) => s + e.kcal);
@@ -4895,6 +5008,16 @@ class SharedNotesScreen extends StatelessWidget {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: _TrainerMessageCard(message: m),
                     )),
+              const SizedBox(height: 22),
+              Text(
+                'セッション記録',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF444444),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SessionTrainingLogDisplayCard(log: sessionTrainingLog),
               const SizedBox(height: 22),
               Text(
                 'トレーナーノート',
@@ -8222,6 +8345,347 @@ class _WeightInputSheetState extends State<WeightInputSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// ----------------------------
+/// SessionTrainingLogCard (public – trainer read/write)
+/// ----------------------------
+
+class SessionTrainingLogCard extends StatefulWidget {
+  const SessionTrainingLogCard({
+    super.key,
+    required this.log,
+    required this.onSave,
+  });
+  final SessionTrainingLog log;
+  final Future<void> Function(List<SessionExercise>) onSave;
+
+  @override
+  State<SessionTrainingLogCard> createState() =>
+      _SessionTrainingLogCardState();
+}
+
+class _SessionTrainingLogCardState extends State<SessionTrainingLogCard> {
+  late List<SessionExercise> _exercises;
+  final _nameCtrl = TextEditingController();
+  final _weightCtrl = TextEditingController();
+  final _repsCtrl = TextEditingController();
+  final _setsCtrl = TextEditingController();
+  final _memoCtrl = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _exercises = List.from(widget.log.exercises);
+  }
+
+  @override
+  void didUpdateWidget(SessionTrainingLogCard old) {
+    super.didUpdateWidget(old);
+    if (old.log != widget.log) {
+      _exercises = List.from(widget.log.exercises);
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _weightCtrl.dispose();
+    _repsCtrl.dispose();
+    _setsCtrl.dispose();
+    _memoCtrl.dispose();
+    super.dispose();
+  }
+
+  void _addExercise() {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    setState(() {
+      _exercises.add(SessionExercise(
+        name: name,
+        weightKg: double.tryParse(_weightCtrl.text.trim()),
+        reps: int.tryParse(_repsCtrl.text.trim()),
+        sets: int.tryParse(_setsCtrl.text.trim()),
+        memo: _memoCtrl.text.trim(),
+      ));
+      _nameCtrl.clear();
+      _weightCtrl.clear();
+      _repsCtrl.clear();
+      _setsCtrl.clear();
+      _memoCtrl.clear();
+    });
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await widget.onSave(_exercises);
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('セッション記録を保存しました')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('セッション記録を保存できませんでした')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'セッション記録',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF444444),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _nameCtrl,
+            decoration: const InputDecoration(
+              labelText: '種目名',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _weightCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: '重量 (kg)',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _repsCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: '回数',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _setsCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'セット数',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _memoCtrl,
+            maxLines: 1,
+            decoration: const InputDecoration(
+              labelText: 'メモ',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: _nameCtrl.text.trim().isEmpty ? null : _addExercise,
+            child: const Text('追加'),
+          ),
+          if (_exercises.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+            const SizedBox(height: 8),
+            ..._exercises.asMap().entries.map(
+                  (entry) => _SessionExerciseRow(
+                    exercise: entry.value,
+                    onDelete: () =>
+                        setState(() => _exercises.removeAt(entry.key)),
+                  ),
+                ),
+            const SizedBox(height: 4),
+            const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+          ],
+          const SizedBox(height: 8),
+          FilledButton(
+            onPressed: _saving ? null : _save,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF4A90E2),
+            ),
+            child: _saving
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : const Text('保存', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SessionExerciseRow extends StatelessWidget {
+  const _SessionExerciseRow(
+      {required this.exercise, required this.onDelete});
+  final SessionExercise exercise;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = <String>[];
+    if (exercise.weightKg != null) parts.add('${exercise.weightKg} kg');
+    if (exercise.reps != null) parts.add('${exercise.reps}回');
+    if (exercise.sets != null) parts.add('${exercise.sets}セット');
+    final detail = parts.join(' × ');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  exercise.name,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF222222),
+                  ),
+                ),
+                if (detail.isNotEmpty)
+                  Text(detail,
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF888888))),
+                if (exercise.memo.isNotEmpty)
+                  Text(exercise.memo,
+                      style: const TextStyle(
+                          fontSize: 11, color: Color(0xFFAAAAAA))),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onDelete,
+            icon: const Icon(Icons.close, size: 18),
+            color: const Color(0xFFCCCCCC),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ----------------------------
+/// SessionTrainingLogDisplayCard (public – customer read-only)
+/// ----------------------------
+
+class SessionTrainingLogDisplayCard extends StatelessWidget {
+  const SessionTrainingLogDisplayCard({super.key, required this.log});
+  final SessionTrainingLog log;
+
+  @override
+  Widget build(BuildContext context) {
+    if (log.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Text(
+          'セッション記録はまだありません',
+          style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
+        ),
+      );
+    }
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: log.exercises.map<Widget>((e) {
+          final parts = <String>[];
+          if (e.weightKg != null) parts.add('${e.weightKg} kg');
+          if (e.reps != null) parts.add('${e.reps}回');
+          if (e.sets != null) parts.add('${e.sets}セット');
+          final detail = parts.join(' × ');
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  e.name,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF222222),
+                  ),
+                ),
+                if (detail.isNotEmpty)
+                  Text(detail,
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF888888))),
+                if (e.memo.isNotEmpty)
+                  Text(e.memo,
+                      style: const TextStyle(
+                          fontSize: 11, color: Color(0xFFAAAAAA))),
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }
