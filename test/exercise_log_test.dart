@@ -238,12 +238,172 @@ void main() {
     await tester.tap(find.text('ランニング'));
     await tester.pump();
 
-    // 有酸素選択後は重量欄が非表示。kcal は at(1)
+    // 有酸素選択後は重量欄が非表示、分テキスト欄(1)が追加されたため kcal は at(2)
     expect(find.text('重量 kg'), findsNothing);
     final kcalCtrl = tester
-        .widget<TextFormField>(find.byType(TextFormField).at(1))
+        .widget<TextFormField>(find.byType(TextFormField).at(2))
         .controller;
     expect(kcalCtrl?.text, '240');
+  });
+
+  // ── EC: 有酸素入力UI ───────────────────────────────────────────
+
+  testWidgets('EC-1: 有酸素候補選択後に時間ボタンが表示される', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'ラン');
+    await tester.pump();
+    await tester.tap(find.text('ランニング'));
+    await tester.pump();
+
+    expect(find.widgetWithText(OutlinedButton, '30分'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '60分'), findsOneWidget);
+    expect(find.text('時間'), findsOneWidget);
+  });
+
+  testWidgets('EC-2: 有酸素候補選択後に強度ボタンが表示される', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'ラン');
+    await tester.pump();
+    await tester.tap(find.text('ランニング'));
+    await tester.pump();
+
+    expect(find.widgetWithText(OutlinedButton, '軽め'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '普通'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '早め'), findsOneWidget);
+    expect(find.text('強度'), findsOneWidget);
+  });
+
+  testWidgets('EC-3: 有酸素候補では重量・回数・セット数が表示されない', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'ラン');
+    await tester.pump();
+    await tester.tap(find.text('ランニング'));
+    await tester.pump();
+
+    expect(find.text('重量 kg'), findsNothing);
+    expect(find.text('回数'), findsNothing);
+    expect(find.text('セット数'), findsNothing);
+  });
+
+  testWidgets('EC-4: 筋トレ候補では時間・強度UIが表示されない', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'スク');
+    await tester.pump();
+    await tester.tap(find.text('スクワット'));
+    await tester.pump();
+
+    expect(find.text('時間'), findsNothing);
+    expect(find.text('強度'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, '30分'), findsNothing);
+  });
+
+  testWidgets('EC-5: 「60分」ボタンでランニングのkcalが480になる', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'ラン');
+    await tester.pump();
+    await tester.tap(find.text('ランニング'));
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '60分'));
+    await tester.pump();
+
+    // name(0), 分テキスト(1), kcal(2)
+    final kcalCtrl = tester
+        .widget<TextFormField>(find.byType(TextFormField).at(2))
+        .controller;
+    expect(kcalCtrl?.text, '480');
+  });
+
+  testWidgets('EC-6: 「早め」ボタンでランニング30分のkcalが288になる', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'ラン');
+    await tester.pump();
+    await tester.tap(find.text('ランニング'));
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '早め'));
+    await tester.pump();
+
+    final kcalCtrl = tester
+        .widget<TextFormField>(find.byType(TextFormField).at(2))
+        .controller;
+    expect(kcalCtrl?.text, '288');
+  });
+
+  testWidgets('EC-7: 「軽め」ボタンでランニング30分のkcalが192になる', (tester) async {
+    await tester.pumpWidget(buildWithSheet(onSave: (_) async {}));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'ラン');
+    await tester.pump();
+    await tester.tap(find.text('ランニング'));
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '軽め'));
+    await tester.pump();
+
+    final kcalCtrl = tester
+        .widget<TextFormField>(find.byType(TextFormField).at(2))
+        .controller;
+    expect(kcalCtrl?.text, '192');
+  });
+
+  testWidgets('EC-8: ランニング選択後の保存で durationMinutes=30, intensity=normal が渡る',
+      (tester) async {
+    ExerciseLogEntry? saved;
+    await tester.pumpWidget(buildWithSheet(onSave: (e) async { saved = e; }));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'ラン');
+    await tester.pump();
+    await tester.tap(find.text('ランニング'));
+    await tester.pump();
+
+    await tester.tap(find.text('保存する'));
+    await tester.pumpAndSettle();
+
+    expect(saved, isNotNull);
+    expect(saved!.durationMinutes, 30);
+    expect(saved!.intensity, 'normal');
+  });
+
+  testWidgets('EC-9: 手入力時は durationMinutes・intensity が null', (tester) async {
+    ExerciseLogEntry? saved;
+    await tester.pumpWidget(buildWithSheet(onSave: (e) async { saved = e; }));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'ランニング');
+    await tester.pump();
+    await tester.enterText(find.byType(TextFormField).at(1), '300');
+    await tester.pump();
+
+    await tester.tap(find.text('保存する'));
+    await tester.pumpAndSettle();
+
+    expect(saved, isNotNull);
+    expect(saved!.durationMinutes, isNull);
+    expect(saved!.intensity, isNull);
   });
 
   // ── 重量・回数・セット数テスト ────────────────────────────────

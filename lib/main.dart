@@ -197,6 +197,8 @@ class ExerciseLogEntry {
   final DateTime loggedAt;
   final DateTime date;
   final String createdByRole; // "customer" | "trainer"（将来のロール分岐用）
+  final int? durationMinutes; // 有酸素のみ。旧ドキュメントは null
+  final String? intensity;    // 有酸素のみ: 'light' | 'normal' | 'hard'
 
   ExerciseLogEntry({
     this.id,
@@ -207,6 +209,8 @@ class ExerciseLogEntry {
     required this.loggedAt,
     required this.date,
     this.createdByRole = 'customer',
+    this.durationMinutes,
+    this.intensity,
   });
 
   Map<String, dynamic> toMap() => {
@@ -218,6 +222,8 @@ class ExerciseLogEntry {
         'date': Timestamp.fromDate(date),
         'createdByRole': createdByRole,
         'updatedAt': FieldValue.serverTimestamp(),
+        if (durationMinutes != null) 'durationMinutes': durationMinutes,
+        if (intensity != null) 'intensity': intensity,
       };
 
   static ExerciseLogEntry fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -234,6 +240,8 @@ class ExerciseLogEntry {
       loggedAt: loggedAt,
       date: date,
       createdByRole: (data['createdByRole'] as String?) ?? 'customer',
+      durationMinutes: (data['durationMinutes'] as int?),
+      intensity: (data['intensity'] as String?),
     );
   }
 }
@@ -7934,6 +7942,10 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
   List<ExerciseSuggestion> _suggestions = [];
   ExerciseSuggestion? _pickedSuggestion;
   bool _showStrengthInputs = false;
+  bool _showCardioInputs = false;
+  int _cardioMinutes = 30;
+  double _intensityFactor = 1.0;
+  final _minutesCtrl = TextEditingController(text: '30');
 
   @override
   @override
@@ -7944,34 +7956,41 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
     _setsCtrl.dispose();
     _kcalCtrl.dispose();
     _memoCtrl.dispose();
+    _minutesCtrl.dispose();
     super.dispose();
   }
 
   void _recalcKcal() {
     final s = _pickedSuggestion;
-    if (s == null || !s.isStrengthTraining) return;
-    final weight = double.tryParse(_weightCtrl.text.trim());
-    final reps = int.tryParse(_repsCtrl.text.trim()) ?? 10;
-    final sets = int.tryParse(_setsCtrl.text.trim()) ?? 3;
-    final base = calcEstimatedKcal(s, weight);
-    _kcalCtrl.text = (base * reps / 10 * sets / 3).round().toString();
+    if (s == null) return;
+    if (s.isStrengthTraining) {
+      final weight = double.tryParse(_weightCtrl.text.trim());
+      final reps = int.tryParse(_repsCtrl.text.trim()) ?? 10;
+      final sets = int.tryParse(_setsCtrl.text.trim()) ?? 3;
+      final base = calcEstimatedKcal(s, weight);
+      _kcalCtrl.text = (base * reps / 10 * sets / 3).round().toString();
+    } else {
+      _kcalCtrl.text = calcCardioKcal(s, _cardioMinutes, _intensityFactor).toString();
+    }
   }
 
   void _pickExerciseSuggestion(ExerciseSuggestion s) {
     _nameCtrl.text = s.name;
-    _kcalCtrl.text = s.referenceKcal.toString();
     _weightCtrl.clear();
     if (s.isStrengthTraining) {
       _repsCtrl.text = '10';
       _setsCtrl.text = '3';
+      _kcalCtrl.text = s.referenceKcal.toString();
     } else {
       _repsCtrl.clear();
       _setsCtrl.clear();
+      _kcalCtrl.text = calcCardioKcal(s, _cardioMinutes, _intensityFactor).toString();
     }
     setState(() {
       _category = s.category;
       _pickedSuggestion = s;
       _showStrengthInputs = s.isStrengthTraining;
+      _showCardioInputs = !s.isStrengthTraining;
       _suggestions = [];
     });
   }
@@ -8020,6 +8039,96 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
           );
         }).toList(),
       ),
+    );
+  }
+
+  Widget _buildCardioInputs() {
+    if (!_showCardioInputs) return const SizedBox.shrink();
+    const durationOptions = [10, 20, 30, 45, 60];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        const Text('時間', style: TextStyle(fontSize: 13, color: Color(0xFF666666))),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            for (final min in durationOptions)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: OutlinedButton(
+                  onPressed: () {
+                    _minutesCtrl.text = min.toString();
+                    setState(() => _cardioMinutes = min);
+                    _recalcKcal();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    backgroundColor: _cardioMinutes == min
+                        ? const Color(0x1AE27B4A)
+                        : null,
+                    side: _cardioMinutes == min
+                        ? const BorderSide(color: Color(0xFFE27B4A))
+                        : null,
+                  ),
+                  child: Text('$min分', style: const TextStyle(fontSize: 13)),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: 100,
+          child: TextFormField(
+            controller: _minutesCtrl,
+            keyboardType: TextInputType.number,
+            onChanged: (v) {
+              final m = int.tryParse(v.trim());
+              if (m != null && m > 0) {
+                setState(() => _cardioMinutes = m);
+                _recalcKcal();
+              }
+            },
+            decoration: const InputDecoration(
+              labelText: '分',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Text('強度', style: TextStyle(fontSize: 13, color: Color(0xFF666666))),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            for (final entry in <(String, double)>[('軽め', 0.8), ('普通', 1.0), ('早め', 1.2)])
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: OutlinedButton(
+                  onPressed: () {
+                    setState(() => _intensityFactor = entry.$2);
+                    _recalcKcal();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    backgroundColor: _intensityFactor == entry.$2
+                        ? const Color(0x1AE27B4A)
+                        : null,
+                    side: _intensityFactor == entry.$2
+                        ? const BorderSide(color: Color(0xFFE27B4A))
+                        : null,
+                  ),
+                  child: Text(entry.$1, style: const TextStyle(fontSize: 13)),
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -8104,6 +8213,11 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
     try {
       final now = DateTime.now();
       final dateOnly = DateTime(widget.date.year, widget.date.month, widget.date.day);
+      final intensityLabel = _intensityFactor == 0.8
+          ? 'light'
+          : _intensityFactor == 1.2
+              ? 'hard'
+              : 'normal';
       final entry = ExerciseLogEntry(
         name: _nameCtrl.text.trim(),
         kcal: int.parse(_kcalCtrl.text.trim()),
@@ -8112,6 +8226,8 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
         loggedAt: now,
         date: dateOnly,
         createdByRole: 'customer',
+        durationMinutes: _showCardioInputs ? _cardioMinutes : null,
+        intensity: _showCardioInputs ? intensityLabel : null,
       );
       await widget.onSave(entry);
       if (mounted) Navigator.of(context).pop();
@@ -8142,6 +8258,7 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
                 _suggestions = searchExerciseSuggestions(text);
                 _pickedSuggestion = null;
                 _showStrengthInputs = false;
+                _showCardioInputs = false;
               }),
               decoration: const InputDecoration(
                 labelText: '運動名（例：ウォーキング、筋トレ）',
@@ -8152,6 +8269,7 @@ class _ExerciseInputSheetState extends State<ExerciseInputSheet> {
                   (v == null || v.trim().isEmpty) ? '運動名を入力してください' : null,
             ),
             _buildExerciseSuggestions(),
+            _buildCardioInputs(),
             _buildStrengthInputs(),
             const SizedBox(height: 12),
             TextFormField(

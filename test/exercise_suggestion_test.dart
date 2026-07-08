@@ -182,4 +182,37 @@ void main() {
       expect(calcEstimatedKcal(running, 100), 240);
     });
   });
+
+  group('calcCardioKcal', () {
+    final running = searchExerciseSuggestions('ランニング').first;   // referenceKcal=240
+    final walking = searchExerciseSuggestions('ウォーキング').first; // referenceKcal=105
+
+    test('CC-1: ランニング 30分 普通(1.0) → 240', () {
+      expect(calcCardioKcal(running, 30, 1.0), 240);
+    });
+
+    test('CC-2: ランニング 60分 普通(1.0) → 480', () {
+      expect(calcCardioKcal(running, 60, 1.0), 480);
+    });
+
+    test('CC-3: ランニング 30分 早め(1.2) → 288', () {
+      expect(calcCardioKcal(running, 30, 1.2), 288);
+    });
+
+    test('CC-4: ランニング 30分 軽め(0.8) → 192', () {
+      expect(calcCardioKcal(running, 30, 0.8), 192);
+    });
+
+    test('CC-5: ウォーキング 20分 軽め(0.8) → 56', () {
+      expect(calcCardioKcal(walking, 20, 0.8), 56);
+    });
+
+    test('CC-6: ランニング 45分 普通(1.0) → 360', () {
+      expect(calcCardioKcal(running, 45, 1.0), 360);
+    });
+
+    test('CC-7: ランニング 10分 早め(1.2) → 96', () {
+      expect(calcCardioKcal(running, 10, 1.2), 96);
+    });
+  });
 }

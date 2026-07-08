@@ -44,6 +44,15 @@ int calcEstimatedKcal(ExerciseSuggestion suggestion, double? weightKg) {
   return (suggestion.referenceKcal * 1.3).round();
 }
 
+/// 有酸素運動の推定消費kcalを返す
+///
+/// [referenceKcal] は 30分・普通強度 (intensityFactor=1.0) の基準値。
+/// - 時間補正: referenceKcal × minutes / 30
+/// - 強度補正: 軽め 0.8 / 普通 1.0 / 早め 1.2
+int calcCardioKcal(ExerciseSuggestion s, int minutes, double intensityFactor) {
+  return (s.referenceKcal * minutes / 30 * intensityFactor).round();
+}
+
 // METs値は American College of Sports Medicine "Compendium of Physical Activities" に基づく参考値
 // referenceKcal = MET × 60kg × 0.5h
 const List<ExerciseSuggestion> _kExerciseSuggestions = [
