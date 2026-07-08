@@ -2013,6 +2013,7 @@ class _RootShellState extends State<RootShell> {
       return TrainerHomeScreen(
         profile: _profile!,
         onSwitchToCustomer: () => _setRole('customer'),
+        onReturnToTop: () => _setRole(''),
       );
     }
 
@@ -2245,9 +2246,14 @@ class _RootShellState extends State<RootShell> {
 /// ----------------------------
 
 class TrainerHomeScreen extends StatefulWidget {
-  const TrainerHomeScreen({super.key, required this.profile, this.onSwitchToCustomer});
+  const TrainerHomeScreen(
+      {super.key,
+      required this.profile,
+      this.onSwitchToCustomer,
+      this.onReturnToTop});
   final UserProfile profile;
   final VoidCallback? onSwitchToCustomer;
+  final VoidCallback? onReturnToTop;
 
   @override
   State<TrainerHomeScreen> createState() => _TrainerHomeScreenState();
@@ -2335,6 +2341,27 @@ class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
     await _reload();
   }
 
+  Future<void> _confirmReturnToTop() async {
+    if (widget.onReturnToTop == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('トップ画面に戻りますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('戻る'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) widget.onReturnToTop!();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -2352,17 +2379,24 @@ class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
           ),
         ),
         actions: [
-          if (widget.onSwitchToCustomer != null)
+          if (widget.onSwitchToCustomer != null || widget.onReturnToTop != null)
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, color: Color(0xFF444444)),
               onSelected: (v) {
                 if (v == 'switch') widget.onSwitchToCustomer!();
+                if (v == 'demo_return') _confirmReturnToTop();
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(
-                  value: 'switch',
-                  child: Text('お客さんモードに切り替える'),
-                ),
+              itemBuilder: (_) => [
+                if (widget.onSwitchToCustomer != null)
+                  const PopupMenuItem(
+                    value: 'switch',
+                    child: Text('お客さんモードに切り替える'),
+                  ),
+                if (widget.onReturnToTop != null)
+                  const PopupMenuItem(
+                    value: 'demo_return',
+                    child: Text('デモ用：トップ画面に戻る'),
+                  ),
               ],
             ),
         ],
