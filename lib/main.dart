@@ -2642,31 +2642,20 @@ class _TrainerCustomerDetailScreenState
                             await _reload();
                           },
                         ),
-                        const SizedBox(height: 22),
+                        const SizedBox(height: 28),
+                        const Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: Color(0xFFEEEEEE)),
+                        const SizedBox(height: 20),
                         Text(
-                          '共有ノート',
+                          '今日の記録',
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: const Color(0xFF444444),
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        SharedNoteInputField(
-                          onSave: ({required String title, required String body}) async {
-                            await _noteRepo.saveNote(SharedNote(
-                              title: title,
-                              body: body,
-                              trainerUid: widget.trainerUid,
-                              createdAt: DateTime.now(),
-                            ));
-                            await _reload();
-                          },
-                        ),
-                        if (_sharedNotes.isNotEmpty) ...[
-                          const SizedBox(height: 14),
-                          ..._sharedNotes.map((n) => _SharedNoteCard(note: n)),
-                        ],
-                        const SizedBox(height: 22),
+                        const SizedBox(height: 14),
                         Text(
                           '今日の食事',
                           style: theme.textTheme.titleSmall?.copyWith(
@@ -2719,6 +2708,35 @@ class _TrainerCustomerDetailScreenState
                         const SizedBox(height: 10),
                         if (_weights.isNotEmpty)
                           ..._weights.map((w) => _WeightCard(entry: w)),
+                        const SizedBox(height: 28),
+                        const Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: Color(0xFFEEEEEE)),
+                        const SizedBox(height: 20),
+                        Text(
+                          '共有ノート',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF444444),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SharedNoteInputField(
+                          onSave: ({required String title, required String body}) async {
+                            await _noteRepo.saveNote(SharedNote(
+                              title: title,
+                              body: body,
+                              trainerUid: widget.trainerUid,
+                              createdAt: DateTime.now(),
+                            ));
+                            await _reload();
+                          },
+                        ),
+                        if (_sharedNotes.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          ..._sharedNotes.map((n) => _SharedNoteCard(note: n)),
+                        ],
                       ],
                     ),
         ),
