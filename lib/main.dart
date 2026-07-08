@@ -1976,6 +1976,7 @@ class _RootShellState extends State<RootShell> {
         karteGoals: _karteGoals,
         monthlyPlan: _monthlyPlan,
         selectedDate: _selectedDate,
+        trainerMessages: _trainerMessages,
         onRefresh: () async {
           setState(() => _loading = true);
           await _reloadAll();
@@ -2605,58 +2606,6 @@ class _TrainerCustomerDetailScreenState
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
                       children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x0F000000),
-                                blurRadius: 12,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'メッセージを送る',
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF444444),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              TrainerMessageInputField(
-                                onSend: (text) async {
-                                  await _msgRepo.sendMessage(
-                                    text: text,
-                                    trainerUid: widget.trainerUid,
-                                  );
-                                  await _reload();
-                                },
-                              ),
-                              if (_messages.isNotEmpty) ...[
-                                const SizedBox(height: 14),
-                                Text(
-                                  '直近のメッセージ',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: const Color(0xFF999999),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                ..._messages.map((m) => Padding(
-                                      padding:
-                                          const EdgeInsets.only(bottom: 8),
-                                      child: _TrainerMessageCard(message: m),
-                                    )),
-                              ],
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 22),
                         _CustomerInfoCard(customer: widget.customer),
                         const SizedBox(height: 22),
                         CustomerGoalCard(
@@ -2682,6 +2631,17 @@ class _TrainerCustomerDetailScreenState
                         WeeklyCheckinCard(checkin: _checkin),
                         const SizedBox(height: 22),
                         BodyCheckCard(bodyCheck: _bodyCheck),
+                        const SizedBox(height: 22),
+                        TrainerFeedbackInputCard(
+                          messages: _messages,
+                          onSend: (text) async {
+                            await _msgRepo.sendMessage(
+                              text: text,
+                              trainerUid: widget.trainerUid,
+                            );
+                            await _reload();
+                          },
+                        ),
                         const SizedBox(height: 22),
                         Text(
                           '共有ノート',
@@ -4785,6 +4745,7 @@ class SharedNotesScreen extends StatelessWidget {
     required this.selectedDate,
     this.karteGoals = const KarteGoals(),
     this.monthlyPlan = const MonthlyPlan(),
+    this.trainerMessages = const [],
   });
 
   final bool loading;
@@ -4797,6 +4758,7 @@ class SharedNotesScreen extends StatelessWidget {
   final DateTime selectedDate;
   final KarteGoals karteGoals;
   final MonthlyPlan monthlyPlan;
+  final List<TrainerMessage> trainerMessages;
 
   int get _intake => mealLogs.fold(0, (s, m) => s + m.kcal);
   int get _burn => exerciseLogs.fold(0, (s, e) => s + e.kcal);
@@ -4893,6 +4855,28 @@ class SharedNotesScreen extends StatelessWidget {
                 )
               else
                 ...weightLogs.map((w) => _WeightCard(entry: w)),
+              const SizedBox(height: 22),
+              Text(
+                'トレーナーフィードバック',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF444444),
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (trainerMessages.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'フィードバックはまだありません',
+                    style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
+                  ),
+                )
+              else
+                ...trainerMessages.map((m) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _TrainerMessageCard(message: m),
+                    )),
               const SizedBox(height: 22),
               Text(
                 'トレーナーノート',
@@ -8220,6 +8204,174 @@ class _WeightInputSheetState extends State<WeightInputSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// ----------------------------
+/// TrainerMessageInputField
+/// ----------------------------
+
+/// ----------------------------
+/// TrainerFeedbackInputCard
+/// ----------------------------
+
+class TrainerFeedbackInputCard extends StatefulWidget {
+  const TrainerFeedbackInputCard({
+    super.key,
+    required this.onSend,
+    this.messages = const [],
+  });
+  final Future<void> Function(String text) onSend;
+  final List<TrainerMessage> messages;
+
+  @override
+  State<TrainerFeedbackInputCard> createState() =>
+      _TrainerFeedbackInputCardState();
+}
+
+class _TrainerFeedbackInputCardState extends State<TrainerFeedbackInputCard> {
+  final _ctrl = TextEditingController();
+  bool _sending = false;
+
+  static const _quickReplies = [
+    '良い感じです。この調子で継続しましょう。',
+    '食事量を少し調整していきましょう。',
+    '疲労が出ているので無理せず進めましょう。',
+  ];
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty) return;
+    setState(() => _sending = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await widget.onSend(text);
+      _ctrl.clear();
+      if (mounted) {
+        setState(() {});
+        messenger.showSnackBar(
+          const SnackBar(content: Text('フィードバックを送信しました')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('送信できませんでした')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '今日のフィードバック',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF444444),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _quickReplies
+                .map(
+                  (reply) => GestureDetector(
+                    onTap: () => setState(() => _ctrl.text = reply),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0F5FF),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: const Color(0xFF4A90E2), width: 1),
+                      ),
+                      child: Text(
+                        reply,
+                        style: const TextStyle(
+                            fontSize: 12, color: Color(0xFF4A90E2)),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _ctrl,
+            minLines: 1,
+            maxLines: 3,
+            maxLength: 200,
+            textInputAction: TextInputAction.newline,
+            decoration: const InputDecoration(
+              hintText: 'フィードバックを入力',
+              border: OutlineInputBorder(),
+              isDense: true,
+              counterText: '',
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 8),
+          FilledButton(
+            onPressed:
+                (_ctrl.text.trim().isEmpty || _sending) ? null : _submit,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF4A90E2),
+            ),
+            child: _sending
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : const Text('送信', style: TextStyle(color: Colors.white)),
+          ),
+          if (widget.messages.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text(
+              '直近のフィードバック',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: const Color(0xFF999999)),
+            ),
+            const SizedBox(height: 8),
+            ...widget.messages.map(
+              (m) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _TrainerMessageCard(message: m),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
