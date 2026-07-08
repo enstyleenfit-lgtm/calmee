@@ -795,6 +795,18 @@ class WeightRepository {
     return snap.docs.map((doc) => WeightLogEntry.fromDoc(doc)).toList();
   }
 
+  Future<List<WeightLogEntry>> loadForDateRange(
+      DateTime from, DateTime to) async {
+    final f = DateTime(from.year, from.month, from.day);
+    final tEnd = DateTime(to.year, to.month, to.day).add(const Duration(days: 1));
+    final snap = await _ref
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(f))
+        .where('date', isLessThan: Timestamp.fromDate(tEnd))
+        .get();
+    return snap.docs.map((d) => WeightLogEntry.fromDoc(d)).toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+  }
+
   Future<void> deleteWeight(String id) async {
     await _ref.doc(id).delete();
   }
@@ -1326,6 +1338,27 @@ class WeeklyCheckinRepository {
   Future<void> saveCurrent(WeeklyCheckin checkin) async {
     await _ref(DateTime.now()).set(checkin.toMap());
   }
+
+  Future<WeeklyCheckin> loadForDate(DateTime date) async {
+    final snap = await _ref(date).get();
+    if (!snap.exists || snap.data() == null) return const WeeklyCheckin();
+    return WeeklyCheckin.fromMap(snap.data()!);
+  }
+
+  Future<List<String>> loadWeekIdsForMonth(DateTime month) async {
+    final startId = weekId(DateTime(month.year, month.month, 1));
+    final lastDay = DateTime(month.year, month.month + 1, 0);
+    final endId = weekId(lastDay);
+    final colRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(customerUid)
+        .collection('weeklyCheckins');
+    final snap = await colRef
+        .where(FieldPath.documentId, isGreaterThanOrEqualTo: startId)
+        .where(FieldPath.documentId, isLessThanOrEqualTo: endId)
+        .get();
+    return snap.docs.map((d) => d.id).toList();
+  }
 }
 
 /// ----------------------------
@@ -1407,6 +1440,24 @@ class BodyCheckRepository {
   Future<void> saveToday(BodyCheck check) async {
     final id = dateId(DateTime.now());
     await _col.doc(id).set({...check.toMap(), 'dateId': id});
+  }
+
+  Future<BodyCheck> loadForDate(DateTime date) async {
+    final snap = await _col.doc(dateId(date)).get();
+    if (!snap.exists || snap.data() == null) return const BodyCheck();
+    return BodyCheck.fromMap(snap.data()!);
+  }
+
+  Future<List<String>> loadDateIdsForMonth(DateTime month) async {
+    final startId =
+        '${month.year}${month.month.toString().padLeft(2, '0')}01';
+    final endId =
+        '${month.year}${month.month.toString().padLeft(2, '0')}31';
+    final snap = await _col
+        .where(FieldPath.documentId, isGreaterThanOrEqualTo: startId)
+        .where(FieldPath.documentId, isLessThanOrEqualTo: endId)
+        .get();
+    return snap.docs.map((d) => d.id).toList();
   }
 }
 
@@ -1497,6 +1548,24 @@ class SessionTrainingLogRepository {
       'exercises': exercises.map((e) => e.toMap()).toList(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<SessionTrainingLog> loadForDate(DateTime date) async {
+    final snap = await _col.doc(dateId(date)).get();
+    if (!snap.exists || snap.data() == null) return const SessionTrainingLog();
+    return SessionTrainingLog.fromMap(snap.data()!);
+  }
+
+  Future<List<String>> loadDateIdsForMonth(DateTime month) async {
+    final startId =
+        '${month.year}${month.month.toString().padLeft(2, '0')}01';
+    final endId =
+        '${month.year}${month.month.toString().padLeft(2, '0')}31';
+    final snap = await _col
+        .where(FieldPath.documentId, isGreaterThanOrEqualTo: startId)
+        .where(FieldPath.documentId, isLessThanOrEqualTo: endId)
+        .get();
+    return snap.docs.map((d) => d.id).toList();
   }
 }
 
@@ -2069,6 +2138,7 @@ class _RootShellState extends State<RootShell> {
         bodyCheck: _bodyCheck,
         onSaveBodyCheck: _saveBodyCheck,
       ),
+      CalendarScreen(customerUid: _uid ?? ''),
       SharedNotesScreen(
         loading: _loading,
         mealLogs: _mealLogs,
@@ -2224,6 +2294,11 @@ class _RootShellState extends State<RootShell> {
             icon: Icon(Icons.bar_chart_outlined),
             selectedIcon: Icon(Icons.bar_chart),
             label: '進捗',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month),
+            label: 'カレンダー',
           ),
           NavigationDestination(
             icon: Icon(Icons.folder_outlined),
@@ -2754,6 +2829,19 @@ class _TrainerCustomerDetailScreenState
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_month_outlined),
+            color: const Color(0xFF444444),
+            tooltip: 'カレンダー',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CalendarScreen(
+                  customerUid: widget.customer.customerUid,
+                ),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.description_outlined),
             color: const Color(0xFF444444),
@@ -9425,4 +9513,637 @@ class _TrainerMessageCard extends StatelessWidget {
   }
 }
 
+/// ----------------------------
+/// CalendarScreen
+/// ----------------------------
+
+class _CalendarDayData {
+  _CalendarDayData({
+    required this.date,
+    required this.meals,
+    required this.exercises,
+    required this.weights,
+    required this.checkin,
+    required this.bodyCheck,
+    required this.sessionLog,
+  });
+  final DateTime date;
+  final List<MealLogEntry> meals;
+  final List<ExerciseLogEntry> exercises;
+  final List<WeightLogEntry> weights;
+  final WeeklyCheckin checkin;
+  final BodyCheck bodyCheck;
+  final SessionTrainingLog sessionLog;
+
+  bool get hasAny =>
+      meals.isNotEmpty ||
+      exercises.isNotEmpty ||
+      weights.isNotEmpty ||
+      !checkin.isEmpty ||
+      !bodyCheck.isEmpty ||
+      !sessionLog.isEmpty;
+}
+
+_CalendarDayData _emptyDayData(DateTime date) => _CalendarDayData(
+      date: date,
+      meals: const [],
+      exercises: const [],
+      weights: const [],
+      checkin: const WeeklyCheckin(),
+      bodyCheck: const BodyCheck(),
+      sessionLog: const SessionTrainingLog(),
+    );
+
+class CalendarScreen extends StatefulWidget {
+  const CalendarScreen({
+    super.key,
+    required this.customerUid,
+    this.initialDate,
+  });
+  final String customerUid;
+  final DateTime? initialDate;
+
+  @override
+  State<CalendarScreen> createState() => _CalendarScreenState();
+}
+
+class _CalendarScreenState extends State<CalendarScreen> {
+  late final MealRepository _mealRepo;
+  late final ExerciseRepository _exerciseRepo;
+  late final WeightRepository _weightRepo;
+  late final WeeklyCheckinRepository _checkinRepo;
+  late final BodyCheckRepository _bodyCheckRepo;
+  late final SessionTrainingLogRepository _sessionRepo;
+
+  late DateTime _displayedMonth;
+  late DateTime _selectedDate;
+  Set<DateTime> _markedDates = {};
+  bool _monthLoading = false;
+  late _CalendarDayData _dayData;
+  bool _dayLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _mealRepo = MealRepository(widget.customerUid);
+    _exerciseRepo = ExerciseRepository(widget.customerUid);
+    _weightRepo = WeightRepository(widget.customerUid);
+    _checkinRepo = WeeklyCheckinRepository(widget.customerUid);
+    _bodyCheckRepo = BodyCheckRepository(widget.customerUid);
+    _sessionRepo = SessionTrainingLogRepository(widget.customerUid);
+
+    final now = widget.initialDate ?? DateTime.now();
+    _displayedMonth = DateTime(now.year, now.month, 1);
+    _selectedDate = DateTime(now.year, now.month, now.day);
+    _dayData = _emptyDayData(_selectedDate);
+
+    _loadMonthData(_displayedMonth);
+    _loadDayData(_selectedDate);
+  }
+
+  Future<void> _loadMonthData(DateTime month) async {
+    if (!mounted) return;
+    setState(() => _monthLoading = true);
+    try {
+      final monthStart = DateTime(month.year, month.month, 1);
+      final monthEnd = DateTime(month.year, month.month + 1, 0);
+
+      final meals =
+          await _mealRepo.loadForDateRange(monthStart, monthEnd);
+      final exercises =
+          await _exerciseRepo.loadForDateRange(monthStart, monthEnd);
+      final weights =
+          await _weightRepo.loadForDateRange(monthStart, monthEnd);
+      final bodyCheckIds =
+          await _bodyCheckRepo.loadDateIdsForMonth(month);
+      final sessionIds =
+          await _sessionRepo.loadDateIdsForMonth(month);
+      final weekIds =
+          await _checkinRepo.loadWeekIdsForMonth(month);
+
+      final marked = <DateTime>{};
+      for (final m in meals) { marked.add(_dateOnly(m.date)); }
+      for (final e in exercises) { marked.add(_dateOnly(e.date)); }
+      for (final w in weights) { marked.add(_dateOnly(w.date)); }
+      for (final id in bodyCheckIds) {
+        final dt = _parseDateId(id);
+        if (dt != null) marked.add(dt);
+      }
+      for (final id in sessionIds) {
+        final dt = _parseDateId(id);
+        if (dt != null) marked.add(dt);
+      }
+      for (final wid in weekIds) {
+        final monday = _parseDateId(wid);
+        if (monday == null) continue;
+        for (int i = 0; i < 7; i++) {
+          final day = monday.add(Duration(days: i));
+          if (day.year == month.year && day.month == month.month) {
+            marked.add(day);
+          }
+        }
+      }
+
+      if (mounted) setState(() => _markedDates = marked);
+    } catch (_) {
+      // Firebase unavailable (e.g. in tests) — keep empty marked set
+    } finally {
+      if (mounted) setState(() => _monthLoading = false);
+    }
+  }
+
+  Future<void> _loadDayData(DateTime date) async {
+    if (!mounted) return;
+    setState(() => _dayLoading = true);
+    try {
+      final meals = await _mealRepo.loadForDate(date);
+      final exercises = await _exerciseRepo.loadForDate(date);
+      final weights = await _weightRepo.loadForDate(date);
+      final checkin = await _checkinRepo.loadForDate(date);
+      final bodyCheck = await _bodyCheckRepo.loadForDate(date);
+      final sessionLog = await _sessionRepo.loadForDate(date);
+      if (mounted) {
+        setState(() {
+          _dayData = _CalendarDayData(
+            date: date,
+            meals: meals,
+            exercises: exercises,
+            weights: weights,
+            checkin: checkin,
+            bodyCheck: bodyCheck,
+            sessionLog: sessionLog,
+          );
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _dayData = _emptyDayData(date));
+    } finally {
+      if (mounted) setState(() => _dayLoading = false);
+    }
+  }
+
+  void _onDaySelected(DateTime date) {
+    if (_selectedDate == date) return;
+    setState(() {
+      _selectedDate = date;
+      _dayData = _emptyDayData(date);
+    });
+    _loadDayData(date);
+  }
+
+  void _onPrevMonth() {
+    final prev =
+        DateTime(_displayedMonth.year, _displayedMonth.month - 1, 1);
+    setState(() => _displayedMonth = prev);
+    _loadMonthData(prev);
+  }
+
+  void _onNextMonth() {
+    final next =
+        DateTime(_displayedMonth.year, _displayedMonth.month + 1, 1);
+    setState(() => _displayedMonth = next);
+    _loadMonthData(next);
+  }
+
+  static DateTime _dateOnly(DateTime d) =>
+      DateTime(d.year, d.month, d.day);
+
+  static DateTime? _parseDateId(String id) {
+    if (id.length < 8) return null;
+    final y = int.tryParse(id.substring(0, 4));
+    final m = int.tryParse(id.substring(4, 6));
+    final d = int.tryParse(id.substring(6, 8));
+    if (y == null || m == null || d == null) return null;
+    return DateTime(y, m, d);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F7),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'カレンダー',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF111111),
+            fontSize: 18,
+          ),
+        ),
+        iconTheme: const IconThemeData(color: Color(0xFF444444)),
+      ),
+      body: Column(
+        children: [
+          _CalendarGrid(
+            displayedMonth: _displayedMonth,
+            selectedDate: _selectedDate,
+            today: _dateOnly(DateTime.now()),
+            markedDates: _markedDates,
+            monthLoading: _monthLoading,
+            onDaySelected: _onDaySelected,
+            onPrevMonth: _onPrevMonth,
+            onNextMonth: _onNextMonth,
+          ),
+          const Divider(height: 1, color: Color(0xFFEEEEEE)),
+          Expanded(
+            child: _dayLoading
+                ? const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : _CalendarDayDetail(data: _dayData),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CalendarGrid extends StatelessWidget {
+  const _CalendarGrid({
+    required this.displayedMonth,
+    required this.selectedDate,
+    required this.today,
+    required this.markedDates,
+    required this.monthLoading,
+    required this.onDaySelected,
+    required this.onPrevMonth,
+    required this.onNextMonth,
+  });
+
+  final DateTime displayedMonth;
+  final DateTime selectedDate;
+  final DateTime today;
+  final Set<DateTime> markedDates;
+  final bool monthLoading;
+  final void Function(DateTime) onDaySelected;
+  final VoidCallback onPrevMonth;
+  final VoidCallback onNextMonth;
+
+  @override
+  Widget build(BuildContext context) {
+    final firstDay =
+        DateTime(displayedMonth.year, displayedMonth.month, 1);
+    final offset = firstDay.weekday - 1; // Mon=0 … Sun=6
+    final lastDay =
+        DateTime(displayedMonth.year, displayedMonth.month + 1, 0);
+    final totalDays = lastDay.day;
+    final rows = ((offset + totalDays + 6) ~/ 7);
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Month header
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                color: const Color(0xFF444444),
+                onPressed: onPrevMonth,
+              ),
+              Expanded(
+                child: Center(
+                  child: monthLoading
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 1.5),
+                        )
+                      : Text(
+                          '${displayedMonth.year}年${displayedMonth.month}月',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                            color: Color(0xFF111111),
+                          ),
+                        ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                color: const Color(0xFF444444),
+                onPressed: onNextMonth,
+              ),
+            ],
+          ),
+          // Day-of-week labels
+          Row(
+            children: ['月', '火', '水', '木', '金', '土', '日']
+                .map((label) => Expanded(
+                      child: Center(
+                        child: Text(
+                          label,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF888888),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: 2),
+          // Day grid
+          for (int row = 0; row < rows; row++)
+            Row(
+              children: List.generate(7, (col) {
+                final idx = row * 7 + col;
+                final dayNum = idx - offset + 1;
+                if (dayNum < 1 || dayNum > totalDays) {
+                  return const Expanded(child: SizedBox(height: 44));
+                }
+                final date = DateTime(
+                    displayedMonth.year, displayedMonth.month, dayNum);
+                return Expanded(
+                  child: _CalendarDayCell(
+                    day: dayNum,
+                    isToday: date == today,
+                    isSelected: date == selectedDate,
+                    isMarked: markedDates.contains(date),
+                    onTap: () => onDaySelected(date),
+                  ),
+                );
+              }),
+            ),
+          const SizedBox(height: 2),
+        ],
+      ),
+    );
+  }
+}
+
+class _CalendarDayCell extends StatelessWidget {
+  const _CalendarDayCell({
+    required this.day,
+    required this.isToday,
+    required this.isSelected,
+    required this.isMarked,
+    required this.onTap,
+  });
+
+  final int day;
+  final bool isToday;
+  final bool isSelected;
+  final bool isMarked;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor = isSelected
+        ? const Color(0xFF222222)
+        : isToday
+            ? const Color(0xFF5CB8B2)
+            : Colors.transparent;
+    final textColor =
+        (isSelected || isToday) ? Colors.white : const Color(0xFF333333);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 44,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: bgColor,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  '$day',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 1),
+            isMarked
+                ? Container(
+                    width: 5,
+                    height: 5,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF5CB8B2),
+                      shape: BoxShape.circle,
+                    ),
+                  )
+                : const SizedBox(height: 5),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CalendarDayDetail extends StatelessWidget {
+  const _CalendarDayDetail({required this.data});
+  final _CalendarDayData data;
+
+  String _weekdayLabel(int weekday) =>
+      ['月', '火', '水', '木', '金', '土', '日'][(weekday - 1) % 7];
+
+  @override
+  Widget build(BuildContext context) {
+    final d = data;
+    final dateStr =
+        '${d.date.year}年${d.date.month}月${d.date.day}日（${_weekdayLabel(d.date.weekday)}）';
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      children: [
+        Text(
+          dateStr,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF444444),
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (!d.hasAny)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 28),
+            child: Center(
+              child: Text(
+                'この日の記録はありません',
+                style: TextStyle(fontSize: 13, color: Color(0xFF999999)),
+              ),
+            ),
+          )
+        else ...[
+          if (d.meals.isNotEmpty) _buildMeals(d.meals),
+          if (d.exercises.isNotEmpty) _buildExercises(d.exercises),
+          if (d.weights.isNotEmpty) _buildWeights(d.weights),
+          if (!d.checkin.isEmpty) _buildCheckin(d.checkin),
+          if (!d.bodyCheck.isEmpty) _buildBodyCheck(d.bodyCheck),
+          if (!d.sessionLog.isEmpty) _buildSession(d.sessionLog),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildMeals(List<MealLogEntry> meals) {
+    final totalKcal = meals.fold<int>(0, (s, m) => s + m.kcal);
+    return _Section(
+      icon: Icons.restaurant_outlined,
+      title: '食事  ${meals.length}件  ${totalKcal}kcal',
+      children: [
+        ...meals.take(3).map((m) => _Row('${m.name}  ${m.kcal}kcal')),
+        if (meals.length > 3) _Row('他 ${meals.length - 3}件'),
+      ],
+    );
+  }
+
+  Widget _buildExercises(List<ExerciseLogEntry> exercises) {
+    final totalKcal = exercises.fold<int>(0, (s, e) => s + e.kcal);
+    return _Section(
+      icon: Icons.fitness_center_outlined,
+      title: '運動  ${exercises.length}件  ${totalKcal}kcal',
+      children: [
+        ...exercises.take(3).map((e) => _Row('${e.name}  ${e.kcal}kcal')),
+        if (exercises.length > 3) _Row('他 ${exercises.length - 3}件'),
+      ],
+    );
+  }
+
+  Widget _buildWeights(List<WeightLogEntry> weights) {
+    return _Section(
+      icon: Icons.monitor_weight_outlined,
+      title: '体重',
+      children: weights
+          .take(2)
+          .map((w) => _Row('${w.weight} kg'))
+          .toList(),
+    );
+  }
+
+  Widget _buildCheckin(WeeklyCheckin c) {
+    final chips = <String>[];
+    if (c.achievement > 0) chips.add('達成度 ${c.achievement}');
+    if (c.fatigue > 0) chips.add('疲労 ${c.fatigue}');
+    if (c.sleep > 0) chips.add('睡眠 ${c.sleep}');
+    if (c.digestion > 0) chips.add('消化 ${c.digestion}');
+    return _Section(
+      icon: Icons.check_circle_outline,
+      title: '週次チェックイン',
+      children: [
+        if (chips.isNotEmpty) _Row(chips.join('  /  ')),
+        if (c.bodyNote.isNotEmpty) _Row('体調: ${c.bodyNote}'),
+        if (c.consultation.isNotEmpty) _Row('相談: ${c.consultation}'),
+      ],
+    );
+  }
+
+  Widget _buildBodyCheck(BodyCheck b) {
+    final rows = <Widget>[];
+    if (b.waist != null) rows.add(_Row('ウエスト ${b.waist} cm'));
+    if (b.edema > 0) rows.add(_Row('むくみ ${b.edema}'));
+    if (b.pinchFeel > 0) rows.add(_Row('腹部つまみ感 ${b.pinchFeel}'));
+    if (b.lookNote.isNotEmpty) rows.add(_Row('見た目: ${b.lookNote}'));
+    if (b.concernArea.isNotEmpty) rows.add(_Row('気になる: ${b.concernArea}'));
+    return _Section(
+      icon: Icons.straighten_outlined,
+      title: '体型チェック',
+      children: rows,
+    );
+  }
+
+  Widget _buildSession(SessionTrainingLog s) {
+    return _Section(
+      icon: Icons.sports_gymnastics_outlined,
+      title: 'セッション記録  ${s.exercises.length}種目',
+      children: s.exercises
+          .take(3)
+          .map((e) {
+            final parts = <String>[e.name];
+            if (e.weightKg != null) parts.add('${e.weightKg}kg');
+            if (e.sets != null && e.reps != null) {
+              parts.add('${e.sets}×${e.reps}');
+            }
+            return _Row(parts.join('  '));
+          })
+          .toList()
+        ..addAll(
+          s.exercises.length > 3
+              ? [_Row('他 ${s.exercises.length - 3}種目')]
+              : [],
+        ),
+    );
+  }
+}
+
+class _Section extends StatelessWidget {
+  const _Section({
+    required this.icon,
+    required this.title,
+    required this.children,
+  });
+  final IconData icon;
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 15, color: const Color(0xFF5CB8B2)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: Color(0xFF222222),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (children.isNotEmpty) ...[
+            const SizedBox(height: 7),
+            ...children,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _Row extends StatelessWidget {
+  const _Row(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 12, color: Color(0xFF555555)),
+      ),
+    );
+  }
+}
 
