@@ -1321,6 +1321,88 @@ class WeeklyCheckinRepository {
 }
 
 /// ----------------------------
+/// BodyCheck model + repository
+/// ----------------------------
+
+class BodyCheck {
+  const BodyCheck({
+    this.waist,
+    this.weightNote = '',
+    this.edema = 0,
+    this.pinchFeel = 0,
+    this.lookNote = '',
+    this.concernArea = '',
+  });
+  final double? waist;
+  final String weightNote;
+  final int edema;
+  final int pinchFeel;
+  final String lookNote;
+  final String concernArea;
+
+  bool get isEmpty =>
+      waist == null &&
+      weightNote.isEmpty &&
+      edema == 0 &&
+      pinchFeel == 0 &&
+      lookNote.isEmpty &&
+      concernArea.isEmpty;
+
+  Map<String, dynamic> toMap() => {
+        'waist': waist,
+        'weightNote': weightNote,
+        'edema': edema,
+        'pinchFeel': pinchFeel,
+        'lookNote': lookNote,
+        'concernArea': concernArea,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+  static BodyCheck fromMap(Map<String, dynamic> m) => BodyCheck(
+        waist: (m['waist'] as num?)?.toDouble(),
+        weightNote: (m['weightNote'] as String?) ?? '',
+        edema: (m['edema'] as int?) ?? 0,
+        pinchFeel: (m['pinchFeel'] as int?) ?? 0,
+        lookNote: (m['lookNote'] as String?) ?? '',
+        concernArea: (m['concernArea'] as String?) ?? '',
+      );
+}
+
+class BodyCheckRepository {
+  BodyCheckRepository(this.customerUid);
+  final String customerUid;
+
+  static String dateId(DateTime date) =>
+      '${date.year}${date.month.toString().padLeft(2, '0')}${date.day.toString().padLeft(2, '0')}';
+
+  CollectionReference<Map<String, dynamic>> get _col =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(customerUid)
+          .collection('bodyChecks');
+
+  Future<BodyCheck> loadToday() async {
+    final snap = await _col.doc(dateId(DateTime.now())).get();
+    if (!snap.exists || snap.data() == null) return const BodyCheck();
+    return BodyCheck.fromMap(snap.data()!);
+  }
+
+  Future<BodyCheck> loadLatest() async {
+    final snap = await _col
+        .orderBy('updatedAt', descending: true)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return const BodyCheck();
+    return BodyCheck.fromMap(snap.docs.first.data());
+  }
+
+  Future<void> saveToday(BodyCheck check) async {
+    final id = dateId(DateTime.now());
+    await _col.doc(id).set({...check.toMap(), 'dateId': id});
+  }
+}
+
+/// ----------------------------
 /// GoalSettings + GoalsRepository
 /// ----------------------------
 
@@ -1626,6 +1708,7 @@ class _RootShellState extends State<RootShell> {
   KarteGoals _karteGoals = const KarteGoals();
   MonthlyPlan _monthlyPlan = const MonthlyPlan();
   WeeklyCheckin _checkin = const WeeklyCheckin();
+  BodyCheck _bodyCheck = const BodyCheck();
 
   @override
   void initState() {
@@ -1715,6 +1798,7 @@ class _RootShellState extends State<RootShell> {
     final monthlyPlan =
         await MonthlyPlanRepository(_uid!).loadPlan(DateTime.now());
     final checkin = await WeeklyCheckinRepository(_uid!).loadCurrent();
+    final bodyCheck = await BodyCheckRepository(_uid!).loadToday();
 
     setState(() {
       _mealLogs = meals;
@@ -1729,6 +1813,7 @@ class _RootShellState extends State<RootShell> {
       _karteGoals = karteProfile.goals;
       _monthlyPlan = monthlyPlan;
       _checkin = checkin;
+      _bodyCheck = bodyCheck;
     });
   }
 
@@ -1771,6 +1856,12 @@ class _RootShellState extends State<RootShell> {
   Future<void> _saveCheckin(WeeklyCheckin checkin) async {
     if (_uid == null) return;
     await WeeklyCheckinRepository(_uid!).saveCurrent(checkin);
+    await _reloadAll();
+  }
+
+  Future<void> _saveBodyCheck(BodyCheck bodyCheck) async {
+    if (_uid == null) return;
+    await BodyCheckRepository(_uid!).saveToday(bodyCheck);
     await _reloadAll();
   }
 
@@ -1872,6 +1963,8 @@ class _RootShellState extends State<RootShell> {
         goals: _goals,
         checkin: _checkin,
         onSaveCheckin: _saveCheckin,
+        bodyCheck: _bodyCheck,
+        onSaveBodyCheck: _saveBodyCheck,
       ),
       SharedNotesScreen(
         loading: _loading,
@@ -2353,6 +2446,7 @@ class _TrainerCustomerDetailScreenState
   late final KarteRepository _karteRepo;
   late final MonthlyPlanRepository _monthlyPlanRepo;
   late final WeeklyCheckinRepository _checkinRepo;
+  late final BodyCheckRepository _bodyCheckRepo;
 
   List<MealLogEntry> _meals = [];
   List<ExerciseLogEntry> _exercises = [];
@@ -2363,6 +2457,7 @@ class _TrainerCustomerDetailScreenState
   MonthlyPlan _monthlyPlan = const MonthlyPlan();
   MonthlyPlanMemo _monthlyPlanMemo = const MonthlyPlanMemo();
   WeeklyCheckin _checkin = const WeeklyCheckin();
+  BodyCheck _bodyCheck = const BodyCheck();
   bool _loading = true;
   String? _error;
 
@@ -2378,6 +2473,7 @@ class _TrainerCustomerDetailScreenState
     _karteRepo = KarteRepository(uid);
     _monthlyPlanRepo = MonthlyPlanRepository(uid);
     _checkinRepo = WeeklyCheckinRepository(uid);
+    _bodyCheckRepo = BodyCheckRepository(uid);
     _reload();
   }
 
@@ -2394,6 +2490,7 @@ class _TrainerCustomerDetailScreenState
       final monthlyPlan = await _monthlyPlanRepo.loadPlan(now);
       final monthlyPlanMemo = await _monthlyPlanRepo.loadMemo(now);
       final checkin = await _checkinRepo.loadCurrent();
+      final bodyCheck = await _bodyCheckRepo.loadLatest();
       if (mounted) {
         setState(() {
           _meals = meals;
@@ -2405,6 +2502,7 @@ class _TrainerCustomerDetailScreenState
           _monthlyPlan = monthlyPlan;
           _monthlyPlanMemo = monthlyPlanMemo;
           _checkin = checkin;
+          _bodyCheck = bodyCheck;
         });
       }
     } catch (e) {
@@ -2582,6 +2680,8 @@ class _TrainerCustomerDetailScreenState
                         ),
                         const SizedBox(height: 22),
                         WeeklyCheckinCard(checkin: _checkin),
+                        const SizedBox(height: 22),
+                        BodyCheckCard(bodyCheck: _bodyCheck),
                         const SizedBox(height: 22),
                         Text(
                           '共有ノート',
@@ -6142,6 +6242,8 @@ class ProgressScreen extends StatelessWidget {
     required this.goals,
     this.checkin = const WeeklyCheckin(),
     this.onSaveCheckin,
+    this.bodyCheck = const BodyCheck(),
+    this.onSaveBodyCheck,
   });
 
   final List<MealLogEntry> weekMealLogs;
@@ -6150,6 +6252,8 @@ class ProgressScreen extends StatelessWidget {
   final GoalSettings goals;
   final WeeklyCheckin checkin;
   final Future<void> Function(WeeklyCheckin)? onSaveCheckin;
+  final BodyCheck bodyCheck;
+  final Future<void> Function(BodyCheck)? onSaveBodyCheck;
 
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -6363,6 +6467,11 @@ class ProgressScreen extends StatelessWidget {
           _WeeklyCheckinInputCard(
             checkin: checkin,
             onSave: onSaveCheckin ?? (_) async {},
+          ),
+          const SizedBox(height: 22),
+          _BodyCheckInputCard(
+            bodyCheck: bodyCheck,
+            onSave: onSaveBodyCheck ?? (_) async {},
           ),
         ],
       ),
@@ -6720,6 +6829,317 @@ class _WeeklyCheckinInputCardState extends State<_WeeklyCheckinInputCard> {
               '便通', _digestion, (v) => setState(() => _digestion = v)),
           _textField('体調メモ', _bodyNoteCtrl),
           _textField('トレーナーに相談したいこと', _consultationCtrl),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _saving ? null : _save,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF5CB8B2),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              child: _saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('保存'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ----------------------------
+/// BodyCheckCard (public – trainer read-only view)
+/// ----------------------------
+
+class BodyCheckCard extends StatelessWidget {
+  const BodyCheckCard({super.key, required this.bodyCheck});
+  final BodyCheck bodyCheck;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x0F000000), blurRadius: 12, offset: Offset(0, 4)),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.straighten_outlined,
+                  size: 18, color: Color(0xFF5CB8B2)),
+              const SizedBox(width: 6),
+              Text(
+                '体型チェック',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF444444),
+                ),
+              ),
+            ],
+          ),
+          if (bodyCheck.isEmpty) ...[
+            const SizedBox(height: 14),
+            const Center(
+              child: Text(
+                '体型チェックはまだ記録されていません',
+                style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA)),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            if (bodyCheck.waist != null)
+              _GoalRow(label: 'ウエスト', value: '${bodyCheck.waist} cm')
+            else
+              _GoalRow(label: 'ウエスト', value: '未入力'),
+            if (bodyCheck.weightNote.isNotEmpty)
+              _GoalRow(label: '体重メモ', value: bodyCheck.weightNote),
+            _ScoreRow(label: 'むくみ', score: bodyCheck.edema),
+            _ScoreRow(label: '腹部つまみ感', score: bodyCheck.pinchFeel),
+            if (bodyCheck.lookNote.isNotEmpty)
+              _GoalRow(label: '見た目変化', value: bodyCheck.lookNote),
+            if (bodyCheck.concernArea.isNotEmpty)
+              _GoalRow(label: '気になる部位', value: bodyCheck.concernArea),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// ----------------------------
+/// _BodyCheckInputCard (private – customer input form)
+/// ----------------------------
+
+class _BodyCheckInputCard extends StatefulWidget {
+  const _BodyCheckInputCard({
+    required this.bodyCheck,
+    required this.onSave,
+  });
+  final BodyCheck bodyCheck;
+  final Future<void> Function(BodyCheck) onSave;
+
+  @override
+  State<_BodyCheckInputCard> createState() => _BodyCheckInputCardState();
+}
+
+class _BodyCheckInputCardState extends State<_BodyCheckInputCard> {
+  late final TextEditingController _waistCtrl;
+  late final TextEditingController _weightNoteCtrl;
+  late int _edema;
+  late int _pinchFeel;
+  late final TextEditingController _lookNoteCtrl;
+  late final TextEditingController _concernAreaCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final bc = widget.bodyCheck;
+    _waistCtrl = TextEditingController(
+        text: bc.waist != null ? '${bc.waist}' : '');
+    _weightNoteCtrl = TextEditingController(text: bc.weightNote);
+    _edema = bc.edema;
+    _pinchFeel = bc.pinchFeel;
+    _lookNoteCtrl = TextEditingController(text: bc.lookNote);
+    _concernAreaCtrl = TextEditingController(text: bc.concernArea);
+  }
+
+  @override
+  void dispose() {
+    _waistCtrl.dispose();
+    _weightNoteCtrl.dispose();
+    _lookNoteCtrl.dispose();
+    _concernAreaCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await widget.onSave(BodyCheck(
+        waist: double.tryParse(_waistCtrl.text.trim()),
+        weightNote: _weightNoteCtrl.text.trim(),
+        edema: _edema,
+        pinchFeel: _pinchFeel,
+        lookNote: _lookNoteCtrl.text.trim(),
+        concernArea: _concernAreaCtrl.text.trim(),
+      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('体型チェックを保存しました')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('体型チェックを保存できませんでした')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Widget _scoreRow(
+      String label, int current, ValueChanged<int> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF666666),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              ...List.generate(5, (i) {
+                final score = i + 1;
+                final selected = current == score;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () => onChanged(selected ? 0 : score),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? const Color(0xFF5CB8B2)
+                            : const Color(0xFFF0F0F0),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '$score',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: selected
+                              ? Colors.white
+                              : const Color(0xFF666666),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              if (current == 0)
+                const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Text(
+                    '未回答',
+                    style: TextStyle(fontSize: 12, color: Color(0xFFBBBBBB)),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _textField(String label, TextEditingController ctrl,
+      {TextInputType? keyboardType, int maxLines = 2}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF666666),
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: ctrl,
+            maxLines: maxLines,
+            keyboardType: keyboardType,
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x0F000000), blurRadius: 12, offset: Offset(0, 4)),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.straighten_outlined,
+                  size: 18, color: Color(0xFF5CB8B2)),
+              const SizedBox(width: 6),
+              Text(
+                '体型チェック',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF444444),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _textField(
+            'ウエスト (cm)',
+            _waistCtrl,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            maxLines: 1,
+          ),
+          _textField('体重メモ', _weightNoteCtrl),
+          _scoreRow(
+              'むくみ', _edema, (v) => setState(() => _edema = v)),
+          _scoreRow('腹部のつまみ感', _pinchFeel,
+              (v) => setState(() => _pinchFeel = v)),
+          _textField('見た目の変化', _lookNoteCtrl),
+          _textField('気になる部位', _concernAreaCtrl),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(

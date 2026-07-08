@@ -372,6 +372,45 @@ describe('users/{uid}/weeklyCheckins', () => {
   });
 });
 
+// ── BC: bodyChecks ────────────────────────────────────────────────
+describe('users/{uid}/bodyChecks', () => {
+  const docPath = `users/${USER_UID}/bodyChecks/20260708`;
+  const data = { waist: 72.5, weightNote: 'ok', edema: 2, pinchFeel: 3, lookNote: '', concernArea: '' };
+
+  it('BCR-1: 顧客本人は read/write できる', async () => {
+    const db = testEnv.authenticatedContext(USER_UID).firestore();
+    await assertSucceeds(setDoc(doc(db, docPath), data));
+    await assertSucceeds(getDoc(doc(db, docPath)));
+  });
+
+  it('BCR-2: 担当トレーナーは read できる', async () => {
+    await linkTrainer(USER_UID, TRAINER_UID);
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), docPath), data);
+    });
+    const db = testEnv.authenticatedContext(TRAINER_UID).firestore();
+    await assertSucceeds(getDoc(doc(db, docPath)));
+  });
+
+  it('BCR-3: 担当トレーナーは write できない', async () => {
+    await linkTrainer(USER_UID, TRAINER_UID);
+    const db = testEnv.authenticatedContext(TRAINER_UID).firestore();
+    await assertFails(setDoc(doc(db, docPath), data));
+  });
+
+  it('BCR-4: 無関係ユーザーは read/write できない', async () => {
+    const db = testEnv.authenticatedContext(OTHER_UID).firestore();
+    await assertFails(getDoc(doc(db, docPath)));
+    await assertFails(setDoc(doc(db, docPath), data));
+  });
+
+  it('BCR-5: 未認証は read/write できない', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(getDoc(doc(db, docPath)));
+    await assertFails(setDoc(doc(db, docPath), data));
+  });
+});
+
 // ── S: settings ────────────────────────────────────────────────────
 describe('users/{uid}/settings', () => {
   it('S-1: 本人は read/write できる', async () => {
