@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:karada_shushi/main.dart';
 
-// TrainerReservationPlaceholder, TrainerPostPlaceholder, TrainerSelfScreen は
-// 純粋 StatelessWidget のため Firebase 未初期化でもテスト可能。
+// TrainerReservationScreen は initialReservations を渡すことで
+// Firebase 未初期化でもテスト可能。
+// TrainerPostPlaceholder, TrainerSelfScreen は純粋 StatelessWidget。
 
 void main() {
   // ── TN: Trainer Navigation Tab Widgets ────────────────────────────────────
@@ -12,7 +13,15 @@ void main() {
 
   testWidgets('TN-1: 予約タブに「予約管理」が表示される', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: TrainerReservationPlaceholder())),
+      const MaterialApp(
+        home: Scaffold(
+          body: TrainerReservationScreen(
+            trainerUid: 'test',
+            customers: [],
+            initialReservations: [],
+          ),
+        ),
+      ),
     );
     await tester.pump();
     expect(find.text('予約管理'), findsOneWidget);
@@ -20,18 +29,34 @@ void main() {
 
   testWidgets('TN-2: 予約タブにセッション予定の説明文が表示される', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: TrainerReservationPlaceholder())),
+      const MaterialApp(
+        home: Scaffold(
+          body: TrainerReservationScreen(
+            trainerUid: 'test',
+            customers: [],
+            initialReservations: [],
+          ),
+        ),
+      ),
     );
     await tester.pump();
     expect(find.textContaining('セッション予定'), findsOneWidget);
   });
 
-  testWidgets('TN-3: 予約タブに「Coming soon」ラベルが表示される', (tester) async {
+  testWidgets('TN-3: 予約タブに「今後の予約」セグメントが表示される', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: TrainerReservationPlaceholder())),
+      const MaterialApp(
+        home: Scaffold(
+          body: TrainerReservationScreen(
+            trainerUid: 'test',
+            customers: [],
+            initialReservations: [],
+          ),
+        ),
+      ),
     );
     await tester.pump();
-    expect(find.text('Coming soon'), findsOneWidget);
+    expect(find.text('今後の予約'), findsOneWidget);
   });
 
   // ── 投稿タブ ──────────────────────────────────────────────────────────────

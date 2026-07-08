@@ -455,6 +455,48 @@ describe('users/{uid}/sessionTrainingLogs', () => {
   });
 });
 
+// ── RES: trainers/reservations ────────────────────────────────────
+describe('trainers/{trainerUid}/reservations', () => {
+  const docPath = `trainers/${TRAINER_UID}/reservations/res1`;
+  const data = {
+    customerUid: USER_UID,
+    customerName: '田中様',
+    scheduledAt: new Date('2026-08-01T15:00:00'),
+    durationMinutes: 60,
+    memo: '初回セッション',
+    status: 'scheduled',
+  };
+
+  it('RES-1: 本人トレーナーは read できる', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), docPath), data);
+    });
+    const db = testEnv.authenticatedContext(TRAINER_UID).firestore();
+    await assertSucceeds(getDoc(doc(db, docPath)));
+  });
+
+  it('RES-2: 本人トレーナーは write できる', async () => {
+    const db = testEnv.authenticatedContext(TRAINER_UID).firestore();
+    await assertSucceeds(setDoc(doc(db, docPath), data));
+  });
+
+  it('RES-3: 別トレーナーは read できない', async () => {
+    const db = testEnv.authenticatedContext(OTHER_TRAINER_UID).firestore();
+    await assertFails(getDoc(doc(db, docPath)));
+  });
+
+  it('RES-4: 別トレーナーは write できない', async () => {
+    const db = testEnv.authenticatedContext(OTHER_TRAINER_UID).firestore();
+    await assertFails(setDoc(doc(db, docPath), data));
+  });
+
+  it('RES-5: 未認証は read/write できない', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(getDoc(doc(db, docPath)));
+    await assertFails(setDoc(doc(db, docPath), data));
+  });
+});
+
 // ── S: settings ────────────────────────────────────────────────────
 describe('users/{uid}/settings', () => {
   it('S-1: 本人は read/write できる', async () => {

@@ -1160,6 +1160,122 @@ class TrainerCustomerRepository {
 }
 
 /// ----------------------------
+/// Reservation models + repository
+/// ----------------------------
+
+enum ReservationStatus {
+  scheduled,
+  completed,
+  canceled;
+
+  String get label {
+    if (this == ReservationStatus.completed) return '完了';
+    if (this == ReservationStatus.canceled) return 'キャンセル';
+    return '予定';
+  }
+
+  static ReservationStatus fromString(String s) {
+    switch (s) {
+      case 'completed':
+        return ReservationStatus.completed;
+      case 'canceled':
+        return ReservationStatus.canceled;
+      default:
+        return ReservationStatus.scheduled;
+    }
+  }
+}
+
+class Reservation {
+  Reservation({
+    this.id,
+    required this.customerUid,
+    required this.customerName,
+    required this.scheduledAt,
+    this.durationMinutes = 60,
+    this.memo = '',
+    this.status = ReservationStatus.scheduled,
+    required this.createdAt,
+  });
+
+  final String? id;
+  final String customerUid;
+  final String customerName;
+  final DateTime scheduledAt;
+  final int durationMinutes;
+  final String memo;
+  final ReservationStatus status;
+  final DateTime createdAt;
+
+  static Reservation fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
+    return Reservation(
+      id: doc.id,
+      customerUid: (data['customerUid'] as String?) ?? '',
+      customerName: (data['customerName'] as String?) ?? '',
+      scheduledAt:
+          (data['scheduledAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      durationMinutes: (data['durationMinutes'] as int?) ?? 60,
+      memo: (data['memo'] as String?) ?? '',
+      status: ReservationStatus.fromString(
+          (data['status'] as String?) ?? ''),
+      createdAt:
+          (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'customerUid': customerUid,
+        'customerName': customerName,
+        'scheduledAt': Timestamp.fromDate(scheduledAt),
+        'durationMinutes': durationMinutes,
+        'memo': memo,
+        'status': status.name,
+        'createdAt': Timestamp.fromDate(createdAt),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+}
+
+class ReservationRepository {
+  ReservationRepository(this.trainerUid);
+  final String trainerUid;
+
+  CollectionReference<Map<String, dynamic>> get _ref =>
+      FirebaseFirestore.instance
+          .collection('trainers')
+          .doc(trainerUid)
+          .collection('reservations');
+
+  Future<List<Reservation>> loadUpcoming() async {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final snap = await _ref
+        .where('scheduledAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart))
+        .orderBy('scheduledAt')
+        .get();
+    return snap.docs.map((d) => Reservation.fromDoc(d)).toList();
+  }
+
+  Future<List<Reservation>> loadAll() async {
+    final snap =
+        await _ref.orderBy('scheduledAt', descending: true).get();
+    return snap.docs.map((d) => Reservation.fromDoc(d)).toList();
+  }
+
+  Future<void> add(Reservation r) async {
+    await _ref.add(r.toMap());
+  }
+
+  Future<void> updateStatus(String id, ReservationStatus status) async {
+    await _ref.doc(id).update({
+      'status': status.name,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+}
+
+/// ----------------------------
 /// MonthlyPlan models + repository
 /// ----------------------------
 
@@ -2507,7 +2623,10 @@ class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
   Widget _buildTabBody(BuildContext context) {
     switch (_trainerIndex) {
       case 1:
-        return const TrainerReservationPlaceholder();
+        return TrainerReservationScreen(
+          trainerUid: widget.profile.uid,
+          customers: _customers,
+        );
       case 2:
         return const TrainerPostPlaceholder();
       case 3:
@@ -2580,48 +2699,710 @@ class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Trainer tab placeholder widgets
+// Trainer reservation tab
 // ─────────────────────────────────────────────────────────────
 
-class TrainerReservationPlaceholder extends StatelessWidget {
-  const TrainerReservationPlaceholder({super.key});
+class TrainerReservationScreen extends StatefulWidget {
+  const TrainerReservationScreen({
+    super.key,
+    required this.trainerUid,
+    required this.customers,
+    this.initialReservations,
+  });
+  final String trainerUid;
+  final List<CustomerLink> customers;
+  final List<Reservation>? initialReservations;
+
+  @override
+  State<TrainerReservationScreen> createState() =>
+      _TrainerReservationScreenState();
+}
+
+class _TrainerReservationScreenState
+    extends State<TrainerReservationScreen> {
+  late final ReservationRepository _repo;
+  List<Reservation> _reservations = [];
+  bool _showAll = false;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _repo = ReservationRepository(widget.trainerUid);
+    if (widget.initialReservations != null) {
+      _reservations = widget.initialReservations!;
+      _loading = false;
+    } else {
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    if (mounted) setState(() => _loading = true);
+    try {
+      final list = _showAll
+          ? await _repo.loadAll()
+          : await _repo.loadUpcoming();
+      if (mounted) setState(() => _reservations = list);
+    } catch (_) {
+      if (mounted) setState(() => _reservations = []);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _updateStatus(
+      Reservation r, ReservationStatus status) async {
+    if (r.id == null) return;
+    try {
+      await _repo.updateStatus(r.id!, status);
+      await _load();
+    } catch (_) {}
+  }
+
+  Future<void> _openAddSheet() async {
+    final added = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => AddReservationSheet(
+        trainerUid: widget.trainerUid,
+        customers: widget.customers,
+      ),
+    );
+    if (added == true) {
+      await _load();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return SafeArea(
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.calendar_today,
+                            color: Color(0xFF5CB8B2), size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          '予約管理',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF111111),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      '担当顧客のセッション予定を管理します',
+                      style:
+                          TextStyle(fontSize: 12, color: Color(0xFF888888)),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _ReservationSegmentButton(
+                          label: '今後の予約',
+                          selected: !_showAll,
+                          onTap: () {
+                            if (_showAll) {
+                              setState(() => _showAll = false);
+                              _load();
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _ReservationSegmentButton(
+                          label: 'すべて',
+                          selected: _showAll,
+                          onTap: () {
+                            if (!_showAll) {
+                              setState(() => _showAll = true);
+                              _load();
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _reservations.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                    Icons.event_available_outlined,
+                                    size: 48,
+                                    color: Color(0xFFCCCCCC)),
+                                const SizedBox(height: 12),
+                                Text(
+                                  _showAll
+                                      ? '予約がありません'
+                                      : '今後の予約はありません',
+                                  style: const TextStyle(
+                                      color: Color(0xFF888888),
+                                      fontSize: 14),
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  '＋ボタンから追加してください',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFFAAAAAA)),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(
+                                16, 12, 16, 100),
+                            itemCount: _reservations.length,
+                            itemBuilder: (_, i) => ReservationCard(
+                              reservation: _reservations[i],
+                              onStatusChange: _updateStatus,
+                            ),
+                          ),
+              ),
+            ],
+          ),
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton(
+              heroTag: 'reservation_fab',
+              onPressed: _openAddSheet,
+              backgroundColor: const Color(0xFF222222),
+              child: const Icon(Icons.add, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ReservationCard extends StatelessWidget {
+  const ReservationCard({
+    super.key,
+    required this.reservation,
+    required this.onStatusChange,
+  });
+
+  final Reservation reservation;
+  final void Function(Reservation, ReservationStatus) onStatusChange;
+
+  String _dateLabel(DateTime dt) {
+    const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
+    final wd = weekdays[dt.weekday - 1];
+    return '${dt.month}月${dt.day}日（$wd）';
+  }
+
+  String _timeLabel(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = reservation;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFE8E8E8)),
+      ),
+      color: Colors.white,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
+        padding: const EdgeInsets.all(14),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.calendar_today_outlined,
-                size: 64, color: Color(0xFFCCCCCC)),
-            const SizedBox(height: 20),
-            const Text(
-              '予約管理',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
+            Row(
+              children: [
+                Text(
+                  _dateLabel(r.scheduledAt),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: Color(0xFF111111),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _timeLabel(r.scheduledAt),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                    color: Color(0xFF444444),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${r.durationMinutes}分',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF888888),
+                  ),
+                ),
+                const Spacer(),
+                _StatusBadge(status: r.status),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              r.customerName,
+              style: const TextStyle(
+                fontSize: 14,
                 color: Color(0xFF333333),
               ),
             ),
-            const SizedBox(height: 12),
+            if (r.memo.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                r.memo,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF888888),
+                ),
+              ),
+            ],
+            if (r.status == ReservationStatus.scheduled) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _ReservationActionButton(
+                    label: '完了にする',
+                    color: const Color(0xFF5CB8B2),
+                    onTap: () =>
+                        onStatusChange(r, ReservationStatus.completed),
+                  ),
+                  const SizedBox(width: 8),
+                  _ReservationActionButton(
+                    label: 'キャンセル',
+                    color: const Color(0xFFE24A4A),
+                    onTap: () =>
+                        onStatusChange(r, ReservationStatus.canceled),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.status});
+  final ReservationStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color;
+    final String icon;
+    if (status == ReservationStatus.completed) {
+      color = const Color(0xFF4CAF50);
+      icon = '✓';
+    } else if (status == ReservationStatus.canceled) {
+      color = const Color(0xFF999999);
+      icon = '✕';
+    } else {
+      color = const Color(0xFF5CB8B2);
+      icon = '●';
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        '$icon ${status.label}',
+        style: TextStyle(
+          fontSize: 11,
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _ReservationActionButton extends StatelessWidget {
+  const _ReservationActionButton({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          border: Border.all(color: color.withValues(alpha: 0.6)),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: color,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReservationSegmentButton extends StatelessWidget {
+  const _ReservationSegmentButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF222222)
+              : const Color(0xFFF0F0F0),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : const Color(0xFF666666),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AddReservationSheet extends StatefulWidget {
+  const AddReservationSheet({
+    super.key,
+    required this.trainerUid,
+    required this.customers,
+  });
+  final String trainerUid;
+  final List<CustomerLink> customers;
+
+  @override
+  State<AddReservationSheet> createState() =>
+      _AddReservationSheetState();
+}
+
+class _AddReservationSheetState extends State<AddReservationSheet> {
+  CustomerLink? _selectedCustomer;
+  late DateTime _selectedDate;
+  late TimeOfDay _selectedTime;
+  int _durationMinutes = 60;
+  final _memoController = TextEditingController();
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _selectedDate = DateTime(now.year, now.month, now.day);
+    _selectedTime = TimeOfDay(hour: now.hour, minute: 0);
+  }
+
+  @override
+  void dispose() {
+    _memoController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+    );
+    if (picked != null) {
+      setState(() => _selectedDate = picked);
+    }
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+    );
+    if (picked != null) {
+      setState(() => _selectedTime = picked);
+    }
+  }
+
+  Future<void> _save() async {
+    if (_selectedCustomer == null) {
+      setState(() => _error = '顧客を選択してください');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    final scheduledAt = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      _selectedTime.hour,
+      _selectedTime.minute,
+    );
+    final repo = ReservationRepository(widget.trainerUid);
+    try {
+      await repo.add(Reservation(
+        customerUid: _selectedCustomer!.customerUid,
+        customerName: _selectedCustomer!.displayName,
+        scheduledAt: scheduledAt,
+        durationMinutes: _durationMinutes,
+        memo: _memoController.text.trim(),
+        createdAt: DateTime.now(),
+      ));
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = '保存できませんでした';
+        });
+      }
+    }
+  }
+
+  String _dateLabel(DateTime dt) =>
+      '${dt.year}年${dt.month}月${dt.day}日';
+
+  String _timeLabel(TimeOfDay t) {
+    final h = t.hour.toString().padLeft(2, '0');
+    final m = t.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             const Text(
-              'セッション予定をここで確認できるようにします',
-              style: TextStyle(fontSize: 13, color: Color(0xFF888888), height: 1.6),
-              textAlign: TextAlign.center,
+              '予約を追加',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF111111),
+              ),
             ),
             const SizedBox(height: 20),
+            const Text('顧客',
+                style:
+                    TextStyle(fontSize: 13, color: Color(0xFF666666))),
+            const SizedBox(height: 6),
+            if (widget.customers.isEmpty)
+              const Text(
+                '担当顧客がいません',
+                style:
+                    TextStyle(color: Color(0xFF888888), fontSize: 13),
+              )
+            else
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFBBBBBB)),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12),
+                child: DropdownButton<CustomerLink>(
+                  value: _selectedCustomer,
+                  isExpanded: true,
+                  underline: const SizedBox.shrink(),
+                  hint: const Text('顧客を選択'),
+                  items: widget.customers
+                      .map((c) => DropdownMenuItem(
+                            value: c,
+                            child: Text(c.displayName),
+                          ))
+                      .toList(),
+                  onChanged: (v) => setState(() {
+                    _selectedCustomer = v;
+                    _error = null;
+                  }),
+                ),
+              ),
+            const SizedBox(height: 14),
+            const Text('日付',
+                style:
+                    TextStyle(fontSize: 13, color: Color(0xFF666666))),
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: () => _pickDate(),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFBBBBBB)),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  _dateLabel(_selectedDate),
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text('時間',
+                style:
+                    TextStyle(fontSize: 13, color: Color(0xFF666666))),
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: () => _pickTime(),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFBBBBBB)),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  _timeLabel(_selectedTime),
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text('所要時間',
+                style:
+                    TextStyle(fontSize: 13, color: Color(0xFF666666))),
+            const SizedBox(height: 6),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0F0F0),
-                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFBBBBBB)),
+                borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text(
-                'Coming soon',
-                style: TextStyle(fontSize: 12, color: Color(0xFF999999)),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: DropdownButton<int>(
+                value: _durationMinutes,
+                isExpanded: true,
+                underline: const SizedBox.shrink(),
+                items: const [30, 45, 60, 90, 120]
+                    .map((m) =>
+                        DropdownMenuItem(value: m, child: Text('$m分')))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() => _durationMinutes = v);
+                  }
+                },
               ),
+            ),
+            const SizedBox(height: 14),
+            const Text('メモ（任意）',
+                style:
+                    TextStyle(fontSize: 13, color: Color(0xFF666666))),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _memoController,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'セッション内容のメモ',
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: const TextStyle(
+                    color: Color(0xFFE24A4A), fontSize: 12),
+              ),
+            ],
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'キャンセル',
+                    style: TextStyle(color: Color(0xFF666666)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: _saving ? null : _save,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF222222),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('保存'),
+                ),
+              ],
             ),
           ],
         ),
@@ -2629,6 +3410,10 @@ class TrainerReservationPlaceholder extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// Trainer tab placeholder widgets
+// ─────────────────────────────────────────────────────────────
 
 class TrainerPostPlaceholder extends StatelessWidget {
   const TrainerPostPlaceholder({super.key});
