@@ -2344,7 +2344,7 @@ class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         title: const Text(
-          'トレーナーホーム',
+          'コーチダッシュボード',
           style: TextStyle(
             fontWeight: FontWeight.w700,
             color: Color(0xFF111111),
@@ -2407,10 +2407,14 @@ class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
                       ],
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                      itemCount: _customers.length,
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+                      itemCount: _customers.length + 1,
                       itemBuilder: (_, i) {
-                        final customer = _customers[i];
+                        if (i == 0) {
+                          return _CoachDashboardHeader(
+                              customerCount: _customers.length);
+                        }
+                        final customer = _customers[i - 1];
                         return _CustomerCard(
                           customer: customer,
                           onDelete: () => _confirmRemove(customer),
@@ -2427,6 +2431,52 @@ class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
                       },
                     ),
         ),
+      ),
+    );
+  }
+}
+
+class _CoachDashboardHeader extends StatelessWidget {
+  const _CoachDashboardHeader({required this.customerCount});
+  final int customerCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF5CB8B2),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '担当顧客 $customerCount 名',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '今日の変化を、次の行動につなげる',
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.group_outlined, color: Colors.white54, size: 36),
+        ],
       ),
     );
   }
@@ -3485,14 +3535,26 @@ class HomeScreen extends StatelessWidget {
             // ── ヘッダー ──
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
-                  'からだ収支',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF111111),
-                    fontSize: 22,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'からだ収支',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF111111),
+                        fontSize: 22,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      '食べた分、動いた分、変わった分を見える化',
+                      style: TextStyle(
+                          fontSize: 11, color: Color(0xFF5CB8B2)),
+                    ),
+                  ],
                 ),
                 Container(
                   width: 40,
@@ -3754,12 +3816,19 @@ class _SummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '今日の収支',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF444444),
-            ),
+          Row(
+            children: [
+              const Icon(Icons.bar_chart_rounded,
+                  size: 16, color: Color(0xFF5CB8B2)),
+              const SizedBox(width: 5),
+              Text(
+                '今日のからだ収支',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF444444),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Row(
@@ -6194,6 +6263,20 @@ class RoleSelectorScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Spacer(),
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF5CB8B2),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.monitor_heart_outlined,
+                  color: Colors.white,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(height: 20),
               const Text(
                 'からだ収支へようこそ',
                 style: TextStyle(
@@ -6202,12 +6285,21 @@ class RoleSelectorScreen extends StatelessWidget {
                   color: Color(0xFF111111),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               const Text(
                 '利用方法を選択してください',
                 style: TextStyle(fontSize: 15, color: Color(0xFF888888)),
               ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 12),
+              const Text(
+                '記録する人も、支える人も、\n同じ目標を見られるアプリへ。',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF5CB8B2),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 40),
               _RoleCard(
                 icon: Icons.person_outline,
                 title: 'お客さんとして使う',
