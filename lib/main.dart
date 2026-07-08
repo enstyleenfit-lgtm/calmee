@@ -2338,6 +2338,7 @@ class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
   late final TrainerCustomerRepository _repo;
   List<CustomerLink> _customers = [];
   bool _loading = true;
+  int _trainerIndex = 0;
 
   @override
   void initState() {
@@ -2437,113 +2438,349 @@ class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
     if (confirmed == true) widget.onReturnToTop!();
   }
 
+  static const _tabTitles = ['コーチダッシュボード', '予約', '投稿', '自分'];
+
+  Widget _buildCustomerTab(BuildContext context) {
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: RefreshIndicator(
+        onRefresh: _reload,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _customers.isEmpty
+                ? ListView(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          children: [
+                            const Icon(Icons.group_outlined,
+                                size: 60, color: Color(0xFFCCCCCC)),
+                            const SizedBox(height: 16),
+                            Text(
+                              '担当顧客がいません',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: const Color(0xFF888888),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '右下の＋ボタンから顧客を追加してください',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: const Color(0xFFAAAAAA),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+                    itemCount: _customers.length + 1,
+                    itemBuilder: (_, i) {
+                      if (i == 0) {
+                        return _CoachDashboardHeader(
+                            customerCount: _customers.length);
+                      }
+                      final customer = _customers[i - 1];
+                      return _CustomerCard(
+                        customer: customer,
+                        onDelete: () => _confirmRemove(customer),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TrainerCustomerDetailScreen(
+                              customer: customer,
+                              trainerUid: widget.profile.uid,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+      ),
+    );
+  }
+
+  Widget _buildTabBody(BuildContext context) {
+    switch (_trainerIndex) {
+      case 1:
+        return const TrainerReservationPlaceholder();
+      case 2:
+        return const TrainerPostPlaceholder();
+      case 3:
+        return TrainerSelfScreen(
+          onSwitchToCustomer: widget.onSwitchToCustomer,
+          onReturnToTop: widget.onReturnToTop != null
+              ? () { _confirmReturnToTop(); }
+              : null,
+        );
+      default:
+        return _buildCustomerTab(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F7),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'コーチダッシュボード',
-          style: TextStyle(
+        title: Text(
+          _tabTitles[_trainerIndex],
+          style: const TextStyle(
             fontWeight: FontWeight.w700,
             color: Color(0xFF111111),
             fontSize: 18,
           ),
         ),
-        actions: [
-          if (widget.onSwitchToCustomer != null || widget.onReturnToTop != null)
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: Color(0xFF444444)),
-              onSelected: (v) {
-                if (v == 'switch') widget.onSwitchToCustomer!();
-                if (v == 'demo_return') _confirmReturnToTop();
-              },
-              itemBuilder: (_) => [
-                if (widget.onSwitchToCustomer != null)
-                  const PopupMenuItem(
-                    value: 'switch',
-                    child: Text('お客さんモードに切り替える'),
-                  ),
-                if (widget.onReturnToTop != null)
-                  const PopupMenuItem(
-                    value: 'demo_return',
-                    child: Text('デモ用：トップ画面に戻る'),
-                  ),
-              ],
-            ),
+      ),
+      floatingActionButton: _trainerIndex == 0
+          ? FloatingActionButton(
+              onPressed: _addCustomer,
+              backgroundColor: const Color(0xFF222222),
+              child: const Icon(Icons.person_add_outlined, color: Colors.white),
+            )
+          : null,
+      body: _buildTabBody(context),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _trainerIndex,
+        onDestinationSelected: (i) => setState(() => _trainerIndex = i),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        indicatorColor: const Color(0xFFF0F0F0),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.group_outlined),
+            selectedIcon: Icon(Icons.group),
+            label: '顧客',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.calendar_today_outlined),
+            selectedIcon: Icon(Icons.calendar_today),
+            label: '予約',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.send_outlined),
+            selectedIcon: Icon(Icons.send),
+            label: '投稿',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outlined),
+            selectedIcon: Icon(Icons.person),
+            label: '自分',
+          ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addCustomer,
-        backgroundColor: const Color(0xFF222222),
-        child: const Icon(Icons.person_add_outlined, color: Colors.white),
-      ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _reload,
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _customers.isEmpty
-                  ? ListView(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Column(
-                            children: [
-                              const Icon(Icons.group_outlined,
-                                  size: 60, color: Color(0xFFCCCCCC)),
-                              const SizedBox(height: 16),
-                              Text(
-                                '担当顧客がいません',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: const Color(0xFF888888),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '右下の＋ボタンから顧客を追加してください',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: const Color(0xFFAAAAAA),
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-                      itemCount: _customers.length + 1,
-                      itemBuilder: (_, i) {
-                        if (i == 0) {
-                          return _CoachDashboardHeader(
-                              customerCount: _customers.length);
-                        }
-                        final customer = _customers[i - 1];
-                        return _CustomerCard(
-                          customer: customer,
-                          onDelete: () => _confirmRemove(customer),
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => TrainerCustomerDetailScreen(
-                                customer: customer,
-                                trainerUid: widget.profile.uid,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Trainer tab placeholder widgets
+// ─────────────────────────────────────────────────────────────
+
+class TrainerReservationPlaceholder extends StatelessWidget {
+  const TrainerReservationPlaceholder({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.calendar_today_outlined,
+                size: 64, color: Color(0xFFCCCCCC)),
+            const SizedBox(height: 20),
+            const Text(
+              '予約管理',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF333333),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'セッション予定をここで確認できるようにします',
+              style: TextStyle(fontSize: 13, color: Color(0xFF888888), height: 1.6),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F0F0),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'Coming soon',
+                style: TextStyle(fontSize: 12, color: Color(0xFF999999)),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
+
+class TrainerPostPlaceholder extends StatelessWidget {
+  const TrainerPostPlaceholder({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.send_outlined,
+                size: 64, color: Color(0xFFCCCCCC)),
+            const SizedBox(height: 20),
+            const Text(
+              '投稿',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF333333),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '担当顧客に向けたお知らせや\n食事・運動のコツを配信できます',
+              style: TextStyle(fontSize: 13, color: Color(0xFF888888), height: 1.6),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F0F0),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'Coming soon',
+                style: TextStyle(fontSize: 12, color: Color(0xFF999999)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class TrainerSelfScreen extends StatelessWidget {
+  const TrainerSelfScreen({
+    super.key,
+    this.onSwitchToCustomer,
+    this.onReturnToTop,
+  });
+  final VoidCallback? onSwitchToCustomer;
+  final VoidCallback? onReturnToTop;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      children: [
+        // Profile header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Color(0xFF5CB8B2),
+                child: Icon(Icons.person, color: Colors.white, size: 26),
+              ),
+              SizedBox(width: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'コーチ',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF111111),
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'からだ収支アプリ',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF888888)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Actions section
+        if (onSwitchToCustomer != null || onReturnToTop != null)
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: [
+                if (onSwitchToCustomer != null)
+                  ListTile(
+                    leading: const Icon(Icons.swap_horiz_outlined,
+                        color: Color(0xFF5CB8B2)),
+                    title: const Text(
+                      'お客さんモードに切り替える',
+                      style: TextStyle(fontSize: 14, color: Color(0xFF222222)),
+                    ),
+                    trailing: const Icon(Icons.chevron_right,
+                        color: Color(0xFFCCCCCC)),
+                    onTap: onSwitchToCustomer,
+                  ),
+                if (onSwitchToCustomer != null && onReturnToTop != null)
+                  const Divider(height: 1, indent: 56),
+                if (onReturnToTop != null)
+                  ListTile(
+                    leading: const Icon(Icons.exit_to_app_outlined,
+                        color: Color(0xFF888888)),
+                    title: const Text(
+                      'デモ用：トップ画面に戻る',
+                      style: TextStyle(fontSize: 14, color: Color(0xFF666666)),
+                    ),
+                    trailing: const Icon(Icons.chevron_right,
+                        color: Color(0xFFCCCCCC)),
+                    onTap: onReturnToTop,
+                  ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 24),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            '今後、トレーナー自身のプロフィールや\nカロリー収支をここで確認できるようにします',
+            style: TextStyle(fontSize: 12, color: Color(0xFFAAAAAA), height: 1.6),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 
 class _CoachDashboardHeader extends StatelessWidget {
   const _CoachDashboardHeader({required this.customerCount});
