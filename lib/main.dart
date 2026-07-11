@@ -1479,6 +1479,95 @@ class WeeklyCheckinRepository {
 }
 
 /// ----------------------------
+/// DailyCheckin model + repository
+/// ----------------------------
+
+class DailyCheckin {
+  const DailyCheckin({
+    this.achievement = 0,
+    this.hunger = 0,
+    this.fatigue = 0,
+    this.sleep = 0,
+    this.digestion = 0,
+    this.bodyNote = '',
+    this.consultation = '',
+  });
+  final int achievement;
+  final int hunger;
+  final int fatigue;
+  final int sleep;
+  final int digestion;
+  final String bodyNote;
+  final String consultation;
+
+  bool get isEmpty =>
+      achievement == 0 &&
+      hunger == 0 &&
+      fatigue == 0 &&
+      sleep == 0 &&
+      digestion == 0 &&
+      bodyNote.isEmpty &&
+      consultation.isEmpty;
+
+  Map<String, dynamic> toMap() => {
+        'achievement': achievement,
+        'hunger': hunger,
+        'fatigue': fatigue,
+        'sleep': sleep,
+        'digestion': digestion,
+        'bodyNote': bodyNote,
+        'consultation': consultation,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+  static DailyCheckin fromMap(Map<String, dynamic> m) => DailyCheckin(
+        achievement: (m['achievement'] as int?) ?? 0,
+        hunger: (m['hunger'] as int?) ?? 0,
+        fatigue: (m['fatigue'] as int?) ?? 0,
+        sleep: (m['sleep'] as int?) ?? 0,
+        digestion: (m['digestion'] as int?) ?? 0,
+        bodyNote: (m['bodyNote'] as String?) ?? '',
+        consultation: (m['consultation'] as String?) ?? '',
+      );
+}
+
+class DailyCheckinRepository {
+  DailyCheckinRepository(this.customerUid);
+  final String customerUid;
+
+  static String dateId(DateTime date) =>
+      '${date.year}${date.month.toString().padLeft(2, '0')}${date.day.toString().padLeft(2, '0')}';
+
+  DocumentReference<Map<String, dynamic>> _ref(DateTime date) =>
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(customerUid)
+          .collection('dailyCheckins')
+          .doc(dateId(date));
+
+  Future<DailyCheckin> loadForDate(DateTime date) async {
+    final snap = await _ref(date).get();
+    if (!snap.exists || snap.data() == null) return const DailyCheckin();
+    return DailyCheckin.fromMap(snap.data()!);
+  }
+
+  Future<void> saveForDate(DateTime date, DailyCheckin checkin) async {
+    await _ref(date).set(checkin.toMap());
+  }
+
+  Future<Map<String, DailyCheckin>> loadWeek(DateTime weekStart) async {
+    final result = <String, DailyCheckin>{};
+    await Future.wait(
+      List.generate(7, (i) async {
+        final day = weekStart.add(Duration(days: i));
+        result[dateId(day)] = await loadForDate(day);
+      }),
+    );
+    return result;
+  }
+}
+
+/// ----------------------------
 /// BodyCheck model + repository
 /// ----------------------------
 
@@ -1991,7 +2080,6 @@ class _RootShellState extends State<RootShell> {
   List<SharedNote> _sharedNotes = [];
   KarteGoals _karteGoals = const KarteGoals();
   MonthlyPlan _monthlyPlan = const MonthlyPlan();
-  WeeklyCheckin _checkin = const WeeklyCheckin();
   BodyCheck _bodyCheck = const BodyCheck();
   SessionTrainingLog _sessionTrainingLog = const SessionTrainingLog();
 
@@ -2082,7 +2170,6 @@ class _RootShellState extends State<RootShell> {
     final karteProfile = await KarteRepository(_uid!).loadProfile();
     final monthlyPlan =
         await MonthlyPlanRepository(_uid!).loadPlan(DateTime.now());
-    final checkin = await WeeklyCheckinRepository(_uid!).loadCurrent();
     final bodyCheck = await BodyCheckRepository(_uid!).loadToday();
     final sessionLog =
         await SessionTrainingLogRepository(_uid!).loadLatest();
@@ -2099,7 +2186,6 @@ class _RootShellState extends State<RootShell> {
       _sharedNotes = sharedNotes;
       _karteGoals = karteProfile.goals;
       _monthlyPlan = monthlyPlan;
-      _checkin = checkin;
       _bodyCheck = bodyCheck;
       _sessionTrainingLog = sessionLog;
     });
@@ -2138,12 +2224,6 @@ class _RootShellState extends State<RootShell> {
   Future<void> _deleteWeight(String id) async {
     if (_uid == null) return;
     await _weightRepo!.deleteWeight(id);
-    await _reloadAll();
-  }
-
-  Future<void> _saveCheckin(WeeklyCheckin checkin) async {
-    if (_uid == null) return;
-    await WeeklyCheckinRepository(_uid!).saveCurrent(checkin);
     await _reloadAll();
   }
 
@@ -2250,8 +2330,7 @@ class _RootShellState extends State<RootShell> {
         weekExerciseLogs: _weekExerciseLogs,
         recentWeightLogs: _recentWeightLogs,
         goals: _goals,
-        checkin: _checkin,
-        onSaveCheckin: _saveCheckin,
+        customerUid: _uid ?? '',
         bodyCheck: _bodyCheck,
         onSaveBodyCheck: _saveBodyCheck,
       ),
@@ -7791,8 +7870,9 @@ class ProgressScreen extends StatelessWidget {
     required this.weekExerciseLogs,
     required this.recentWeightLogs,
     required this.goals,
-    this.checkin = const WeeklyCheckin(),
-    this.onSaveCheckin,
+    required this.customerUid,
+    this.initialDailyCheckins,
+    this.onSaveDailyCheckin,
     this.bodyCheck = const BodyCheck(),
     this.onSaveBodyCheck,
   });
@@ -7801,8 +7881,9 @@ class ProgressScreen extends StatelessWidget {
   final List<ExerciseLogEntry> weekExerciseLogs;
   final List<WeightLogEntry> recentWeightLogs;
   final GoalSettings goals;
-  final WeeklyCheckin checkin;
-  final Future<void> Function(WeeklyCheckin)? onSaveCheckin;
+  final String customerUid;
+  final Map<String, DailyCheckin>? initialDailyCheckins;
+  final Future<void> Function(DateTime, DailyCheckin)? onSaveDailyCheckin;
   final BodyCheck bodyCheck;
   final Future<void> Function(BodyCheck)? onSaveBodyCheck;
 
@@ -8015,9 +8096,10 @@ class ProgressScreen extends StatelessWidget {
           const SizedBox(height: 10),
           _WeightChart(weightLogs: recentWeightLogs),
           const SizedBox(height: 22),
-          _WeeklyCheckinInputCard(
-            checkin: checkin,
-            onSave: onSaveCheckin ?? (_) async {},
+          DailyCheckinWeekCard(
+            customerUid: customerUid,
+            initialData: initialDailyCheckins,
+            onSave: onSaveDailyCheckin,
           ),
           const SizedBox(height: 22),
           _BodyCheckInputCard(
@@ -8058,6 +8140,448 @@ class _SummaryCell extends StatelessWidget {
             fontWeight: FontWeight.w700,
             color: color,
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// ----------------------------
+/// DailyCheckinWeekCard (public – customer week+day checkin)
+/// ----------------------------
+
+class DailyCheckinWeekCard extends StatefulWidget {
+  const DailyCheckinWeekCard({
+    super.key,
+    required this.customerUid,
+    this.initialData,
+    this.onSave,
+  });
+  final String customerUid;
+  final Map<String, DailyCheckin>? initialData;
+  final Future<void> Function(DateTime, DailyCheckin)? onSave;
+
+  @override
+  State<DailyCheckinWeekCard> createState() => _DailyCheckinWeekCardState();
+}
+
+class _DailyCheckinWeekCardState extends State<DailyCheckinWeekCard> {
+  static const _dayLabels = ['月', '火', '水', '木', '金', '土', '日'];
+
+  late final DateTime _weekStart;
+  int _selectedIndex = 0;
+  Map<String, DailyCheckin> _data = {};
+  bool _showForm = false;
+  bool _loading = false;
+
+  int _fAchievement = 0;
+  int _fHunger = 0;
+  int _fFatigue = 0;
+  int _fSleep = 0;
+  int _fDigestion = 0;
+  late TextEditingController _bodyNoteCtrl;
+  late TextEditingController _consultationCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    _weekStart = today.subtract(Duration(days: today.weekday - 1));
+    _selectedIndex = today.weekday - 1;
+    _bodyNoteCtrl = TextEditingController();
+    _consultationCtrl = TextEditingController();
+    if (widget.initialData != null) {
+      _data = Map.of(widget.initialData!);
+    } else {
+      _loadWeek();
+    }
+  }
+
+  @override
+  void dispose() {
+    _bodyNoteCtrl.dispose();
+    _consultationCtrl.dispose();
+    super.dispose();
+  }
+
+  DateTime get _selectedDate =>
+      _weekStart.add(Duration(days: _selectedIndex));
+
+  DailyCheckin get _selectedCheckin =>
+      _data[DailyCheckinRepository.dateId(_selectedDate)] ??
+      const DailyCheckin();
+
+  Future<void> _loadWeek() async {
+    setState(() => _loading = true);
+    try {
+      final data =
+          await DailyCheckinRepository(widget.customerUid).loadWeek(_weekStart);
+      if (mounted) setState(() => _data = data);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _selectDay(int index) {
+    setState(() {
+      _selectedIndex = index;
+      _showForm = false;
+    });
+  }
+
+  void _openForm() {
+    final c = _selectedCheckin;
+    _bodyNoteCtrl.text = c.bodyNote;
+    _consultationCtrl.text = c.consultation;
+    setState(() {
+      _fAchievement = c.achievement;
+      _fHunger = c.hunger;
+      _fFatigue = c.fatigue;
+      _fSleep = c.sleep;
+      _fDigestion = c.digestion;
+      _showForm = true;
+    });
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final checkin = DailyCheckin(
+        achievement: _fAchievement,
+        hunger: _fHunger,
+        fatigue: _fFatigue,
+        sleep: _fSleep,
+        digestion: _fDigestion,
+        bodyNote: _bodyNoteCtrl.text.trim(),
+        consultation: _consultationCtrl.text.trim(),
+      );
+      if (widget.onSave != null) {
+        await widget.onSave!(_selectedDate, checkin);
+      } else {
+        await DailyCheckinRepository(widget.customerUid)
+            .saveForDate(_selectedDate, checkin);
+      }
+      final id = DailyCheckinRepository.dateId(_selectedDate);
+      if (mounted) {
+        setState(() {
+          _data[id] = checkin;
+          _showForm = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('保存しました')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('保存できませんでした')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Widget _scoreRow(String label, int current, ValueChanged<int> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF666666))),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              ...List.generate(5, (i) {
+                final score = i + 1;
+                final selected = current == score;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () => onChanged(selected ? 0 : score),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? const Color(0xFF5CB8B2)
+                            : const Color(0xFFF0F0F0),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text('$score',
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: selected
+                                  ? Colors.white
+                                  : const Color(0xFF666666))),
+                    ),
+                  ),
+                );
+              }),
+              if (current == 0)
+                const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Text('未回答',
+                      style: TextStyle(
+                          fontSize: 12, color: Color(0xFFBBBBBB))),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _textField(String label, TextEditingController ctrl) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF666666))),
+          const SizedBox(height: 6),
+          TextField(
+            controller: ctrl,
+            maxLines: 3,
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x0F000000), blurRadius: 12, offset: Offset(0, 4)),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.assignment_outlined,
+                  size: 18, color: Color(0xFF5CB8B2)),
+              const SizedBox(width: 6),
+              Text(
+                '今週のチェックイン',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF444444),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: List.generate(7, (i) {
+              final date = _weekStart.add(Duration(days: i));
+              final id = DailyCheckinRepository.dateId(date);
+              final isFilled = !(_data[id]?.isEmpty ?? true);
+              final isSelected = i == _selectedIndex;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => _selectDay(i),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: isFilled
+                              ? const Color(0xFF5CB8B2)
+                              : Colors.transparent,
+                          shape: BoxShape.circle,
+                          border: isFilled
+                              ? null
+                              : Border.all(
+                                  color: const Color(0xFFDDDDDD), width: 1),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _dayLabels[i],
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                          color: isSelected
+                              ? const Color(0xFF5CB8B2)
+                              : const Color(0xFF888888),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                          height: 2,
+                          color: isSelected
+                              ? const Color(0xFF5CB8B2)
+                              : Colors.transparent),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 16),
+          if (_loading)
+            const Center(child: CircularProgressIndicator())
+          else if (_showForm)
+            _buildForm()
+          else
+            _buildSummary(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummary() {
+    final c = _selectedCheckin;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (c.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text('まだ記録がありません',
+                style: TextStyle(fontSize: 13, color: Color(0xFFAAAAAA))),
+          )
+        else ...[
+          _summaryScoreRow('今週の達成度', c.achievement),
+          _summaryScoreRow('空腹感', c.hunger),
+          _summaryScoreRow('疲労感', c.fatigue),
+          _summaryScoreRow('睡眠', c.sleep),
+          _summaryScoreRow('便通', c.digestion),
+          if (c.bodyNote.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            const Text('体調メモ',
+                style: TextStyle(fontSize: 12, color: Color(0xFF888888))),
+            const SizedBox(height: 2),
+            Text(c.bodyNote,
+                style: const TextStyle(
+                    fontSize: 13, color: Color(0xFF333333))),
+          ],
+          if (c.consultation.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            const Text('トレーナーへの相談',
+                style: TextStyle(fontSize: 12, color: Color(0xFF888888))),
+            const SizedBox(height: 2),
+            Text(c.consultation,
+                style: const TextStyle(
+                    fontSize: 13, color: Color(0xFF333333))),
+          ],
+          const SizedBox(height: 12),
+        ],
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: _openForm,
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFF5CB8B2)),
+              foregroundColor: const Color(0xFF5CB8B2),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('この日の状態を更新'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _summaryScoreRow(String label, int score) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Text(label,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF888888))),
+          const Spacer(),
+          Text('$score',
+              style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF333333))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _scoreRow('今週の達成度', _fAchievement,
+            (v) => setState(() => _fAchievement = v)),
+        _scoreRow('空腹感', _fHunger, (v) => setState(() => _fHunger = v)),
+        _scoreRow('疲労感', _fFatigue, (v) => setState(() => _fFatigue = v)),
+        _scoreRow('睡眠', _fSleep, (v) => setState(() => _fSleep = v)),
+        _scoreRow('便通', _fDigestion, (v) => setState(() => _fDigestion = v)),
+        _textField('体調メモ', _bodyNoteCtrl),
+        _textField('トレーナーへの相談', _consultationCtrl),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => setState(() => _showForm = false),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFDDDDDD)),
+                  foregroundColor: const Color(0xFF888888),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('キャンセル'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _saving ? null : _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF5CB8B2),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('保存'),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -8158,246 +8682,6 @@ class _ScoreRow extends StatelessWidget {
               color: score == 0
                   ? const Color(0xFFBBBBBB)
                   : const Color(0xFF222222),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// ----------------------------
-/// _WeeklyCheckinInputCard (private – customer input form)
-/// ----------------------------
-
-class _WeeklyCheckinInputCard extends StatefulWidget {
-  const _WeeklyCheckinInputCard({
-    required this.checkin,
-    required this.onSave,
-  });
-  final WeeklyCheckin checkin;
-  final Future<void> Function(WeeklyCheckin) onSave;
-
-  @override
-  State<_WeeklyCheckinInputCard> createState() =>
-      _WeeklyCheckinInputCardState();
-}
-
-class _WeeklyCheckinInputCardState extends State<_WeeklyCheckinInputCard> {
-  late int _achievement;
-  late int _hunger;
-  late int _fatigue;
-  late int _sleep;
-  late int _digestion;
-  late final TextEditingController _bodyNoteCtrl;
-  late final TextEditingController _consultationCtrl;
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _achievement = widget.checkin.achievement;
-    _hunger = widget.checkin.hunger;
-    _fatigue = widget.checkin.fatigue;
-    _sleep = widget.checkin.sleep;
-    _digestion = widget.checkin.digestion;
-    _bodyNoteCtrl = TextEditingController(text: widget.checkin.bodyNote);
-    _consultationCtrl =
-        TextEditingController(text: widget.checkin.consultation);
-  }
-
-  @override
-  void dispose() {
-    _bodyNoteCtrl.dispose();
-    _consultationCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    setState(() => _saving = true);
-    try {
-      await widget.onSave(WeeklyCheckin(
-        achievement: _achievement,
-        hunger: _hunger,
-        fatigue: _fatigue,
-        sleep: _sleep,
-        digestion: _digestion,
-        bodyNote: _bodyNoteCtrl.text.trim(),
-        consultation: _consultationCtrl.text.trim(),
-      ));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('チェックインを保存しました')),
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('チェックインを保存できませんでした')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  Widget _scoreRow(
-      String label, int current, ValueChanged<int> onChanged) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF666666),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              ...List.generate(5, (i) {
-                final score = i + 1;
-                final selected = current == score;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: GestureDetector(
-                    onTap: () => onChanged(selected ? 0 : score),
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? const Color(0xFF5CB8B2)
-                            : const Color(0xFFF0F0F0),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        '$score',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: selected
-                              ? Colors.white
-                              : const Color(0xFF666666),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-              if (current == 0)
-                const Padding(
-                  padding: EdgeInsets.only(left: 4),
-                  child: Text(
-                    '未回答',
-                    style: TextStyle(fontSize: 12, color: Color(0xFFBBBBBB)),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _textField(String label, TextEditingController ctrl) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF666666),
-            ),
-          ),
-          const SizedBox(height: 6),
-          TextField(
-            controller: ctrl,
-            maxLines: 3,
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x0F000000), blurRadius: 12, offset: Offset(0, 4)),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.assignment_outlined,
-                  size: 18, color: Color(0xFF5CB8B2)),
-              const SizedBox(width: 6),
-              Text(
-                '今週のチェックイン',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF444444),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _scoreRow('今週の達成度', _achievement,
-              (v) => setState(() => _achievement = v)),
-          _scoreRow(
-              '空腹感', _hunger, (v) => setState(() => _hunger = v)),
-          _scoreRow(
-              '疲労感', _fatigue, (v) => setState(() => _fatigue = v)),
-          _scoreRow('睡眠', _sleep, (v) => setState(() => _sleep = v)),
-          _scoreRow(
-              '便通', _digestion, (v) => setState(() => _digestion = v)),
-          _textField('体調メモ', _bodyNoteCtrl),
-          _textField('トレーナーに相談したいこと', _consultationCtrl),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _saving ? null : _save,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5CB8B2),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-              ),
-              child: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Text('保存'),
             ),
           ),
         ],

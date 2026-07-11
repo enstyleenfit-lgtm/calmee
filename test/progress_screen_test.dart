@@ -22,6 +22,8 @@ void main() {
           weekExerciseLogs: weekExerciseLogs,
           recentWeightLogs: recentWeightLogs,
           goals: goals,
+          customerUid: 'test-uid',
+          initialDailyCheckins: const {},
         ),
       ),
     );

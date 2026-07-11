@@ -93,6 +93,13 @@ service cloud.firestore {
                     && isLinkedTrainer(uid, request.auth.uid);
       }
 
+      // 日次チェックイン：顧客 read/write、担当トレーナー read のみ
+      match /dailyCheckins/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read: if request.auth != null
+                    && isLinkedTrainer(uid, request.auth.uid);
+      }
+
       // 体型チェック：顧客 read/write、担当トレーナー read のみ
       match /bodyChecks/{docId} {
         allow read, write: if request.auth != null && request.auth.uid == uid;

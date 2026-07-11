@@ -10,7 +10,7 @@ void main() {
     carbTarget: 250.0,
   );
 
-  Widget buildProgressScreen({WeeklyCheckin checkin = const WeeklyCheckin()}) {
+  Widget buildProgressScreen({Map<String, DailyCheckin>? initialDailyCheckins}) {
     return MaterialApp(
       home: Scaffold(
         body: ProgressScreen(
@@ -18,8 +18,21 @@ void main() {
           weekExerciseLogs: const [],
           recentWeightLogs: const [],
           goals: goals,
-          checkin: checkin,
-          onSaveCheckin: (_) async {},
+          customerUid: 'test-uid',
+          initialDailyCheckins: initialDailyCheckins ?? const {},
+          onSaveDailyCheckin: (_, _) async {},
+        ),
+      ),
+    );
+  }
+
+  Widget buildWeekCard({Map<String, DailyCheckin>? initialData}) {
+    return MaterialApp(
+      home: Scaffold(
+        body: DailyCheckinWeekCard(
+          customerUid: 'test-uid',
+          initialData: initialData ?? const {},
+          onSave: (_, _) async {},
         ),
       ),
     );
@@ -33,9 +46,9 @@ void main() {
     );
   }
 
-  // ── WC: 顧客側 週次チェックイン入力フォーム (ProgressScreen 経由) ──────────
+  // ── DW: 顧客側 日次チェックイン（DailyCheckinWeekCard） ────────────────────
 
-  testWidgets('WC-1: ProgressScreen に「今週のチェックイン」見出しが表示される',
+  testWidgets('DW-1: ProgressScreen に「今週のチェックイン」見出しが表示される',
       (tester) async {
     await tester.pumpWidget(buildProgressScreen());
     await tester.pump();
@@ -47,75 +60,36 @@ void main() {
     expect(find.text('今週のチェックイン'), findsWidgets);
   });
 
-  testWidgets('WC-2: 「保存」ボタンが表示される', (tester) async {
-    await tester.pumpWidget(buildProgressScreen());
+  testWidgets('DW-2: 7つの曜日タブ（月〜日）が表示される', (tester) async {
+    await tester.pumpWidget(buildWeekCard());
     await tester.pump();
-    await tester.scrollUntilVisible(
-      find.text('保存'),
-      200.0,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('保存'), findsOneWidget);
+    for (final label in ['月', '火', '水', '木', '金', '土', '日']) {
+      expect(find.text(label), findsOneWidget);
+    }
   });
 
-  testWidgets('WC-3: 各スコア行に 1〜5 の数字ボタンが表示される', (tester) async {
-    await tester.pumpWidget(buildProgressScreen());
+  testWidgets('DW-3: 未記録のとき空状態メッセージが表示される', (tester) async {
+    await tester.pumpWidget(buildWeekCard());
     await tester.pump();
-    await tester.scrollUntilVisible(
-      find.text('今週の達成度'),
-      200.0,
-      scrollable: find.byType(Scrollable).first,
-    );
+    expect(find.text('まだ記録がありません'), findsOneWidget);
+  });
+
+  testWidgets('DW-4: 「この日の状態を更新」ボタンが表示される', (tester) async {
+    await tester.pumpWidget(buildWeekCard());
+    await tester.pump();
+    expect(find.text('この日の状態を更新'), findsOneWidget);
+  });
+
+  testWidgets('DW-5: フォームを開くとスコアボタンが表示される', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(buildWeekCard());
+    await tester.pump();
+    await tester.tap(find.text('この日の状態を更新'));
+    await tester.pump();
     // 5 項目 × ボタン '1' が 5 個（各行に 1 が 1 つずつ）
     expect(find.text('1'), findsNWidgets(5));
     expect(find.text('5'), findsNWidgets(5));
-  });
-
-  testWidgets('WC-4: 体調メモラベルが表示される', (tester) async {
-    await tester.pumpWidget(buildProgressScreen());
-    await tester.pump();
-    await tester.scrollUntilVisible(
-      find.text('体調メモ'),
-      200.0,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('体調メモ'), findsOneWidget);
-  });
-
-  testWidgets('WC-5: 相談事項ラベルが表示される', (tester) async {
-    await tester.pumpWidget(buildProgressScreen());
-    await tester.pump();
-    await tester.scrollUntilVisible(
-      find.text('トレーナーに相談したいこと'),
-      200.0,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('トレーナーに相談したいこと'), findsOneWidget);
-  });
-
-  testWidgets('WC-6: 未回答のとき「未回答」テキストが達成度行に表示される', (tester) async {
-    await tester.pumpWidget(buildProgressScreen());
-    await tester.pump();
-    await tester.scrollUntilVisible(
-      find.text('未回答').first,
-      200.0,
-      scrollable: find.byType(Scrollable).first,
-    );
-    // 5 項目すべてが未回答
-    expect(find.text('未回答'), findsNWidgets(5));
-  });
-
-  testWidgets('WC-7: 入力済みチェックインがある場合スコアボタンが表示される', (tester) async {
-    const checkin = WeeklyCheckin(achievement: 3, hunger: 2);
-    await tester.pumpWidget(buildProgressScreen(checkin: checkin));
-    await tester.pump();
-    await tester.scrollUntilVisible(
-      find.text('今週の達成度'),
-      200.0,
-      scrollable: find.byType(Scrollable).first,
-    );
-    // ボタン '3' は achievement 行と hunger 行以外にも全行存在する
-    expect(find.text('3'), findsNWidgets(5));
   });
 
   // ── WT: トレーナー側 WeeklyCheckinCard (読み取り専用) ────────────────────

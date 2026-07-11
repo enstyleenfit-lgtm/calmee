@@ -18,6 +18,8 @@ void main() {
           weekExerciseLogs: const [],
           recentWeightLogs: const [],
           goals: goals,
+          customerUid: 'test-uid',
+          initialDailyCheckins: const {},
           bodyCheck: bodyCheck,
           onSaveBodyCheck: (_) async {},
         ),
