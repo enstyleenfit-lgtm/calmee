@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:71458725198:android:dfd7bb9f382a4d54a0d21f",
+        "android_client_info": {
+          "package_name": "com.enstyle.karadashushi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAqTjzpdaJK6HM2O8ZpJ6wFb_wbwW8-ecY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:71458725198:android:26fd5a342925ead7a0d21f",
         "android_client_info": {
           "package_name": "com.example.flutter_application_1"
