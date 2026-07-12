@@ -102,7 +102,7 @@ void main() {
     expect(find.text('お客さんモードに切り替える'), findsOneWidget);
   });
 
-  testWidgets('TN-8: onReturnToTop が渡されると「デモ用：トップ画面に戻る」が表示される',
+  testWidgets('TN-8: onReturnToTop が渡されると「モード選択に戻る」が表示される',
       (tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -114,10 +114,10 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('デモ用：トップ画面に戻る'), findsOneWidget);
+    expect(find.text('モード選択に戻る'), findsOneWidget);
   });
 
-  testWidgets('TN-9: onReturnToTop が null のとき「デモ用：トップ画面に戻る」が表示されない',
+  testWidgets('TN-9: onReturnToTop が null のとき「モード選択に戻る」が表示されない',
       (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -127,7 +127,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('デモ用：トップ画面に戻る'), findsNothing);
+    expect(find.text('モード選択に戻る'), findsNothing);
   });
 
   testWidgets('TN-10: onSwitchToCustomer が null のとき「お客さんモードに切り替える」が表示されない',
@@ -172,7 +172,7 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.tap(find.text('デモ用：トップ画面に戻る'));
+    await tester.tap(find.text('モード選択に戻る'));
     await tester.pump();
     expect(called, isTrue);
   });

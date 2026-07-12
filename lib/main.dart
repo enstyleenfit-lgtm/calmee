@@ -3621,7 +3621,7 @@ class TrainerSelfScreen extends StatelessWidget {
                     leading: const Icon(Icons.exit_to_app_outlined,
                         color: Color(0xFF888888)),
                     title: const Text(
-                      'デモ用：トップ画面に戻る',
+                      'モード選択に戻る',
                       style: TextStyle(fontSize: 14, color: Color(0xFF666666)),
                     ),
                     trailing: const Icon(Icons.chevron_right,
@@ -3631,15 +3631,6 @@ class TrainerSelfScreen extends StatelessWidget {
               ],
             ),
           ),
-        const SizedBox(height: 24),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4),
-          child: Text(
-            '今後、トレーナー自身のプロフィールや\nカロリー収支をここで確認できるようにします',
-            style: TextStyle(fontSize: 12, color: Color(0xFFAAAAAA), height: 1.6),
-            textAlign: TextAlign.center,
-          ),
-        ),
       ],
     );
   }
@@ -9529,18 +9520,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Column(
-                children: [
-                  Text(
-                    'デモ用：トップ画面に戻る',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    '利用モード選択画面に戻ります',
-                    style: TextStyle(fontSize: 11),
-                  ),
-                ],
+              child: const Text(
+                'モード選択に戻る',
+                style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
             const SizedBox(height: 24),

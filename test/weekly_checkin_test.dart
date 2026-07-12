@@ -50,10 +50,12 @@ void main() {
 
   testWidgets('DW-1: ProgressScreen に「今週のチェックイン」見出しが表示される',
       (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(buildProgressScreen());
     await tester.pump();
     await tester.scrollUntilVisible(
-      find.text('今週のチェックイン').first,
+      find.text('今週のチェックイン'),
       200.0,
       scrollable: find.byType(Scrollable).first,
     );
