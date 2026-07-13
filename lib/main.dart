@@ -3631,6 +3631,44 @@ class TrainerSelfScreen extends StatelessWidget {
               ],
             ),
           ),
+        const SizedBox(height: 16),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.privacy_tip_outlined,
+                    color: Color(0xFF5CB8B2)),
+                title: const Text('プライバシーポリシー',
+                    style: TextStyle(fontSize: 14)),
+                trailing: const Icon(Icons.chevron_right,
+                    color: Color(0xFFCCCCCC)),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const PrivacyPolicyScreen()),
+                ),
+              ),
+              const Divider(height: 1, indent: 56),
+              ListTile(
+                leading: const Icon(Icons.description_outlined,
+                    color: Color(0xFF5CB8B2)),
+                title: const Text('利用規約',
+                    style: TextStyle(fontSize: 14)),
+                trailing: const Icon(Icons.chevron_right,
+                    color: Color(0xFFCCCCCC)),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const TermsOfServiceScreen()),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -7710,6 +7748,52 @@ class RoleSelectorScreen extends StatelessWidget {
                 description: '担当顧客の記録・ノート・カルテを確認します',
                 onTap: () => onSelect('trainer'),
               ),
+              const SizedBox(height: 24),
+              const Text(
+                '本アプリは健康管理の記録を目的としており、医療アドバイスを提供するものではありません。',
+                style: TextStyle(fontSize: 11, color: Color(0xFFAAAAAA)),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const PrivacyPolicyScreen()),
+                    ),
+                    child: const Text(
+                      'プライバシーポリシー',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF5CB8B2),
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                  const Text(
+                    '　／　',
+                    style: TextStyle(fontSize: 11, color: Color(0xFFCCCCCC)),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const TermsOfServiceScreen()),
+                    ),
+                    child: const Text(
+                      '利用規約',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF5CB8B2),
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               const Spacer(flex: 2),
             ],
           ),
@@ -9523,6 +9607,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: const Text(
                 'モード選択に戻る',
                 style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(height: 32),
+            Text(
+              'アプリ情報',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF444444),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0F000000),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.privacy_tip_outlined,
+                        color: Color(0xFF5CB8B2)),
+                    title: const Text('プライバシーポリシー',
+                        style: TextStyle(fontSize: 14)),
+                    trailing: const Icon(Icons.chevron_right,
+                        color: Color(0xFFCCCCCC)),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const PrivacyPolicyScreen()),
+                    ),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  ListTile(
+                    leading: const Icon(Icons.description_outlined,
+                        color: Color(0xFF5CB8B2)),
+                    title: const Text('利用規約',
+                        style: TextStyle(fontSize: 14)),
+                    trailing: const Icon(Icons.chevron_right,
+                        color: Color(0xFFCCCCCC)),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const TermsOfServiceScreen()),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
@@ -11614,6 +11751,188 @@ class _Row extends StatelessWidget {
         text,
         style: const TextStyle(fontSize: 12, color: Color(0xFF555555)),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// PrivacyPolicyScreen
+// ─────────────────────────────────────────────────────────────
+
+class PrivacyPolicyScreen extends StatelessWidget {
+  const PrivacyPolicyScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('プライバシーポリシー'),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF111111),
+        elevation: 0,
+      ),
+      backgroundColor: const Color(0xFFF5F5F7),
+      body: const SingleChildScrollView(
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: _LegalBody(sections: [
+          _LegalSection(
+            title: '1. 収集する情報',
+            body: '本アプリは、以下の情報を収集・保存します。\n'
+                '・Firebase 匿名認証により付与された認証ID\n'
+                '・食事記録（食品名・カロリー・栄養素）\n'
+                '・運動記録（種目・消費カロリー）\n'
+                '・体重記録\n'
+                '・目標設定値（目標カロリー・栄養素）\n'
+                '・トレーナーとの共有ノート・フィードバック',
+          ),
+          _LegalSection(
+            title: '2. 利用目的',
+            body: '収集した情報は以下の目的のみに利用します。\n'
+                '・食事・運動・体重の記録と表示\n'
+                '・進捗グラフ等による健康管理サポート\n'
+                '・トレーナーによる顧客サポート機能の提供\n'
+                '・アプリの品質改善',
+          ),
+          _LegalSection(
+            title: '3. 第三者への提供',
+            body: 'ユーザーの同意なく、個人情報を第三者に販売・提供することはありません。\n'
+                'ただし、Google Firebase 等のクラウドサービスを利用してデータを保存・処理しており、'
+                'これら事業者のプライバシーポリシーが適用されます。',
+          ),
+          _LegalSection(
+            title: '4. データの削除',
+            body: 'アカウントおよび記録データの削除をご希望の場合は、アプリ内のアカウント削除機能'
+                '（実装予定）またはお問い合わせ先まで連絡してください。速やかに対応します。',
+          ),
+          _LegalSection(
+            title: '5. お問い合わせ',
+            body: 'プライバシーポリシーに関するお問い合わせは以下までご連絡ください。\n\n'
+                'enstyle.enfit@gmail.com',
+          ),
+          _LegalSection(
+            title: '6. 改定',
+            body: '本ポリシーは必要に応じて内容を変更する場合があります。'
+                '重要な変更がある場合はアプリ内でお知らせします。',
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// TermsOfServiceScreen
+// ─────────────────────────────────────────────────────────────
+
+class TermsOfServiceScreen extends StatelessWidget {
+  const TermsOfServiceScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('利用規約'),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF111111),
+        elevation: 0,
+      ),
+      backgroundColor: const Color(0xFFF5F5F7),
+      body: const SingleChildScrollView(
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: _LegalBody(sections: [
+          _LegalSection(
+            title: '1. サービス概要',
+            body: '「からだ収支」は、食事・運動・体重の記録と進捗確認を支援する'
+                'モバイルアプリケーションです。お客さんモードとトレーナーモードを備え、'
+                'トレーナーによる顧客サポートにも対応します。',
+          ),
+          _LegalSection(
+            title: '2. 利用者の責任',
+            body: 'ユーザーは自己の責任において本アプリを利用するものとします。'
+                '入力するデータの正確性はユーザー自身が管理してください。',
+          ),
+          _LegalSection(
+            title: '3. 健康・医療に関する免責',
+            body: '本アプリは健康管理の記録を目的としており、医療行為・診断・治療・'
+                '栄養指導の代替となるものではありません。\n'
+                '体調に不安がある場合や、食事・運動に関する医学的な判断が必要な場合は、'
+                '必ず医師・管理栄養士・専門家にご相談ください。\n'
+                '本アプリの記録に基づく行動によって生じた健康上の問題について、'
+                '開発者は責任を負いかねます。',
+          ),
+          _LegalSection(
+            title: '4. 禁止事項',
+            body: '以下の行為を禁止します。\n'
+                '・本アプリを違法な目的に使用すること\n'
+                '・他のユーザーの情報に不正アクセスすること\n'
+                '・アプリのシステムに過度な負荷をかけること\n'
+                '・アプリを逆アセンブル・改ざんすること',
+          ),
+          _LegalSection(
+            title: '5. 免責事項',
+            body: '本アプリの利用により生じた損害について、開発者は責任を負いません。'
+                'サービスは現状有姿で提供され、特定目的への適合性を保証するものではありません。',
+          ),
+          _LegalSection(
+            title: '6. サービス内容の変更',
+            body: 'サービス内容は予告なく変更・停止・終了する場合があります。',
+          ),
+          _LegalSection(
+            title: '7. 規約の改定',
+            body: '本規約は必要に応じて変更する場合があります。'
+                '重要な変更がある場合はアプリ内でお知らせします。',
+          ),
+          _LegalSection(
+            title: '8. お問い合わせ',
+            body: '本規約に関するお問い合わせは以下までご連絡ください。\n\n'
+                'enstyle.enfit@gmail.com',
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 法的文書共通ウィジェット
+// ─────────────────────────────────────────────────────────────
+
+class _LegalSection {
+  const _LegalSection({required this.title, required this.body});
+  final String title;
+  final String body;
+}
+
+class _LegalBody extends StatelessWidget {
+  const _LegalBody({required this.sections});
+  final List<_LegalSection> sections;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final s in sections) ...[
+          Text(
+            s.title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF222222),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            s.body,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF555555),
+              height: 1.7,
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ],
     );
   }
 }
