@@ -2061,6 +2061,7 @@ class RootShell extends StatefulWidget {
 
 class _RootShellState extends State<RootShell> {
   bool _loading = true;
+  bool _deletingAccount = false;
   String? _uid;
 
   DateTime _selectedDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
@@ -2108,6 +2109,75 @@ class _RootShellState extends State<RootShell> {
       await auth.signInAnonymously();
     }
     _uid = auth.currentUser!.uid;
+  }
+
+  Future<void> _deleteAccount() async {
+    if (_deletingAccount || _uid == null) return;
+    final uid = _uid!;
+    setState(() => _deletingAccount = true);
+    try {
+      final db = FirebaseFirestore.instance;
+      // users/{uid}/ 配下の本人 write 権限があるコレクションを全件削除
+      for (final col in [
+        'habits', 'meta', 'plans', 'mealLogs', 'exerciseLogs',
+        'weightLogs', 'weeklyCheckins', 'dailyCheckins', 'bodyChecks',
+        'settings', 'profile',
+      ]) {
+        final snap =
+            await db.collection('users').doc(uid).collection(col).get();
+        for (final doc in snap.docs) {
+          await doc.reference.delete();
+        }
+      }
+      // trainers/{uid}/ 配下
+      for (final col in ['customers', 'reservations']) {
+        final snap =
+            await db.collection('trainers').doc(uid).collection(col).get();
+        for (final doc in snap.docs) {
+          await doc.reference.delete();
+        }
+      }
+      // Firebase Auth アカウント削除
+      await FirebaseAuth.instance.currentUser?.delete();
+      // 新規匿名ユーザーで再初期化 → RoleSelectorScreen へ
+      if (mounted) await _init();
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      final msg = e.code == 'requires-recent-login'
+          ? 'セキュリティ上の理由で削除できませんでした。\nアプリを再起動してから再試行してください。'
+          : 'アカウントの削除に失敗しました（${e.code}）。';
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('削除できませんでした'),
+          content: Text(msg),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('閉じる'),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('エラー'),
+          content: const Text(
+              '削除中にエラーが発生しました。\nしばらくしてから再試行してください。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('閉じる'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _deletingAccount = false);
+    }
   }
 
   MealRepository? get _mealRepo => _uid == null ? null : MealRepository(_uid!);
@@ -2280,6 +2350,7 @@ class _RootShellState extends State<RootShell> {
         profile: _profile!,
         onSwitchToCustomer: () => _setRole('customer'),
         onReturnToTop: () => _setRole(''),
+        onDeleteAccount: _deleteAccount,
       );
     }
 
@@ -2358,6 +2429,7 @@ class _RootShellState extends State<RootShell> {
         onSave: _updateGoals,
         role: _profile?.role ?? 'customer',
         onRoleChange: _setRole,
+        onDeleteAccount: _deleteAccount,
       ),
     ];
 
@@ -2521,10 +2593,12 @@ class TrainerHomeScreen extends StatefulWidget {
       {super.key,
       required this.profile,
       this.onSwitchToCustomer,
-      this.onReturnToTop});
+      this.onReturnToTop,
+      this.onDeleteAccount});
   final UserProfile profile;
   final VoidCallback? onSwitchToCustomer;
   final VoidCallback? onReturnToTop;
+  final VoidCallback? onDeleteAccount;
 
   @override
   State<TrainerHomeScreen> createState() => _TrainerHomeScreenState();
@@ -2715,6 +2789,7 @@ class _TrainerHomeScreenState extends State<TrainerHomeScreen> {
           onReturnToTop: widget.onReturnToTop != null
               ? () { _confirmReturnToTop(); }
               : null,
+          onDeleteAccount: widget.onDeleteAccount,
         );
       default:
         return _buildCustomerTab(context);
@@ -3547,9 +3622,11 @@ class TrainerSelfScreen extends StatelessWidget {
     super.key,
     this.onSwitchToCustomer,
     this.onReturnToTop,
+    this.onDeleteAccount,
   });
   final VoidCallback? onSwitchToCustomer;
   final VoidCallback? onReturnToTop;
+  final VoidCallback? onDeleteAccount;
 
   @override
   Widget build(BuildContext context) {
@@ -3669,6 +3746,55 @@ class TrainerSelfScreen extends StatelessWidget {
             ],
           ),
         ),
+        if (onDeleteAccount != null) ...[
+          const SizedBox(height: 24),
+          OutlinedButton(
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('アカウントを削除しますか？'),
+                  content: const Text(
+                    'アカウントを削除すると、記録データは復元できません。\n\n'
+                    '削除されるデータ：\n'
+                    '• 食事・運動・体重の記録\n'
+                    '• 目標設定・チェックイン履歴\n'
+                    '• ご自身が入力したデータ全般\n\n'
+                    'トレーナーが作成・管理した一部データ（カルテ・メッセージ等）は、'
+                    '削除に問い合わせが必要な場合があります。\n\n'
+                    'お問い合わせ：enstyle.enfit@gmail.com',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('キャンセル'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFFE24A4A)),
+                      child: const Text('削除する'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true) onDeleteAccount!();
+            },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFFE24A4A),
+              side: const BorderSide(color: Color(0xFFE24A4A)),
+              minimumSize: const Size.fromHeight(48),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'アカウントを削除する',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
       ],
     );
   }
@@ -9268,12 +9394,14 @@ class SettingsScreen extends StatefulWidget {
     required this.onSave,
     this.role = 'customer',
     this.onRoleChange,
+    this.onDeleteAccount,
   });
 
   final GoalSettings goals;
   final Future<void> Function(GoalSettings) onSave;
   final String role;
   final Future<void> Function(String)? onRoleChange;
+  final VoidCallback? onDeleteAccount;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -9385,6 +9513,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    if (widget.onDeleteAccount == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('アカウントを削除しますか？'),
+        content: const Text(
+          'アカウントを削除すると、記録データは復元できません。\n\n'
+          '削除されるデータ：\n'
+          '• 食事・運動・体重の記録\n'
+          '• 目標設定・チェックイン履歴\n'
+          '• ご自身が入力したデータ全般\n\n'
+          'トレーナーが作成・管理した一部データ（カルテ・メッセージ等）は、'
+          '削除に問い合わせが必要な場合があります。\n\n'
+          'お問い合わせ：enstyle.enfit@gmail.com',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFE24A4A)),
+            child: const Text('削除する'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) widget.onDeleteAccount!();
   }
 
   Widget _goalField({
@@ -9662,7 +9823,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
+            Text(
+              'アカウント',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF444444),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: widget.onDeleteAccount != null
+                    ? _confirmDeleteAccount
+                    : null,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFE24A4A),
+                  side: const BorderSide(color: Color(0xFFE24A4A)),
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'アカウントを削除する',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
           ],
         ),
       ),
